@@ -137,28 +137,7 @@ fun CheckoutScreen(
                         total = state.cart.subtotal - state.cart.couponDiscount + shippingCost
                     )
                 }
-                item {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .clickable(enabled = !state.processing) {
-                                viewModel.simulateOrder(onOrderPlaced)
-                            }
-                            .border(1.dp, PClinkCyan.copy(alpha = 0.5f), RoundedCornerShape(14.dp)),
-                        color = PClinkCyan.copy(alpha = 0.05f),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                "Simular Compra (Prueba)",
-                                color = PClinkCyan,
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                            )
-                        }
-                    }
-                }
+
                 state.error?.let { errorMsg ->
                     item {
                         Surface(

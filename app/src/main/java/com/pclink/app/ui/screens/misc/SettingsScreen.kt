@@ -47,6 +47,7 @@ import com.pclink.app.ui.theme.PClinkCyan
 private const val SUPPORT_EMAIL = "emiliano.gimenez.96@gmail.com"
 private const val PRIVACY_URL = "https://pclink.com.ar/privacidad"
 private const val TERMS_URL = "https://pclink.com.ar/terminos"
+private const val DELETE_ACCOUNT_URL = "https://pclink-f6e0d.web.app/delete-account.html"
 
 @Composable
 fun SettingsScreen(
@@ -87,7 +88,10 @@ fun SettingsScreen(
                     icon = Icons.Outlined.Security,
                     title = "Privacidad y seguridad",
                     subtitle = "Cuenta, sesiones y datos",
-                    onClick = {}
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_URL))
+                        context.startActivity(intent)
+                    }
                 )
             }
 
@@ -119,8 +123,22 @@ fun SettingsScreen(
                     }
                 )
             }
+
+            // Eliminar cuenta
+            item {
+                NavRow(
+                    icon = Icons.Outlined.Security,
+                    title = "Eliminar cuenta",
+                    subtitle = "Solicitar eliminación de cuenta y datos",
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(DELETE_ACCOUNT_URL))
+                        context.startActivity(intent)
+                    }
+                )
+            }
         }
     }
+
 }
 
 @Composable

@@ -171,39 +171,6 @@ class CheckoutViewModel @Inject constructor(
         }
     }
 
-    fun simulateOrder(onPlaced: (String) -> Unit) {
-        val s = _state.value
-        val address = s.selectedAddress ?: run {
-            _state.value = s.copy(error = "Por favor, agrega o selecciona una dirección de envío")
-            return
-        }
-        if (!isPhoneValid(address.phone)) {
-            _state.value = s.copy(error = "La dirección seleccionada requiere un teléfono de contacto de Argentina válido")
-            return
-        }
-        if (s.cart.isEmpty) {
-            _state.value = s.copy(error = "Carrito vacío")
-            return
-        }
-        viewModelScope.launch {
-            _state.value = s.copy(processing = true, error = null)
-            kotlinx.coroutines.delay(1200)
-            val effectiveShipping = s.shippingCosts[s.shipping] ?: 0.0
-            val total = s.cart.subtotal - s.cart.couponDiscount + effectiveShipping
-            val order = orderRepository.place(
-                items = s.cart.items,
-                subtotal = s.cart.subtotal,
-                shipping = effectiveShipping,
-                discount = s.cart.couponDiscount,
-                total = total,
-                address = address,
-                payment = PaymentMethod("pm-test", PaymentType.BANK_TRANSFER, "Simulado (Prueba)", "TEST")
-            )
-            cartRepository.clear()
-            _state.value = _state.value.copy(processing = false, placedOrder = order)
-            onPlaced(order.id)
-        }
-    }
 
     fun consumePaymentUrl() {
         _state.value = _state.value.copy(paymentUrl = null)
