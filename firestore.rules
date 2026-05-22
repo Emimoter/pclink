@@ -1,0 +1,74 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Función auxiliar para verificar si el usuario está logueado
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    // Función auxiliar para verificar si el usuario es administrador
+    function isAdmin() {
+      return isAuthed() && exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
+    }
+
+    // Reglas para Catálogo (Público para lectura, requiere admin para escritura)
+    match /products/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /banners/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /categories/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Reglas para Vouchers de PClink Club
+    match /vouchers/{document=**} {
+      allow read, write: if true;
+    }
+
+    // Reglas para Ajustes/Configuración (lectura y escritura pública para facilitar pruebas del admin y app)
+    match /settings/{document=**} {
+      allow read, write: if true;
+    }
+
+    // Reglas para Usuarios (Solo el dueño puede leer/escribir su documento y subcolecciones)
+    match /users/{userId}/{document=**} {
+      allow read, write: if isAuthed() && request.auth.uid == userId;
+    }
+
+    // Reglas para Órdenes
+    match /orders/{orderId} {
+      // Permitir lectura y escritura pública para facilitar las pruebas del flujo de compra y alertas sin problemas de login/roles
+      allow read, write: if true;
+    }
+    
+    // Reglas para Notificaciones
+    match /notifications/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // Reglas para Tokens FCM
+    match /fcm_tokens/{tokenId} {
+      allow read, write: if isAuthed() && tokenId == request.auth.uid + "_android";
+    }
+    
+    // Reglas para Admins (permitir al usuario verificar si es admin)
+    match /admins/{email} {
+      allow read: if isAuthed() && request.auth.token.email == email;
+    }
+
+    // Reglas por defecto denegadas para cualquier otra colección no especificada
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

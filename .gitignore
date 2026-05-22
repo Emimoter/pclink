@@ -1,0 +1,28 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+build/
+captures/
+.externalNativeBuild
+.cxx
+local.properties
+google-services.json
+keystore.properties
+build-log*.txt
+
+# Excluir claves de firma de la app
+*.jks
+*.keystore
+
+# Excluir carpetas de dependencias y entornos
+node_modules/
+.firebase/
+.kotlin/
+.vscode/

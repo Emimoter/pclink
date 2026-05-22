@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">PClink</string>
+    <string name="app_tagline">Tu tienda de tecnología</string>
+    <string name="default_web_client_id" translatable="false">716411272758-n7f9287ele07d553d61kfq0htqtap6m7.apps.googleusercontent.com</string>
+</resources>
