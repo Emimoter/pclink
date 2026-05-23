@@ -18,10 +18,12 @@ function ProductsPageContent() {
     category: category || undefined,
   });
 
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    (p.description && p.description.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filteredProducts = products.filter((p) => {
+    const name = p.name ? String(p.name).toLowerCase() : "";
+    const description = p.description ? String(p.description).toLowerCase() : "";
+    const searchTerm = search.toLowerCase();
+    return name.includes(searchTerm) || description.includes(searchTerm);
+  });
 
   return (
     <div className="container mx-auto px-4 py-12 flex flex-col md:flex-row gap-8 max-w-7xl">
