@@ -43,8 +43,8 @@ function CheckoutForm() {
   const [zip, setZip] = useState("7600");
   const [addressLabel, setAddressLabel] = useState("Casa");
   
-  const [shippingMethod, setShippingMethod] = useState<"pickup" | "delivery">("delivery");
-  const [paymentMethod, setPaymentMethod] = useState<"TRANSFER" | "MERCADO_PAGO" | "CASH">("TRANSFER");
+  const [shippingMethod, setShippingMethod] = useState<"standard" | "immediate" | "pickup">("standard");
+  const [paymentMethod, setPaymentMethod] = useState<"TRANSFER" | "MERCADO_PAGO" | "CASH">("MERCADO_PAGO");
   
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -130,7 +130,12 @@ function CheckoutForm() {
   };
 
   // Calculations from CartStore
-  const shippingCost = shippingMethod === "delivery" ? 2500 : 0;
+  const shippingCost = 
+    shippingMethod === "standard" 
+      ? 4500 
+      : shippingMethod === "immediate" 
+      ? 8500 
+      : 0;
   const discount = subtotal - totalPrice;
   const total = totalPrice + shippingCost;
 
@@ -196,7 +201,7 @@ function CheckoutForm() {
       await setDoc(doc(db, "orders", orderId), orderData);
 
       // 2. Sync shipping address to user's address collection if authenticated and not pickup
-      if (user && shippingMethod === "delivery") {
+      if (user && shippingMethod !== "pickup") {
         await setDoc(
           doc(db, "users", user.uid, "addresses", shippingAddress.id),
           { ...shippingAddress, isDefault: savedAddresses.length === 0 }
@@ -295,18 +300,30 @@ function CheckoutForm() {
               <Truck className="w-5 h-5 text-accent" />
               Método de Entrega
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <button
                 type="button"
-                onClick={() => setShippingMethod("delivery")}
+                onClick={() => setShippingMethod("standard")}
                 className={`p-5 rounded-2xl border text-left flex flex-col justify-between h-32 transition-all ${
-                  shippingMethod === "delivery"
+                  shippingMethod === "standard"
                     ? "border-accent ring-2 ring-accent/10 bg-accent/[0.02]"
                     : "border-border hover:border-muted bg-transparent"
                 }`}
               >
-                <div className="font-bold text-primary">Envío a Domicilio</div>
-                <div className="text-xs text-muted font-medium mt-1">Mar del Plata y alrededores. Costo: $2.500</div>
+                <div className="font-bold text-primary">Envío Estándar</div>
+                <div className="text-xs text-muted font-medium mt-1">Mar del Plata y alrededores. Costo: $4.500</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShippingMethod("immediate")}
+                className={`p-5 rounded-2xl border text-left flex flex-col justify-between h-32 transition-all ${
+                  shippingMethod === "immediate"
+                    ? "border-accent ring-2 ring-accent/10 bg-accent/[0.02]"
+                    : "border-border hover:border-muted bg-transparent"
+                }`}
+              >
+                <div className="font-bold text-primary">Envío Inmediato</div>
+                <div className="text-xs text-muted font-medium mt-1">Envío express en el día. Costo: $8.500</div>
               </button>
               <button
                 type="button"
@@ -377,7 +394,7 @@ function CheckoutForm() {
           </div>
 
           {/* Delivery Address (only if delivery) */}
-          {shippingMethod === "delivery" && (
+          {shippingMethod !== "pickup" && (
             <div className="bg-surface border border-border rounded-3xl p-6 md:p-8 space-y-5">
               <h3 className="text-lg font-bold text-primary mb-6 flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-accent" />
@@ -506,71 +523,15 @@ function CheckoutForm() {
             </div>
           )}
 
-          {/* Payment Method */}
-          <div className="bg-surface border border-border rounded-3xl p-6 md:p-8 space-y-6">
-            <h3 className="text-lg font-bold text-primary flex items-center gap-2">
+          {/* Payment Method Notice */}
+          <div className="bg-surface border border-border rounded-3xl p-6 md:p-8">
+            <h3 className="text-lg font-bold text-primary mb-3 flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-accent" />
               Medio de Pago
             </h3>
-
-            <div className="space-y-3">
-              <label className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all ${
-                paymentMethod === "TRANSFER" ? "border-accent bg-accent/[0.01]" : "border-border hover:bg-background"
-              }`}>
-                <input
-                  type="radio"
-                  name="payment"
-                  checked={paymentMethod === "TRANSFER"}
-                  onChange={() => setPaymentMethod("TRANSFER")}
-                  className="w-4 h-4 text-accent border-border focus:ring-accent"
-                />
-                <div className="flex items-center gap-3">
-                  <Landmark className="w-5 h-5 text-primary" />
-                  <div>
-                    <span className="block font-bold text-primary text-sm">Transferencia Bancaria</span>
-                    <span className="block text-xs text-muted">Te mostraremos los datos del CBU en el siguiente paso.</span>
-                  </div>
-                </div>
-              </label>
-
-              <label className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all ${
-                paymentMethod === "MERCADO_PAGO" ? "border-accent bg-accent/[0.01]" : "border-border hover:bg-background"
-              }`}>
-                <input
-                  type="radio"
-                  name="payment"
-                  checked={paymentMethod === "MERCADO_PAGO"}
-                  onChange={() => setPaymentMethod("MERCADO_PAGO")}
-                  className="w-4 h-4 text-accent border-border focus:ring-accent"
-                />
-                <div className="flex items-center gap-3">
-                  <CreditCard className="w-5 h-5 text-primary" />
-                  <div>
-                    <span className="block font-bold text-primary text-sm">Mercado Pago</span>
-                    <span className="block text-xs text-muted">Aboná con saldo, tarjeta de débito o crédito.</span>
-                  </div>
-                </div>
-              </label>
-
-              <label className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all ${
-                paymentMethod === "CASH" ? "border-accent bg-accent/[0.01]" : "border-border hover:bg-background"
-              }`}>
-                <input
-                  type="radio"
-                  name="payment"
-                  checked={paymentMethod === "CASH"}
-                  onChange={() => setPaymentMethod("CASH")}
-                  className="w-4 h-4 text-accent border-border focus:ring-accent"
-                />
-                <div className="flex items-center gap-3">
-                  <CreditCard className="w-5 h-5 text-primary" />
-                  <div>
-                    <span className="block font-bold text-primary text-sm">Efectivo / Contra-entrega</span>
-                    <span className="block text-xs text-muted">Aboná directamente al retirar o recibir.</span>
-                  </div>
-                </div>
-              </label>
-            </div>
+            <p className="text-sm text-muted font-medium">
+              El pago se procesará de forma segura a través de <strong>Mercado Pago</strong> (saldo, tarjetas de débito o crédito).
+            </p>
           </div>
         </div>
 
