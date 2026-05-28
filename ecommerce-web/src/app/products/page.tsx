@@ -75,7 +75,7 @@ const VISUAL_CATEGORIES = [
     id: "cpus",
     name: "Microprocesadores (CPU)",
     categoryId: "CPU",
-    image: "https://images.unsplash.com/photo-1591453089816-0fbb971b454c?auto=format&fit=crop&q=80&w=400",
+    image: "/images/categories/ryzen_7_cpu.png",
   },
   {
     id: "keyboards",
@@ -87,7 +87,7 @@ const VISUAL_CATEGORIES = [
     id: "headphones",
     name: "Auriculares",
     categoryId: "HEADPHONES",
-    image: "https://images.unsplash.com/photo-1606220588913-b3aacb4d2f46?auto=format&fit=crop&q=80&w=400",
+    image: "/images/categories/hyperx_headphones.png",
   },
   {
     id: "printers",
