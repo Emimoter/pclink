@@ -140,16 +140,29 @@ function ProductsPageContent() {
   const rawCategory = searchParams.get("category");
   const category = rawCategory ? rawCategory.toUpperCase() : null;
   const search = searchParams.get("search") || "";
-  
   const { products, loading, error } = useProducts({
     category: category || undefined,
   });
+
+  const [sortBy, setSortBy] = useState<string>("");
 
   const filteredProducts = products.filter((p) => {
     const name = p.name ? String(p.name).toLowerCase() : "";
     const description = p.description ? String(p.description).toLowerCase() : "";
     const searchTerm = search.toLowerCase();
     return name.includes(searchTerm) || description.includes(searchTerm);
+  });
+
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    const priceA = typeof a.price === "number" ? a.price : 0;
+    const priceB = typeof b.price === "number" ? b.price : 0;
+    if (sortBy === "price-asc") {
+      return priceA - priceB;
+    }
+    if (sortBy === "price-desc") {
+      return priceB - priceA;
+    }
+    return 0;
   });
 
   const handleCategorySelect = (catId: string) => {
@@ -327,6 +340,23 @@ function ProductsPageContent() {
               Mostrando {filteredProducts.length} producto{filteredProducts.length !== 1 && 's'}
             </p>
           </div>
+
+          {/* Selector de ordenamiento */}
+          <div className="flex items-center gap-2 self-start md:self-auto">
+            <label htmlFor="sort-products" className="text-xs font-bold uppercase tracking-wider text-muted font-sans whitespace-nowrap">
+              Ordenar por:
+            </label>
+            <select
+              id="sort-products"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-background hover:bg-surface text-primary border border-border rounded-xl px-4 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-accent/25 focus:border-accent cursor-pointer transition-all"
+            >
+              <option value="">Relevancia</option>
+              <option value="price-asc">Precio: Menor a Mayor</option>
+              <option value="price-desc">Precio: Mayor a Menor</option>
+            </select>
+          </div>
         </div>
 
         {error && (
@@ -339,9 +369,9 @@ function ProductsPageContent() {
           <div className="flex items-center justify-center py-32">
             <Loader2 className="w-8 h-8 text-accent animate-spin" />
           </div>
-        ) : filteredProducts.length > 0 ? (
+        ) : sortedProducts.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => (
+            {sortedProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
