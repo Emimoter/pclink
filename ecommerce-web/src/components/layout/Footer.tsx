@@ -10,14 +10,17 @@ export default function Footer() {
           
           {/* Brand - Asymmetric split taking more space */}
           <div className="md:col-span-5 flex flex-col gap-6">
-            <Link href="/" className="inline-block mb-2">
+            <Link href="/" className="flex items-center gap-2 mb-2">
               <Image
-                src="/logo-text-v2.png"
+                src="/logo-circle.jpg"
                 alt="PC Link Logo"
-                width={180}
-                height={58}
-                className="h-9 md:h-10 w-auto object-contain transition-transform duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                width={48}
+                height={48}
+                className="h-10 w-10 md:h-12 md:w-12 rounded-full object-cover transition-transform duration-300 hover:scale-[1.02] active:scale-[0.98]"
               />
+              <span className="font-sans font-black text-lg md:text-xl tracking-wider text-primary">
+                PC LINK
+              </span>
             </Link>
             <p className="text-muted leading-relaxed text-lg max-w-md">
               La boutique de hardware en Mar del Plata. Configuración de equipos de alto rendimiento con precisión técnica y ensamble premium.
