@@ -40,7 +40,7 @@ const CAROUSEL_ITEMS = [
     id: "ram",
     name: "Dominator DDR5 32GB",
     category: "MEMORIA",
-    image: "https://images.unsplash.com/photo-1562976540-1502c2145186?auto=format&fit=crop&q=80&w=400",
+    image: "/images/categories/ram.png",
     spec: "6000MHz CL30"
   },
   {
@@ -131,11 +131,11 @@ export default function HeroBanner() {
     targetLink = `/products/${activeBanner.targetProductId}`;
   }
 
-  // If the ctaLabel is "MAR DEL PLATA", override targetLink to maps Tejedor 554
-  const isMapsLink = ctaLabel.toLowerCase().includes("mar del plata");
-  const finalLink = isMapsLink
-    ? "https://maps.google.com/?q=Av.+Carlos+Tejedor+554,+Mar+del+Plata"
-    : targetLink;
+  // If the ctaLabel contains "mar del plata", we customize it as per user request to lead to the store
+  const isMarDelPlataCTA = ctaLabel.toLowerCase().includes("mar del plata");
+  const displayCtaLabel = isMarDelPlataCTA ? "Ir a la tienda online ->" : ctaLabel;
+  const isMapsLink = !isMarDelPlataCTA && ctaLabel.toLowerCase().includes("mar del plata");
+  const finalLink = isMarDelPlataCTA ? "/products" : targetLink;
 
   return (
     <section className="relative w-full min-h-[90vh] bg-background flex items-center overflow-hidden pt-16">
@@ -176,13 +176,13 @@ export default function HeroBanner() {
                   className="inline-block"
                 >
                   <Button size="lg" className="rounded-2xl px-10 py-6 text-xs uppercase tracking-wider font-bold shadow-md hover:scale-[1.02] active:scale-95 transition-all duration-300">
-                    {ctaLabel}
+                    {displayCtaLabel}
                   </Button>
                 </a>
               ) : (
                 <Link href={finalLink}>
                   <Button size="lg" className="rounded-2xl px-10 py-6 text-xs uppercase tracking-wider font-bold shadow-md hover:scale-[1.02] active:scale-95 transition-all duration-300">
-                    {ctaLabel}
+                    {displayCtaLabel}
                   </Button>
                 </Link>
               )}

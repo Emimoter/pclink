@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Product } from "@/types/product";
 import { useCartStore } from "@/store/useCartStore";
 import { motion } from "framer-motion";
-import { ShoppingCart, Eye } from "lucide-react";
+import { ShoppingCart, Eye, Cpu } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -11,10 +12,12 @@ import { cn } from "@/lib/utils";
 interface ProductCardProps {
   product: Product;
   isLarge?: boolean;
+  isSmall?: boolean;
 }
 
-export default function ProductCard({ product, isLarge }: ProductCardProps) {
+export default function ProductCard({ product, isLarge, isSmall }: ProductCardProps) {
   const addItem = useCartStore((state) => state.addItem);
+  const [imageError, setImageError] = useState(false);
 
   const price = typeof product.price === "number" ? product.price : 0;
   const oldPrice = typeof product.oldPrice === "number" ? product.oldPrice : null;
@@ -29,7 +32,8 @@ export default function ProductCard({ product, isLarge }: ProductCardProps) {
       whileHover={{ y: -4 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
       className={cn(
-        "bg-surface border border-border rounded-3xl overflow-hidden group flex flex-col hover:shadow-[0_20px_40px_rgba(0,0,0,0.03)] transition-all duration-500",
+        "bg-surface border border-border overflow-hidden group flex flex-col hover:shadow-[0_20px_40px_rgba(0,0,0,0.03)] transition-all duration-500",
+        isSmall ? "rounded-2xl" : "rounded-3xl",
         isLarge ? "lg:flex-row lg:h-full lg:min-h-[460px]" : "h-full"
       )}
     >
@@ -38,57 +42,86 @@ export default function ProductCard({ product, isLarge }: ProductCardProps) {
         isLarge ? "aspect-square lg:aspect-auto lg:w-1/2 lg:h-full" : "aspect-square w-full"
       )}>
         {/* Badges */}
-        <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
+        <div className={cn("absolute z-10 flex flex-col gap-1.5", isSmall ? "top-3 left-3" : "top-4 left-4")}>
           {product.isOffer && discountPercentage && (
-            <span className="bg-primary text-white text-[9px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-md font-mono shadow-xs">
+            <span className={cn(
+              "bg-primary text-white text-[9px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-md font-mono shadow-xs",
+              isSmall && "text-[8px] px-2 py-0.5"
+            )}>
               Oferta -{discountPercentage}%
             </span>
           )}
           {product.stock === 0 && (
-            <span className="bg-red-50 text-red-600 border border-red-200 text-[9px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-md font-mono">
+            <span className={cn(
+              "bg-red-50 text-red-600 border border-red-200 text-[9px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-md font-mono",
+              isSmall && "text-[8px] px-2 py-0.5"
+            )}>
               Agotado
             </span>
           )}
         </div>
 
         {/* Quick Actions */}
-        <div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-[-4px] group-hover:translate-y-0 flex flex-col gap-2">
+        <div className={cn(
+          "absolute z-10 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-[-4px] group-hover:translate-y-0 flex flex-col gap-1.5",
+          isSmall ? "top-3 right-3" : "top-4 right-4"
+        )}>
           <Link href={`/products/${product.id}`}>
-            <Button variant="secondary" size="icon" className="w-10 h-10 rounded-full shadow-md bg-surface hover:bg-background hover:scale-105 active:scale-95 transition-all">
-              <Eye className="w-4 h-4 text-primary" />
+            <Button
+              variant="secondary"
+              size="icon"
+              className={cn(
+                "rounded-full shadow-md bg-surface hover:bg-background hover:scale-105 active:scale-95 transition-all",
+                isSmall ? "w-8 h-8" : "w-10 h-10"
+              )}
+            >
+              <Eye className={cn("text-primary", isSmall ? "w-3.5 h-3.5" : "w-4 h-4")} />
             </Button>
           </Link>
         </div>
 
         {/* Image */}
-        {product.images && product.images.length > 0 ? (
+        {product.images && product.images.length > 0 && !imageError ? (
           <img
             src={product.images[0]}
             alt={product.name}
+            onError={() => setImageError(true)}
             className={cn(
-              "w-full h-full object-contain p-8 group-hover:scale-105 transition-transform duration-700 mix-blend-multiply",
-              isLarge ? "lg:p-12" : ""
+              "w-full h-full object-contain group-hover:scale-105 transition-transform duration-700 mix-blend-multiply",
+              isSmall ? "p-4" : (isLarge ? "lg:p-12 p-8" : "p-8")
             )}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-muted text-sm font-medium">
-            Sin imagen
+          <div className={cn(
+            "w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-background via-surface/30 to-background text-muted-foreground/30 select-none",
+            isSmall ? "p-4" : "p-8"
+          )}>
+            <Cpu className={cn("text-accent/20 stroke-[1.2]", isSmall ? "w-10 h-10 mb-1.5" : "w-16 h-16 mb-3")} />
+            <span className={cn(
+              "uppercase font-bold tracking-widest text-muted-foreground/40 font-mono text-center",
+              isSmall ? "text-[8px]" : "text-[10px]"
+            )}>
+              Imagen no disponible
+            </span>
           </div>
         )}
       </div>
 
       <div className={cn(
-        "p-6 flex flex-col flex-1 border-t lg:border-t-0 border-border",
-        isLarge ? "lg:border-l lg:p-10 lg:justify-between" : "justify-between"
+        "flex flex-col flex-1 border-t lg:border-t-0 border-border justify-between",
+        isSmall ? "p-4" : (isLarge ? "lg:border-l lg:p-10" : "p-6")
       )}>
-        <div className="space-y-3">
-          <div className="text-[9px] text-accent uppercase font-bold tracking-widest font-mono">
+        <div className={cn("space-y-3", isSmall && "space-y-1.5")}>
+          <div className={cn(
+            "text-accent uppercase font-bold tracking-widest font-mono",
+            isSmall ? "text-[8px]" : "text-[9px]"
+          )}>
             {product.category}
           </div>
           <Link href={`/products/${product.id}`}>
             <h3 className={cn(
               "text-primary font-bold leading-tight hover:text-accent transition-colors font-sans tracking-tight",
-              isLarge ? "text-xl md:text-2xl lg:text-3xl line-clamp-3" : "text-base line-clamp-2"
+              isSmall ? "text-sm line-clamp-2" : (isLarge ? "text-xl md:text-2xl lg:text-3xl line-clamp-3" : "text-base line-clamp-2")
             )}>
               {product.name}
             </h3>
@@ -102,29 +135,57 @@ export default function ProductCard({ product, isLarge }: ProductCardProps) {
         
         <div className={cn(
           "flex items-end justify-between gap-2",
-          isLarge ? "mt-10" : "mt-6"
+          isSmall ? "mt-4" : (isLarge ? "mt-10" : "mt-6")
         )}>
           <div className="flex flex-col">
             {oldPrice && oldPrice > price && (
-              <span className="text-xs text-muted line-through font-medium mb-0.5 font-mono">
+              <span className={cn(
+                "text-muted line-through font-medium mb-0.5 font-mono",
+                isSmall ? "text-[10px]" : "text-xs"
+              )}>
                 ${oldPrice.toLocaleString("es-AR")}
               </span>
             )}
-            <span className={cn(
-              "font-bold text-primary tracking-tight font-mono",
-              isLarge ? "text-2xl lg:text-3xl" : "text-xl"
-            )}>
-              ${price.toLocaleString("es-AR")}
-            </span>
+            {price === 0 ? (
+              <span className={cn(
+                "font-bold text-accent tracking-tight",
+                isSmall ? "text-sm" : (isLarge ? "text-xl lg:text-2xl" : "text-base md:text-lg")
+              )}>
+                Precio a consultar
+              </span>
+            ) : (
+              <span className={cn(
+                "font-bold text-primary tracking-tight font-mono",
+                isSmall ? "text-lg" : (isLarge ? "text-2xl lg:text-3xl" : "text-xl")
+              )}>
+                ${price.toLocaleString("es-AR")}
+              </span>
+            )}
           </div>
           <Button
-            size="icon"
-            variant="primary"
+            size={price === 0 ? (isSmall ? "sm" : "md") : "icon"}
+            variant={price === 0 ? "secondary" : "primary"}
             disabled={product.stock === 0}
-            onClick={() => addItem(product)}
-            className="rounded-full w-12 h-12 shrink-0 shadow-sm hover:scale-105 active:scale-95 transition-all"
+            onClick={() => {
+              if (price === 0) {
+                const text = encodeURIComponent(`Hola PC Link, me interesa consultar el precio de: ${product.name} (Código: ${product.id})`);
+                window.open(`https://wa.me/5492235468972?text=${text}`, "_blank");
+              } else {
+                addItem(product);
+              }
+            }}
+            className={cn(
+              "rounded-full shrink-0 shadow-sm hover:scale-105 active:scale-95 transition-all",
+              price === 0
+                ? (isSmall ? "px-3 h-8 w-auto text-[10px] font-bold bg-green-600 hover:bg-green-700 text-white border-none" : "px-4 h-10 w-auto text-xs font-bold bg-green-600 hover:bg-green-700 text-white border-none")
+                : (isSmall ? "w-9 h-9" : "w-12 h-12")
+            )}
           >
-            <ShoppingCart className="w-5 h-5" />
+            {price === 0 ? (
+              <span>Consultar</span>
+            ) : (
+              <ShoppingCart className={cn(isSmall ? "w-4 h-4" : "w-5 h-5")} />
+            )}
           </Button>
         </div>
       </div>

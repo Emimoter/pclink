@@ -10,8 +10,8 @@ import { motion } from "framer-motion";
 export default function FeaturedSection() {
   const { products, loading } = useProducts({ isFeatured: true });
 
-  // Limit to first 4 products for the home section layout
-  const featuredProducts = products.slice(0, 4);
+  // Limit to first 9 products for the home section layout
+  const featuredProducts = products.slice(0, 9);
 
   if (loading) {
     return (
@@ -61,7 +61,7 @@ export default function FeaturedSection() {
               Selección Exclusiva
             </span>
             <h2 className="text-3xl lg:text-5xl font-extrabold text-primary tracking-tight leading-none">
-              Equipos Destacados
+              Productos Destacados
             </h2>
           </div>
           <Link href="/products">
@@ -71,20 +71,20 @@ export default function FeaturedSection() {
           </Link>
         </div>
 
-        {/* Symmetric 2-column grid of unified cards (2 stacked on the left, 2 stacked on the right) */}
+        {/* Symmetric 3-column grid of unified compact cards */}
         <motion.div
           variants={containerVariants}
           initial="hidden"
           whileInView="show"
           viewport={{ once: true, margin: "-100px" }}
-          className="grid grid-cols-1 lg:grid-cols-2 gap-8"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
         >
           {featuredProducts.map((product) => (
             <motion.div
               key={product.id}
               variants={itemVariants}
             >
-              <ProductCard product={product} isLarge={false} />
+              <ProductCard product={product} isSmall={true} />
             </motion.div>
           ))}
         </motion.div>

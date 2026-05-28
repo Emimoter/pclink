@@ -1,13 +1,3 @@
-import HeroBanner from "@/components/home/HeroBanner";
-import CategoriesGrid from "@/components/home/CategoriesGrid";
-import FeaturedSection from "@/components/home/FeaturedSection";
+import ProductsPage from "./products/page";
 
-export default function Home() {
-  return (
-    <>
-      <HeroBanner />
-      <CategoriesGrid />
-      <FeaturedSection />
-    </>
-  );
-}
+export default ProductsPage;

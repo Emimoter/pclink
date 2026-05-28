@@ -150,6 +150,129 @@ export default function AboutPage() {
         </div>
       </section>
 
+      {/* Schedule, Location & Communication */}
+      <section className="py-20 container mx-auto px-4 max-w-5xl z-10 relative">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+          {/* Card 1: Horarios */}
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="bg-surface border border-border rounded-3xl p-6 space-y-4 flex flex-col justify-between"
+          >
+            <div className="space-y-3">
+              <div className="w-10 h-10 bg-accent/10 border border-accent/20 rounded-xl flex items-center justify-center text-accent">
+                <Clock className="w-4.5 h-4.5" />
+              </div>
+              <h3 className="text-base font-extrabold text-primary tracking-tight">Horarios de Atención</h3>
+              <div className="space-y-2 text-xs text-muted">
+                <div className="flex justify-between border-b border-border/50 pb-1.5">
+                  <span>Lunes a Viernes (Mañana):</span>
+                  <span className="font-extrabold text-primary font-sans">09:00 a 13:00 hs</span>
+                </div>
+                <div className="flex justify-between border-b border-border/50 pb-1.5">
+                  <span>Lunes a Viernes (Tarde):</span>
+                  <span className="font-extrabold text-primary font-sans">16:00 a 20:00 hs</span>
+                </div>
+                <div className="flex justify-between pb-0.5">
+                  <span>Sábados:</span>
+                  <span className="font-extrabold text-primary font-sans">09:00 a 13:00 hs</span>
+                </div>
+              </div>
+            </div>
+            <p className="text-[9px] text-muted leading-relaxed">
+              * Feriados nacionales el local permanece cerrado. Ante urgencias técnicas sugerimos contacto previo por WhatsApp.
+            </p>
+          </motion.div>
+
+          {/* Card 2: Contacto */}
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.08 }}
+            className="bg-surface border border-border rounded-3xl p-6 space-y-4 flex flex-col justify-between"
+          >
+            <div className="space-y-3">
+              <div className="w-10 h-10 bg-accent/10 border border-accent/20 rounded-xl flex items-center justify-center text-accent">
+                <Phone className="w-4.5 h-4.5" />
+              </div>
+              <h3 className="text-base font-extrabold text-primary tracking-tight">Canales de Contacto</h3>
+              <div className="space-y-2 text-xs text-muted">
+                <div className="flex justify-between border-b border-border/50 pb-1.5 items-center">
+                  <span>Teléfono Local:</span>
+                  <span className="font-sans font-extrabold text-primary">223 353-3843</span>
+                </div>
+                <div className="flex justify-between border-b border-border/50 pb-1.5 items-center">
+                  <span>WhatsApp de Consulta:</span>
+                  <span className="font-sans font-extrabold text-primary">223 546-8972</span>
+                </div>
+                <div className="flex justify-between pb-0.5 items-center">
+                  <span>Dirección Local:</span>
+                  <span className="font-extrabold text-primary text-right font-sans">Av. Carlos Tejedor 554</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Link href="/products" className="flex-1">
+                <Button className="w-full rounded-xl py-4 text-xs font-bold uppercase tracking-wider h-auto">
+                  Ver Tienda
+                </Button>
+              </Link>
+              <a href="https://wa.me/5492235468972" target="_blank" rel="noopener noreferrer" className="flex-1">
+                <Button variant="secondary" className="w-full rounded-xl py-4 text-xs font-bold uppercase tracking-wider h-auto gap-1">
+                  WhatsApp <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              </a>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Services Grid (Compact Bento Layout) */}
+      <section className="py-20 bg-surface/30 border-y border-border z-10 relative">
+        <div className="container mx-auto px-4 max-w-5xl space-y-12">
+          <div className="text-center max-w-xl mx-auto space-y-2">
+            <span className="text-[9px] uppercase font-black tracking-widest text-accent font-sans">
+              Especialización técnica
+            </span>
+            <h2 className="text-2xl md:text-3xl font-extrabold text-primary tracking-tight leading-none">
+              Nuestras Soluciones
+            </h2>
+            <p className="text-muted text-xs">
+              Laboratorio electrónico propio especializado y venta de equipamiento informático con garantía escrita.
+            </p>
+          </div>
+
+          <motion.div 
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: "-100px" }}
+            className="grid grid-cols-1 md:grid-cols-12 gap-5"
+          >
+            {services.map((service, idx) => (
+              <motion.div 
+                variants={itemVariants}
+                key={idx} 
+                whileHover={{ y: -4 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                className={`${service.cols} bg-background border border-border rounded-3xl p-6 space-y-4 flex flex-col justify-between hover:shadow-[0_12px_30px_rgba(0,0,0,0.015)] hover:border-slate-300 transition-all duration-300`}
+              >
+                <div className="space-y-3">
+                  <div className="w-10 h-10 bg-accent/10 border border-accent/20 rounded-xl flex items-center justify-center text-accent">
+                    <service.icon className="w-4.5 h-4.5" />
+                  </div>
+                  <h3 className="font-extrabold text-primary text-xs uppercase tracking-wider">{service.title}</h3>
+                  <p className="text-muted text-[11px] leading-relaxed">{service.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
       {/* History & Story - Asymmetric Split */}
       <section className="py-12 container mx-auto px-4 max-w-5xl z-10 relative">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
@@ -256,129 +379,6 @@ export default function AboutPage() {
             </motion.div>
           </div>
 
-        </div>
-      </section>
-
-      {/* Services Grid (Compact Bento Layout) */}
-      <section className="py-20 bg-surface/30 border-y border-border z-10 relative">
-        <div className="container mx-auto px-4 max-w-5xl space-y-12">
-          <div className="text-center max-w-xl mx-auto space-y-2">
-            <span className="text-[9px] uppercase font-black tracking-widest text-accent font-sans">
-              Especialización técnica
-            </span>
-            <h2 className="text-2xl md:text-3xl font-extrabold text-primary tracking-tight leading-none">
-              Nuestras Soluciones
-            </h2>
-            <p className="text-muted text-xs">
-              Laboratorio electrónico propio especializado y venta de equipamiento informático con garantía escrita.
-            </p>
-          </div>
-
-          <motion.div 
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: "-100px" }}
-            className="grid grid-cols-1 md:grid-cols-12 gap-5"
-          >
-            {services.map((service, idx) => (
-              <motion.div 
-                variants={itemVariants}
-                key={idx} 
-                whileHover={{ y: -4 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className={`${service.cols} bg-background border border-border rounded-3xl p-6 space-y-4 flex flex-col justify-between hover:shadow-[0_12px_30px_rgba(0,0,0,0.015)] hover:border-slate-300 transition-all duration-300`}
-              >
-                <div className="space-y-3">
-                  <div className="w-10 h-10 bg-accent/10 border border-accent/20 rounded-xl flex items-center justify-center text-accent">
-                    <service.icon className="w-4.5 h-4.5" />
-                  </div>
-                  <h3 className="font-extrabold text-primary text-xs uppercase tracking-wider">{service.title}</h3>
-                  <p className="text-muted text-[11px] leading-relaxed">{service.desc}</p>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Schedule, Location & Communication */}
-      <section className="py-20 container mx-auto px-4 max-w-5xl z-10 relative">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-          {/* Card 1: Horarios */}
-          <motion.div 
-            initial={{ opacity: 0, y: 15 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="bg-surface border border-border rounded-3xl p-6 space-y-4 flex flex-col justify-between"
-          >
-            <div className="space-y-3">
-              <div className="w-10 h-10 bg-accent/10 border border-accent/20 rounded-xl flex items-center justify-center text-accent">
-                <Clock className="w-4.5 h-4.5" />
-              </div>
-              <h3 className="text-base font-extrabold text-primary tracking-tight">Horarios de Atención</h3>
-              <div className="space-y-2 text-xs text-muted">
-                <div className="flex justify-between border-b border-border/50 pb-1.5">
-                  <span>Lunes a Viernes (Mañana):</span>
-                  <span className="font-extrabold text-primary font-sans">09:00 a 13:00 hs</span>
-                </div>
-                <div className="flex justify-between border-b border-border/50 pb-1.5">
-                  <span>Lunes a Viernes (Tarde):</span>
-                  <span className="font-extrabold text-primary font-sans">16:00 a 20:00 hs</span>
-                </div>
-                <div className="flex justify-between pb-0.5">
-                  <span>Sábados:</span>
-                  <span className="font-extrabold text-primary font-sans">09:00 a 13:00 hs</span>
-                </div>
-              </div>
-            </div>
-            <p className="text-[9px] text-muted leading-relaxed">
-              * Feriados nacionales el local permanece cerrado. Ante urgencias técnicas sugerimos contacto previo por WhatsApp.
-            </p>
-          </motion.div>
-
-          {/* Card 2: Contacto */}
-          <motion.div 
-            initial={{ opacity: 0, y: 15 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.08 }}
-            className="bg-surface border border-border rounded-3xl p-6 space-y-4 flex flex-col justify-between"
-          >
-            <div className="space-y-3">
-              <div className="w-10 h-10 bg-accent/10 border border-accent/20 rounded-xl flex items-center justify-center text-accent">
-                <Phone className="w-4.5 h-4.5" />
-              </div>
-              <h3 className="text-base font-extrabold text-primary tracking-tight">Canales de Contacto</h3>
-              <div className="space-y-2 text-xs text-muted">
-                <div className="flex justify-between border-b border-border/50 pb-1.5 items-center">
-                  <span>Teléfono Local:</span>
-                  <span className="font-sans font-extrabold text-primary">223 353-3843</span>
-                </div>
-                <div className="flex justify-between border-b border-border/50 pb-1.5 items-center">
-                  <span>WhatsApp de Consulta:</span>
-                  <span className="font-sans font-extrabold text-primary">223 546-8972</span>
-                </div>
-                <div className="flex justify-between pb-0.5 items-center">
-                  <span>Dirección Local:</span>
-                  <span className="font-extrabold text-primary text-right font-sans">Av. Carlos Tejedor 554</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <Link href="/products" className="flex-1">
-                <Button className="w-full rounded-xl py-4 text-xs font-bold uppercase tracking-wider h-auto">
-                  Ver Tienda
-                </Button>
-              </Link>
-              <a href="https://wa.me/5492235468972" target="_blank" rel="noopener noreferrer" className="flex-1">
-                <Button variant="secondary" className="w-full rounded-xl py-4 text-xs font-bold uppercase tracking-wider h-auto gap-1">
-                  WhatsApp <ArrowRight className="w-3.5 h-3.5" />
-                </Button>
-              </a>
-            </div>
-          </motion.div>
         </div>
       </section>
     </div>

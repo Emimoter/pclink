@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useProduct } from "@/hooks/useProduct";
 import { useProducts } from "@/hooks/useProducts";
 import { useCartStore } from "@/store/useCartStore";
-import { Loader2, ArrowLeft, ShoppingCart, MessageCircle, Plus, Minus, Check } from "lucide-react";
+import { Loader2, ArrowLeft, ShoppingCart, MessageCircle, Plus, Minus, Check, Cpu } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
@@ -24,6 +24,7 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
   if (loading) {
     return (
@@ -62,10 +63,11 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
   };
 
   // WhatsApp link preparation
-  const encodedMessage = encodeURIComponent(
-    `Hola PC Link, estoy interesado en el producto "${product.name}" (Precio: $${price.toLocaleString("es-AR")}). ¿Tienen stock disponible?`
-  );
-  const whatsappUrl = `https://wa.me/5492230000000?text=${encodedMessage}`; // Replace with actual shop number or make configurable
+  const whatsappMessageText = price === 0
+    ? `Hola PC Link, estoy interesado en el producto "${product.name}" (código: ${product.id}). ¿Cuál es el precio y disponibilidad?`
+    : `Hola PC Link, estoy interesado en el producto "${product.name}" (Precio: $${price.toLocaleString("es-AR")}). ¿Tienen stock disponible?`;
+  const encodedMessage = encodeURIComponent(whatsappMessageText);
+  const whatsappUrl = `https://wa.me/5492235468972?text=${encodedMessage}`;
 
   // Filter out the current product from related products
   const filteredRelated = relatedProducts
@@ -98,11 +100,18 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
                       : "border-border hover:border-muted"
                   }`}
                 >
-                  <img
-                    src={img}
-                    alt={`${product.name} thumbnail ${idx + 1}`}
-                    className="w-full h-full object-contain p-2 mix-blend-multiply"
-                  />
+                  {img && !failedImages[img] ? (
+                    <img
+                      src={img}
+                      alt={`${product.name} thumbnail ${idx + 1}`}
+                      onError={() => setFailedImages(prev => ({ ...prev, [img]: true }))}
+                      className="w-full h-full object-contain p-2 mix-blend-multiply"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-surface/50 text-muted-foreground/30">
+                      <Cpu className="w-5 h-5 stroke-[1.2]" />
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
@@ -117,14 +126,20 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
                 Oferta -{discountPercentage}%
               </span>
             )}
-            {product.images && product.images.length > 0 ? (
+            {product.images && product.images.length > 0 && !failedImages[product.images[selectedImage]] ? (
               <img
                 src={product.images[selectedImage]}
                 alt={product.name}
+                onError={() => setFailedImages(prev => ({ ...prev, [product.images[selectedImage]]: true }))}
                 className="w-full h-full object-contain max-h-[500px] hover:scale-105 transition-transform duration-500 mix-blend-multiply"
               />
             ) : (
-              <span className="text-muted font-medium">Sin imagen</span>
+              <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground/30 p-8 select-none">
+                <Cpu className="w-20 h-20 mb-3 text-accent/20 stroke-[1.2]" />
+                <span className="text-xs uppercase font-bold tracking-widest text-muted-foreground/40 font-mono text-center">
+                  Imagen no disponible
+                </span>
+              </div>
             )}
           </div>
         </div>
@@ -143,13 +158,21 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
 
           {/* Price details */}
           <div className="flex items-baseline gap-4 mb-8">
-            <span className="text-3xl font-extrabold text-primary tracking-tight">
-              ${price.toLocaleString("es-AR")}
-            </span>
-            {oldPrice && oldPrice > price && (
-              <span className="text-lg text-muted line-through font-medium">
-                ${oldPrice.toLocaleString("es-AR")}
+            {price === 0 ? (
+              <span className="text-2xl font-extrabold text-accent tracking-tight">
+                Precio a consultar
               </span>
+            ) : (
+              <>
+                <span className="text-3xl font-extrabold text-primary tracking-tight">
+                  ${price.toLocaleString("es-AR")}
+                </span>
+                {oldPrice && oldPrice > price && (
+                  <span className="text-lg text-muted line-through font-medium">
+                    ${oldPrice.toLocaleString("es-AR")}
+                  </span>
+                )}
+              </>
             )}
           </div>
 
@@ -170,7 +193,7 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
           </div>
 
           {/* Action buttons */}
-          {product.stock > 0 ? (
+          {product.stock > 0 && price > 0 ? (
             <div className="space-y-4 mt-4">
               {/* Quantity selector */}
               <div className="flex items-center border border-border rounded-xl w-fit bg-surface">
@@ -222,14 +245,14 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
               </div>
             </div>
           ) : (
-            <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="mt-4">
+            <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="mt-4 block w-full">
               <Button
-                variant="outline"
+                variant="primary"
                 size="lg"
-                className="w-full rounded-xl py-6 border-green-500 hover:bg-green-50 text-green-600 hover:text-green-700 flex items-center justify-center gap-2"
+                className="w-full rounded-xl py-6 bg-green-600 hover:bg-green-700 border-none text-white flex items-center justify-center gap-2"
               >
                 <MessageCircle className="w-5 h-5" />
-                Consultar por WhatsApp
+                {price === 0 ? "Consultar precio por WhatsApp" : "Consultar stock por WhatsApp"}
               </Button>
             </a>
           )}

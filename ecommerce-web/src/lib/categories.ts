@@ -26,12 +26,12 @@ export interface Category {
 }
 
 export const CATEGORIES: Category[] = [
-  { id: "GPU", name: "Placas de Video", icon: Layers },
-  { id: "CPU", name: "Microprocesadores", icon: Cpu },
+  { id: "GPU", name: "Placas de Video (GPU)", icon: Layers },
+  { id: "CPU", name: "Microprocesadores (CPU)", icon: Cpu },
   { id: "MOTHERBOARD", name: "Motherboards", icon: Cpu },
   { id: "RAM", name: "Memorias RAM", icon: Database },
   { id: "CASE", name: "Gabinetes", icon: Package },
-  { id: "PSU", name: "Fuentes de Poder", icon: Plug },
+  { id: "PSU", name: "Fuentes de Poder (PSU)", icon: Plug },
   { id: "MONITOR", name: "Monitores", icon: Monitor },
   { id: "MOUSE", name: "Mouse", icon: Mouse },
   { id: "KEYBOARD", name: "Teclados", icon: Keyboard },
@@ -44,6 +44,7 @@ export const CATEGORIES: Category[] = [
   { id: "GAMING", name: "Accesorios Gaming", icon: Gamepad2 },
   { id: "NETWORK", name: "Redes / Routers", icon: Wifi },
   { id: "INK_TONER", name: "Cartuchos y Tóners", icon: Droplet },
+  { id: "OFFERS", name: "Ofertas", icon: Zap },
 ];
 
 export const CATEGORY_MAP = CATEGORIES.reduce((acc, cat) => {
@@ -52,12 +53,12 @@ export const CATEGORY_MAP = CATEGORIES.reduce((acc, cat) => {
 }, {} as Record<string, string>);
 
 export function getCategoryName(catId: string): string {
-  if (!catId) return "Todas";
+  if (!catId) return "Todas las Categorías";
   const normalized = catId.toUpperCase().replace(/-/g, "_");
   
   // Custom mappings for common routes / variations
   if (normalized === "PC_GAMER" || normalized === "ENSAMBLES") return "PCs Gamer";
-  if (normalized === "PROCESADORES") return "Microprocesadores";
+  if (normalized === "PROCESADORES") return "Microprocesadores (CPU)";
   if (normalized === "PERIFERICOS") return "Periféricos";
   if (normalized === "AUDIO") return "Auriculares";
   
