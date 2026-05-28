@@ -77,18 +77,15 @@ export default function Navbar() {
             <button className="md:hidden p-2 text-muted hover:text-primary">
               <Menu className="w-6 h-6" />
             </button>
-            <Link href="/" className="flex items-center gap-2">
+            <Link href="/" className="flex items-center">
               <Image
-                src="/logo-circle.jpg"
+                src="/logo-circle.png"
                 alt="PC Link Logo"
                 width={48}
                 height={48}
                 className="h-10 w-10 md:h-12 md:w-12 rounded-full object-cover transition-transform duration-300 hover:scale-[1.02] active:scale-[0.98]"
                 priority
               />
-              <span className="font-sans font-black text-lg md:text-xl tracking-wider text-primary hidden sm:inline-block">
-                PC LINK
-              </span>
             </Link>
           </div>
 
