@@ -111,5 +111,9 @@ class ProfileViewModel @Inject constructor(
     suspend fun register(name: String, email: String, password: String, phone: String) =
         userRepository.register(name, email, password, phone)
 
+    suspend fun sendOTP() = userRepository.sendOTP()
+
+    suspend fun verifyOTP(code: String) = userRepository.verifyOTP(code)
+
     val isLoggedIn: Boolean get() = userRepository.isLoggedIn
 }

@@ -71,8 +71,18 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
+    var showOtpVerification by remember { mutableStateOf(false) }
+    var otpCode by remember { mutableStateOf("") }
+    var cooldown by remember { mutableStateOf(0) }
     val context = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+    androidx.compose.runtime.LaunchedEffect(cooldown) {
+        if (cooldown > 0) {
+            kotlinx.coroutines.delay(1000)
+            cooldown -= 1
+        }
+    }
 
     // Configuración de Google Sign-In
     val gso = remember {
@@ -161,156 +171,253 @@ fun LoginScreen(
                 .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            if (isRegister) {
+            if (showOtpVerification) {
+                Text(
+                    "Ingresá el código de 6 dígitos que enviamos a tu email:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
                 OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Nombre completo") },
+                    value = otpCode,
+                    onValueChange = { if (it.length <= 6) otpCode = it.filter { char -> char.isDigit() } },
+                    label = { Text("Código de 6 dígitos") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                     colors = textFieldColors()
                 )
-                OutlinedTextField(
-                    value = phone,
-                    onValueChange = { phone = it },
-                    label = { Text("Teléfono de contacto") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = textFieldColors()
-                )
-            }
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("Email") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                modifier = Modifier.fillMaxWidth(),
-                colors = textFieldColors()
-            )
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Contraseña") },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.fillMaxWidth(),
-                colors = textFieldColors()
-            )
 
-            if (error != null) {
-                Text(error!!, color = SaleRed, style = MaterialTheme.typography.labelMedium)
-            }
+                if (error != null) {
+                    Text(error!!, color = SaleRed, style = MaterialTheme.typography.labelMedium)
+                }
 
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .clickable {
-                        scope.launch {
-                            val res = if (isRegister) {
-                                val cleanPhone = com.pclink.app.ui.util.PhoneValidator.formatToArgentineDb(phone)
-                                if (!com.pclink.app.ui.util.PhoneValidator.isValidArgentinePhone(phone)) {
-                                    error = "Por favor, ingresá un teléfono de contacto de Argentina válido."
-                                    return@launch
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable {
+                            scope.launch {
+                                error = null
+                                val res = viewModel.verifyOTP(otpCode)
+                                if (res.isSuccess) {
+                                    onLoggedIn()
+                                } else {
+                                    error = res.exceptionOrNull()?.message ?: "Código incorrecto o expirado."
                                 }
-                                viewModel.register(name, email, password, cleanPhone)
-                            } else {
-                                viewModel.signIn(email, password)
                             }
-                            if (res.isSuccess) onLoggedIn() else error = res.exceptionOrNull()?.message
-                        }
-                    },
-                color = PClinkCyan,
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
+                        },
+                    color = PClinkCyan,
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            "Verificar código",
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        if (isRegister) "Crear cuenta" else "Iniciar sesión",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                        if (cooldown > 0) "Reenviar en ${cooldown}s" else "Reenviar código",
+                        color = if (cooldown > 0) MaterialTheme.colorScheme.onSurfaceVariant else PClinkCyan,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.clickable(enabled = cooldown == 0) {
+                            scope.launch {
+                                error = null
+                                val res = viewModel.sendOTP()
+                                if (res.isSuccess) {
+                                    cooldown = 60
+                                } else {
+                                    error = res.exceptionOrNull()?.message ?: "Error al reenviar."
+                                }
+                            }
+                        }
+                    )
+
+                    Text(
+                        "Cancelar",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.clickable {
+                            scope.launch {
+                                viewModel.signOut()
+                                showOtpVerification = false
+                                error = null
+                            }
+                        }
                     )
                 }
-            }
-
-            Row(
-                modifier = Modifier.padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(1.dp),
-                    color = PClinkBorder
-                ) {}
-                Text(
-                    "  o  ",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelMedium
+            } else {
+                if (isRegister) {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Nombre completo") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = textFieldColors()
+                    )
+                    OutlinedTextField(
+                        value = phone,
+                        onValueChange = { phone = it },
+                        label = { Text("Teléfono de contacto") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = textFieldColors()
+                    )
+                }
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors()
                 )
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Contraseña") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors()
+                )
+
+                if (error != null) {
+                    Text(error!!, color = SaleRed, style = MaterialTheme.typography.labelMedium)
+                }
+
                 Surface(
                     modifier = Modifier
-                        .weight(1f)
-                        .height(1.dp),
-                    color = PClinkBorder
-                ) {}
-            }
-
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .clickable {
-                        launcher.launch(googleSignInClient.signInIntent)
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable {
+                            scope.launch {
+                                val res = if (isRegister) {
+                                    val cleanPhone = com.pclink.app.ui.util.PhoneValidator.formatToArgentineDb(phone)
+                                    if (!com.pclink.app.ui.util.PhoneValidator.isValidArgentinePhone(phone)) {
+                                        error = "Por favor, ingresá un teléfono de contacto de Argentina válido."
+                                        return@launch
+                                    }
+                                    viewModel.register(name, email, password, cleanPhone)
+                                } else {
+                                    viewModel.signIn(email, password)
+                                }
+                                if (res.isSuccess) {
+                                    if (isRegister) {
+                                        showOtpVerification = true
+                                        cooldown = 60
+                                    } else {
+                                        onLoggedIn()
+                                    }
+                                } else {
+                                    error = res.exceptionOrNull()?.message
+                                }
+                            }
+                        },
+                    color = PClinkCyan,
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            if (isRegister) "Crear cuenta" else "Iniciar sesión",
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                        )
                     }
-                    .border(1.5.dp, PClinkBorder, RoundedCornerShape(14.dp)),
-                color = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(14.dp)
-            ) {
+                }
+
                 Row(
-                    Modifier.fillMaxSize(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Surface(
-                        color = PClinkCyan.copy(alpha = 0.12f),
-                        shape = CircleShape,
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Filled.Person, null, tint = PClinkCyan, modifier = Modifier.size(16.dp))
-                        }
-                    }
-                    Spacer(Modifier.width(10.dp))
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(1.dp),
+                        color = PClinkBorder
+                    ) {}
                     Text(
-                        "Continuar con Google",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
-                        color = PClinkBlack
+                        "  o  ",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(1.dp),
+                        color = PClinkBorder
+                    ) {}
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable {
+                            launcher.launch(googleSignInClient.signInIntent)
+                        }
+                        .border(1.5.dp, PClinkBorder, RoundedCornerShape(14.dp)),
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Row(
+                        Modifier.fillMaxSize(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Surface(
+                            color = PClinkCyan.copy(alpha = 0.12f),
+                            shape = CircleShape,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Filled.Person, null, tint = PClinkCyan, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            "Continuar con Google",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                            color = PClinkBlack
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        if (isRegister) "¿Ya tenés cuenta?" else "¿No tenés cuenta?",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        if (isRegister) "Iniciá sesión" else "Registrate",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold),
+                        color = PClinkCyan,
+                        modifier = Modifier.clickable { isRegister = !isRegister; error = null }
                     )
                 }
-            }
-
-            Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    if (isRegister) "¿Ya tenés cuenta?" else "¿No tenés cuenta?",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    if (isRegister) "Iniciá sesión" else "Registrate",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold),
-                    color = PClinkCyan,
-                    modifier = Modifier.clickable { isRegister = !isRegister; error = null }
-                )
             }
         }
     }

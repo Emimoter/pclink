@@ -6,6 +6,7 @@ const { MercadoPagoConfig, Preference, Payment } = require("mercadopago");
 admin.initializeApp();
 
 const mpAccessToken = defineSecret("MERCADOPAGO_ACCESS_TOKEN");
+const resendApiKey = defineSecret("RESEND_API_KEY");
 
 exports.createPreference = onCall({ secrets: [mpAccessToken] }, async (request) => {
     // 1. Obtener datos del usuario (autenticado o invitado)
@@ -173,6 +174,135 @@ exports.mpWebhook = onRequest({ secrets: [mpAccessToken] }, async (req, res) => 
         console.error("Error webhook MP:", error);
         // Respondemos 200 para que MP no reintente infinitamente si es un error parseando algo
         res.status(200).send("Error interno gestionado");
+    }
+});
+
+exports.sendOTP = onCall({ secrets: [resendApiKey] }, async (request) => {
+    // 1. Validar autenticación
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Debes iniciar sesión para verificar tu correo.");
+    }
+
+    const uid = request.auth.uid;
+    const email = request.auth.token.email;
+
+    if (!email) {
+        throw new HttpsError("invalid-argument", "El usuario no tiene un correo electrónico asociado.");
+    }
+
+    const apiKey = resendApiKey.value();
+    if (!apiKey) {
+        throw new HttpsError("failed-precondition", "RESEND_API_KEY no está configurado en Firebase Secrets.");
+    }
+
+    // 2. Generar código OTP de 6 dígitos
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const now = Date.now();
+    const expiresAt = now + 10 * 60 * 1000; // 10 minutos
+
+    try {
+        // 3. Guardar el código OTP en Firestore (verification_codes/{uid})
+        await admin.firestore().collection("verification_codes").doc(uid).set({
+            code: code,
+            email: email,
+            createdAt: now,
+            expiresAt: expiresAt
+        });
+
+        // 4. Enviar el email mediante Resend REST API
+        const fromEmail = apiKey.startsWith("re_") ? "PClink Computacion <onboarding@resend.dev>" : "PClink <onboarding@resend.dev>";
+        
+        const response = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                from: fromEmail,
+                to: [email],
+                subject: `Código de verificación: ${code}`,
+                html: `
+                    <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px; background-color: #ffffff;">
+                        <h2 style="color: #0E2B33; text-align: center;">Verificación de Correo</h2>
+                        <p>Hola,</p>
+                        <p>Ingresá el siguiente código de 6 dígitos en la aplicación o el sitio web para completar tu registro y verificar tu dirección de correo electrónico:</p>
+                        <div style="background-color: #f4f9fa; padding: 15px; border-radius: 8px; text-align: center; font-size: 28px; font-weight: bold; letter-spacing: 5px; color: #00bcd4; margin: 20px 0;">
+                            ${code}
+                        </div>
+                        <p style="font-size: 12px; color: #777; text-align: center;">Este código expirará en 10 minutos y solo puede ser usado una vez.</p>
+                        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+                        <p style="font-size: 11px; color: #999; text-align: center;">PClink Computación</p>
+                    </div>
+                `
+            })
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            console.error("Resend API error:", errText);
+            throw new Error(`Error en el servicio de email (Resend): ${errText}`);
+        }
+
+        return { success: true };
+    } catch (error) {
+        console.error("Error in sendOTP:", error);
+        throw new HttpsError("internal", error.message || "Error al enviar el código de verificación.");
+    }
+});
+
+exports.verifyOTP = onCall(async (request) => {
+    // 1. Validar autenticación
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Debes iniciar sesión para verificar tu correo.");
+    }
+
+    const uid = request.auth.uid;
+    const { code } = request.data;
+
+    if (!code || code.trim().length !== 6) {
+        throw new HttpsError("invalid-argument", "El código debe ser de 6 dígitos.");
+    }
+
+    try {
+        const docRef = admin.firestore().collection("verification_codes").doc(uid);
+        const docSnap = await docRef.get();
+
+        if (!docSnap.exists) {
+            throw new HttpsError("not-found", "No se encontró ningún código de verificación activo para este usuario. Solicita uno nuevo.");
+        }
+
+        const data = docSnap.data();
+        const now = Date.now();
+
+        if (now > data.expiresAt) {
+            await docRef.delete();
+            throw new HttpsError("failed-precondition", "El código de verificación ha expirado. Solicita uno nuevo.");
+        }
+
+        if (data.code !== code.trim()) {
+            throw new HttpsError("invalid-argument", "El código de verificación ingresado es incorrecto.");
+        }
+
+        // Código válido! 
+        // 2. Actualizar emailVerified en Firebase Auth
+        await admin.auth().updateUser(uid, {
+            emailVerified: true
+        });
+
+        // 3. Actualizar isEmailVerified en la colección users de Firestore
+        await admin.firestore().collection("users").doc(uid).set({
+            isEmailVerified: true
+        }, { merge: true });
+
+        // 4. Eliminar el código para evitar reuso
+        await docRef.delete();
+
+        return { success: true };
+    } catch (error) {
+        console.error("Error in verifyOTP:", error);
+        if (error instanceof HttpsError) throw error;
+        throw new HttpsError("internal", error.message || "Error al verificar el código.");
     }
 });
 

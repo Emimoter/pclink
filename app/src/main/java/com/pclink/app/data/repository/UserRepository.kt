@@ -65,6 +65,45 @@ class UserRepository @Inject constructor() {
         }
     }
 
+    suspend fun sendOTP(): Result<Unit> {
+        return try {
+            val functions = com.google.firebase.functions.FirebaseFunctions.getInstance("us-central1")
+            functions.getHttpsCallable("sendOTP").call().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun verifyOTP(code: String): Result<Boolean> {
+        return try {
+            val functions = com.google.firebase.functions.FirebaseFunctions.getInstance("us-central1")
+            val data = hashMapOf("code" to code)
+            functions.getHttpsCallable("verifyOTP").call(data).await()
+            
+            // Recargar el usuario local de Firebase para obtener el nuevo isEmailVerified
+            val reloadRes = reloadUser()
+            if (reloadRes.isSuccess && reloadRes.getOrNull() == true) {
+                val firebaseUser = auth.currentUser
+                if (firebaseUser != null) {
+                    // Actualizar en Firestore por redundancia
+                    try {
+                        com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                            .collection("users")
+                            .document(firebaseUser.uid)
+                            .update("isEmailVerified", true)
+                            .await()
+                    } catch (_: Exception) {}
+                }
+                Result.success(true)
+            } else {
+                Result.failure(reloadRes.exceptionOrNull() ?: Exception("No se pudo sincronizar el estado verificado del usuario."))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun signIn(email: String, password: String): Result<User> {
         if (email.isBlank() || password.length < 4) {
             return Result.failure(IllegalArgumentException("Credenciales inválidas"))
@@ -121,10 +160,15 @@ class UserRepository @Inject constructor() {
             }
             firebaseUser.updateProfile(profileUpdates).await()
 
-            // Enviar email de verificación
+            // Enviar OTP mediante Cloud Functions
             try {
-                firebaseUser.sendEmailVerification().await()
-            } catch (_: Exception) {}
+                val functions = com.google.firebase.functions.FirebaseFunctions.getInstance("us-central1")
+                functions.getHttpsCallable("sendOTP").call().await()
+            } catch (e: Exception) {
+                if (com.pclink.app.BuildConfig.DEBUG) {
+                    e.printStackTrace()
+                }
+            }
 
             // Guardar metadatos en Firestore
             val userMap = mapOf(

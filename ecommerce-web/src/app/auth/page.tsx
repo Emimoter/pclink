@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase/config";
+import { auth, db, functions } from "@/lib/firebase/config";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
@@ -38,6 +38,144 @@ function isValidArgentinePhone(phone: string): boolean {
   return firstChar === "1" || firstChar === "2" || firstChar === "3";
 }
 
+function OtpVerificationView({
+  email,
+  onCancel,
+}: {
+  email: string;
+  onCancel: () => void;
+}) {
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [cooldown, setCooldown] = useState(60);
+
+  useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldown]);
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (code.trim().length !== 6) {
+      setErrorMsg("El código debe tener 6 dígitos.");
+      return;
+    }
+    setLoading(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    try {
+      const { httpsCallable } = await import("firebase/functions");
+      const verifyOTPFn = httpsCallable(functions, "verifyOTP");
+      await verifyOTPFn({ code });
+      
+      // Recargar el usuario local de Firebase Auth
+      if (auth.currentUser) {
+        await auth.currentUser.reload();
+      }
+      setSuccessMsg("¡Correo verificado con éxito!");
+    } catch (err: any) {
+      console.error("Error al verificar OTP:", err);
+      setErrorMsg(err.message || "Código incorrecto o expirado.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (cooldown > 0) return;
+    setLoading(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+    try {
+      const { httpsCallable } = await import("firebase/functions");
+      const sendOTPFn = httpsCallable(functions, "sendOTP");
+      await sendOTPFn();
+      setSuccessMsg("Se ha enviado un nuevo código a tu correo.");
+      setCooldown(60);
+    } catch (err: any) {
+      console.error("Error al reenviar OTP:", err);
+      setErrorMsg(err.message || "Error al reenviar el código.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex-1 flex items-center justify-center py-20 px-4 bg-background">
+      <div className="w-full max-w-md bg-surface border border-border rounded-3xl p-8 shadow-sm">
+        <div className="text-center mb-8">
+          <span className="text-[10px] uppercase font-bold tracking-widest text-accent mb-2 block">
+            Verificación de Seguridad
+          </span>
+          <h1 className="text-3xl font-bold text-primary tracking-tight">
+            Ingresá el Código
+          </h1>
+          <p className="text-muted text-sm mt-2">
+            Te enviamos un código de 6 dígitos al correo <strong className="text-primary">{email}</strong>.
+          </p>
+        </div>
+
+        {errorMsg && (
+          <div className="p-4 bg-red-50 border border-red-200 text-red-600 text-sm font-semibold rounded-xl mb-6">
+            {errorMsg}
+          </div>
+        )}
+
+        {successMsg && (
+          <div className="p-4 bg-green-50 border border-green-200 text-green-600 text-sm font-semibold rounded-xl mb-6">
+            {successMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleVerify} className="space-y-5">
+          <div>
+            <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2 text-center">
+              Código de Verificación
+            </label>
+            <input
+              type="text"
+              required
+              maxLength={6}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              className="w-full bg-background border border-border rounded-xl px-4 py-4 text-2xl tracking-[10px] text-center font-bold focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary"
+              placeholder="000000"
+            />
+          </div>
+
+          <Button type="submit" disabled={loading || code.length !== 6} className="w-full rounded-xl py-6 mt-4">
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Verificar Código"}
+          </Button>
+        </form>
+
+        <div className="mt-6 text-center text-sm">
+          <button
+            onClick={handleResend}
+            disabled={cooldown > 0 || loading}
+            className="text-accent hover:underline font-semibold disabled:text-muted disabled:no-underline transition-all"
+          >
+            {cooldown > 0 ? `Reenviar código en ${cooldown}s` : "Reenviar código"}
+          </button>
+        </div>
+
+        <div className="mt-4 text-center text-sm">
+          <button
+            onClick={onCancel}
+            className="text-muted hover:text-primary transition-colors font-semibold"
+          >
+            Cancelar y volver
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AuthForm() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -46,6 +184,7 @@ function AuthForm() {
   const [phone, setPhone] = useState("");
   const [loadingForm, setLoadingForm] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -55,9 +194,11 @@ function AuthForm() {
   // Redirect if already logged in
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace(redirect);
+      if (user.emailVerified || isLogin) {
+        router.replace(redirect);
+      }
     }
-  }, [user, authLoading, router, redirect]);
+  }, [user, authLoading, router, redirect, isLogin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,10 +225,6 @@ function AuthForm() {
           displayName: name,
         });
 
-        // Enviar correo de verificación
-        const { sendEmailVerification } = await import("firebase/auth");
-        await sendEmailVerification(firebaseUser);
-
         // Store extra user metadata in Firestore users collection
         await setDoc(doc(db, "users", firebaseUser.uid), {
           uid: firebaseUser.uid,
@@ -96,6 +233,15 @@ function AuthForm() {
           phone: phone,
           createdAt: Date.now(),
         });
+
+        // Enviar OTP
+        const { httpsCallable } = await import("firebase/functions");
+        const sendOTPFn = httpsCallable(functions, "sendOTP");
+        await sendOTPFn();
+
+        setIsVerifyingOtp(true);
+        setLoadingForm(false);
+        return; // Detener flujo para verificar OTP
       }
       router.replace(redirect);
     } catch (err: any) {
@@ -154,6 +300,18 @@ function AuthForm() {
       <div className="flex items-center justify-center min-h-[70vh]">
         <Loader2 className="w-10 h-10 text-accent animate-spin" />
       </div>
+    );
+  }
+
+  if (isVerifyingOtp || (user && !user.emailVerified && !isLogin)) {
+    return (
+      <OtpVerificationView
+        email={email || user?.email || ""}
+        onCancel={() => {
+          setIsVerifyingOtp(false);
+          auth.signOut();
+        }}
+      />
     );
   }
 
