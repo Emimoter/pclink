@@ -210,7 +210,11 @@ exports.sendOTP = onCall({ secrets: [resendApiKey] }, async (request) => {
         });
 
         // 4. Enviar el email mediante Resend REST API
-        const fromEmail = apiKey.startsWith("re_") ? "PClink Computacion <onboarding@resend.dev>" : "PClink <onboarding@resend.dev>";
+        // Usar el sandbox de Resend para el correo del propietario, y el dominio verificado para los demás destinatarios
+        const isTestingEmail = email.toLowerCase() === "emiliano.gimenez.96@gmail.com";
+        const fromEmail = isTestingEmail 
+            ? "PClink Computación <onboarding@resend.dev>" 
+            : "PClink Computación <noreply@pclinkcomputacion.com.ar>";
         
         const response = await fetch("https://api.resend.com/emails", {
             method: "POST",
