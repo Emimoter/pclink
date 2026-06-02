@@ -69,6 +69,7 @@ fun LoginScreen(
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -169,6 +170,15 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth(),
                     colors = textFieldColors()
                 )
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = { phone = it },
+                    label = { Text("Teléfono de contacto") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors()
+                )
             }
             OutlinedTextField(
                 value = email,
@@ -201,8 +211,16 @@ fun LoginScreen(
                     .clip(RoundedCornerShape(14.dp))
                     .clickable {
                         scope.launch {
-                            val res = if (isRegister) viewModel.register(name, email, password)
-                            else viewModel.signIn(email, password)
+                            val res = if (isRegister) {
+                                val cleanPhone = com.pclink.app.ui.util.PhoneValidator.formatToArgentineDb(phone)
+                                if (!com.pclink.app.ui.util.PhoneValidator.isValidArgentinePhone(phone)) {
+                                    error = "Por favor, ingresá un teléfono de contacto de Argentina válido."
+                                    return@launch
+                                }
+                                viewModel.register(name, email, password, cleanPhone)
+                            } else {
+                                viewModel.signIn(email, password)
+                            }
                             if (res.isSuccess) onLoggedIn() else error = res.exceptionOrNull()?.message
                         }
                     },

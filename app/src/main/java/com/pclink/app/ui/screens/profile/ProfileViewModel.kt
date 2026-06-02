@@ -108,8 +108,8 @@ class ProfileViewModel @Inject constructor(
 
     suspend fun signIn(email: String, password: String) = userRepository.signIn(email, password)
 
-    suspend fun register(name: String, email: String, password: String) =
-        userRepository.register(name, email, password)
+    suspend fun register(name: String, email: String, password: String, phone: String) =
+        userRepository.register(name, email, password, phone)
 
     val isLoggedIn: Boolean get() = userRepository.isLoggedIn
 }

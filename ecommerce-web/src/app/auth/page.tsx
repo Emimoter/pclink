@@ -9,6 +9,35 @@ import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
+function isValidArgentinePhone(phone: string): boolean {
+  if (!phone) return false;
+  const digits = phone.replace(/\D/g, "");
+  let national = digits;
+  if (digits.startsWith("0054")) {
+    national = digits.substring(4);
+  } else if (digits.startsWith("54")) {
+    national = digits.substring(2);
+  }
+  if (national.startsWith("9") && (national.length === 11 || national.length === 13)) {
+    national = national.substring(1);
+  }
+  if (national.startsWith("0")) {
+    national = national.substring(1);
+  }
+  if (national.length === 12) {
+    if (national.startsWith("1115")) {
+      national = "11" + national.substring(4);
+    } else if (national.substring(3, 5) === "15") {
+      national = national.substring(0, 3) + national.substring(5);
+    } else if (national.substring(4, 6) === "15") {
+      national = national.substring(0, 4) + national.substring(6);
+    }
+  }
+  if (national.length !== 10) return false;
+  const firstChar = national[0];
+  return firstChar === "1" || firstChar === "2" || firstChar === "3";
+}
+
 function AuthForm() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -41,6 +70,12 @@ function AuthForm() {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
         // Sign Up
+        if (!isValidArgentinePhone(phone)) {
+          setErrorMsg("Por favor, ingresá un número de teléfono de contacto de Argentina válido (mínimo 10 dígitos, ej: 2235555555).");
+          setLoadingForm(false);
+          return;
+        }
+
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const firebaseUser = userCredential.user;
 
@@ -48,6 +83,10 @@ function AuthForm() {
         await updateProfile(firebaseUser, {
           displayName: name,
         });
+
+        // Enviar correo de verificación
+        const { sendEmailVerification } = await import("firebase/auth");
+        await sendEmailVerification(firebaseUser);
 
         // Store extra user metadata in Firestore users collection
         await setDoc(doc(db, "users", firebaseUser.uid), {

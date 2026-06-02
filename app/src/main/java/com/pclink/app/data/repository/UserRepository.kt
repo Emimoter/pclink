@@ -107,8 +107,8 @@ class UserRepository @Inject constructor() {
         }
     }
 
-    suspend fun register(name: String, email: String, password: String): Result<User> {
-        if (name.isBlank() || email.isBlank() || password.length < 6) {
+    suspend fun register(name: String, email: String, password: String, phone: String): Result<User> {
+        if (name.isBlank() || email.isBlank() || password.length < 6 || phone.isBlank()) {
             return Result.failure(IllegalArgumentException("Datos incompletos o contraseña muy corta (min 6)"))
         }
         return try {
@@ -126,10 +126,27 @@ class UserRepository @Inject constructor() {
                 firebaseUser.sendEmailVerification().await()
             } catch (_: Exception) {}
 
+            // Guardar metadatos en Firestore
+            val userMap = mapOf(
+                "uid" to firebaseUser.uid,
+                "name" to name,
+                "email" to email,
+                "phone" to phone,
+                "createdAt" to System.currentTimeMillis()
+            )
+            try {
+                com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(firebaseUser.uid)
+                    .set(userMap)
+                    .await()
+            } catch (_: Exception) {}
+
             val u = User(
                 id = firebaseUser.uid,
                 name = name,
                 email = email,
+                phone = phone,
                 tier = MembershipTier.STANDARD,
                 isEmailVerified = firebaseUser.isEmailVerified
             )
