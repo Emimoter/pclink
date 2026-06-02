@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Upload, Search, Image as ImageIcon, Loader2, ExternalLink, Tag, Flame, Star, Target, Sparkles, Heart, Wand2 } from 'lucide-react'
 import { getDb, getStorageBucket, getFunctionsInstance } from '../lib/firebase'
-import { uploadProductImage, updateProductCategory, updateProductFlag, updateProductImageUrls, deleteProduct, type Product } from '../lib/catalog/products'
+import { uploadProductImage, updateProductCategory, updateProductFlag, updateProductImageUrls, updateProductDescription, deleteProduct, type Product } from '../lib/catalog/products'
 import { CATEGORY_IDS, CATEGORY_LABELS, type CategoryIdValue } from '../lib/catalog/constants'
 import { httpsCallable } from 'firebase/functions'
 
@@ -17,6 +17,12 @@ export function ProductEditorSheet({ product, onClose }: Props) {
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [fetchingSuggestions, setFetchingSuggestions] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [description, setDescription] = useState(product?.description || '')
+  const [savingDescription, setSavingDescription] = useState(false)
+
+  useEffect(() => {
+    setDescription(product?.description || '')
+  }, [product?.description])
 
   if (!product) return null
 
@@ -63,6 +69,19 @@ export function ProductEditorSheet({ product, onClose }: Props) {
       await updateProductFlag(getDb(), product.id, flagKey, newValue)
     } catch (err: any) {
       setError(err.message || 'Error al actualizar visibilidad')
+    }
+  }
+
+  const handleSaveDescription = async () => {
+    if (description === product.description) return
+    setSavingDescription(true)
+    setError(null)
+    try {
+      await updateProductDescription(getDb(), product.id, description)
+    } catch (err: any) {
+      setError(err.message || 'Error al guardar la descripción')
+    } finally {
+      setSavingDescription(false)
     }
   }
 
@@ -162,6 +181,28 @@ export function ProductEditorSheet({ product, onClose }: Props) {
 
               <h3 className="mt-4 text-lg font-bold leading-tight">{product.name}</h3>
               <p className="text-xs text-pclink-muted">{product.brand} · {product.model}</p>
+            </div>
+
+            {/* Descripción del Producto */}
+            <div className="space-y-3 rounded-2xl border border-pclink-border bg-pclink-elevated/20 p-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-pclink-cyan-light">Descripción</h4>
+                {description !== product.description && (
+                  <button
+                    onClick={handleSaveDescription}
+                    disabled={savingDescription}
+                    className="flex items-center gap-1 rounded-full bg-pclink-cyan px-3 py-1 text-[10px] font-bold text-pclink-bg transition hover:bg-pclink-cyan-light disabled:opacity-50"
+                  >
+                    {savingDescription ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Guardar'}
+                  </button>
+                )}
+              </div>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Escribí una descripción detallada del producto acá..."
+                className="min-h-[120px] w-full resize-y rounded-xl border border-pclink-border bg-pclink-bg/50 p-3 text-sm text-white placeholder-pclink-muted/50 focus:border-pclink-cyan/50 focus:outline-none"
+              />
             </div>
 
             {/* Toggles de Visibilidad Premium */}

@@ -160,7 +160,8 @@ class OrderRepository @Inject constructor() {
         discount: Double,
         total: Double,
         address: Address,
-        payment: PaymentMethod
+        payment: PaymentMethod,
+        status: OrderStatus = OrderStatus.PAID
     ): Order {
         val order = Order(
             id = "ord-${System.currentTimeMillis()}",
@@ -171,12 +172,12 @@ class OrderRepository @Inject constructor() {
             shippingCost = shipping,
             discount = discount,
             total = total,
-            status = OrderStatus.PAID,
+            status = status,
             shippingAddress = address,
             paymentMethod = payment,
             tracking = "TRK-${(1000..9999).random()}",
             userPhone = address.phone,
-            statusHistory = mapOf(OrderStatus.PAID.name to System.currentTimeMillis())
+            statusHistory = mapOf(status.name to System.currentTimeMillis())
         )
         
         // Persist order in Firestore

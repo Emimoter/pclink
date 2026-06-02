@@ -138,6 +138,17 @@ fun CheckoutScreen(
                     )
                 }
 
+                if (!state.isEmailVerified) {
+                    item {
+                        EmailVerificationCard(
+                            emailVerificationSent = state.emailVerificationSent,
+                            checkingVerification = state.checkingVerification,
+                            onCheck = viewModel::checkVerification,
+                            onResend = viewModel::resendVerificationEmail
+                        )
+                    }
+                }
+
                 state.error?.let { errorMsg ->
                     item {
                         Surface(
@@ -159,6 +170,7 @@ fun CheckoutScreen(
             ConfirmActionBar(
                 total = state.cart.subtotal - state.cart.couponDiscount + (state.shippingCosts[state.shipping] ?: 0.0),
                 processing = state.processing,
+                enabled = state.isEmailVerified,
                 onPlaceOrder = { viewModel.placeOrder(onOrderPlaced) },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -592,6 +604,7 @@ private fun SummaryRow(label: String, value: String, color: Color = MaterialThem
 private fun ConfirmActionBar(
     total: Double,
     processing: Boolean,
+    enabled: Boolean,
     onPlaceOrder: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -618,8 +631,8 @@ private fun ConfirmActionBar(
                 modifier = Modifier
                     .height(54.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .clickable(enabled = !processing) { onPlaceOrder() },
-                color = PClinkCyan,
+                    .clickable(enabled = !processing && enabled) { onPlaceOrder() },
+                color = if (enabled) PClinkCyan else Color.Gray,
                 shape = RoundedCornerShape(14.dp)
             ) {
                 Row(
@@ -648,6 +661,84 @@ private fun ConfirmActionBar(
                         )
                         Spacer(Modifier.width(8.dp))
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmailVerificationCard(
+    emailVerificationSent: Boolean,
+    checkingVerification: Boolean,
+    onCheck: () -> Unit,
+    onResend: () -> Unit
+) {
+    Surface(
+        color = Color(0xFFFFF9E6),
+        shape = RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFE0B2)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "⚠️ Verifica tu dirección de correo",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = Color(0xFFE65100)
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Te enviamos un correo con un enlace para verificar tu cuenta. Debes verificarlo para poder realizar compras.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF5D4037)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(enabled = !checkingVerification) { onCheck() },
+                    color = PClinkCyan,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        if (checkingVerification) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        } else {
+                            Text(
+                                "Ya verifiqué",
+                                color = Color.White,
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
+                    }
+                }
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(1.dp, PClinkCyan, RoundedCornerShape(8.dp))
+                        .clickable { onResend() },
+                    color = Color.White,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            if (emailVerificationSent) "Re-enviado ✓" else "Re-enviar email",
+                            color = PClinkCyan,
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                        )
                     }
                 }
             }

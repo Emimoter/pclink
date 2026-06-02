@@ -40,7 +40,10 @@ data class CheckoutUiState(
     val processing: Boolean = false,
     val paymentUrl: String? = null,
     val placedOrder: Order? = null,
-    val error: String? = null
+    val error: String? = null,
+    val isEmailVerified: Boolean = false,
+    val emailVerificationSent: Boolean = false,
+    val checkingVerification: Boolean = false
 )
 
 @HiltViewModel
@@ -87,7 +90,8 @@ class CheckoutViewModel @Inject constructor(
             userRepository.user.collect { user ->
                 _state.value = _state.value.copy(
                     payments = AVAILABLE_PAYMENTS,
-                    selectedPayment = _state.value.selectedPayment ?: AVAILABLE_PAYMENTS.first()
+                    selectedPayment = _state.value.selectedPayment ?: AVAILABLE_PAYMENTS.first(),
+                    isEmailVerified = user.isEmailVerified
                 )
             }
         }
@@ -122,6 +126,10 @@ class CheckoutViewModel @Inject constructor(
 
     fun placeOrder(onPlaced: (String) -> Unit) {
         val s = _state.value
+        if (!s.isEmailVerified) {
+            _state.value = s.copy(error = "Debes verificar tu email antes de confirmar la compra.")
+            return
+        }
         val address = s.selectedAddress ?: run {
             _state.value = s.copy(error = "Por favor, agrega o selecciona una dirección de envío")
             return
@@ -145,9 +153,22 @@ class CheckoutViewModel @Inject constructor(
 
             if (payment.type == PaymentType.MERCADO_PAGO) {
                 // Flujo de pago REAL con MercadoPago
-                val url = mpRepository.createPreference(s.cart.items, effectiveShipping)
+                val total = s.cart.subtotal - s.cart.couponDiscount + effectiveShipping
+                val order = orderRepository.place(
+                    items = s.cart.items,
+                    subtotal = s.cart.subtotal,
+                    shipping = effectiveShipping,
+                    discount = s.cart.couponDiscount,
+                    total = total,
+                    address = address,
+                    payment = payment,
+                    status = com.pclink.app.domain.model.OrderStatus.PENDING
+                )
+                val url = mpRepository.createPreference(s.cart.items, effectiveShipping, order.id)
                 if (url != null) {
-                    _state.value = _state.value.copy(processing = false, paymentUrl = url)
+                    cartRepository.clear()
+                    _state.value = _state.value.copy(processing = false, paymentUrl = url, placedOrder = order)
+                    onPlaced(order.id)
                 } else {
                     _state.value = _state.value.copy(processing = false, error = "Error al conectar con MercadoPago")
                 }
@@ -171,6 +192,32 @@ class CheckoutViewModel @Inject constructor(
         }
     }
 
+
+    fun checkVerification() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(checkingVerification = true, error = null)
+            val result = userRepository.reloadUser()
+            _state.value = _state.value.copy(
+                checkingVerification = false,
+                isEmailVerified = result.getOrDefault(false)
+            )
+            if (result.isFailure) {
+                _state.value = _state.value.copy(error = "No se pudo actualizar el estado de verificación")
+            }
+        }
+    }
+
+    fun resendVerificationEmail() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(error = null)
+            val result = userRepository.sendVerificationEmail()
+            if (result.isSuccess) {
+                _state.value = _state.value.copy(emailVerificationSent = true)
+            } else {
+                _state.value = _state.value.copy(error = "Error al enviar el correo: ${result.exceptionOrNull()?.message}")
+            }
+        }
+    }
 
     fun consumePaymentUrl() {
         _state.value = _state.value.copy(paymentUrl = null)

@@ -21,6 +21,7 @@ interface Order {
   userName: string
   total: number
   createdAt: number
+  status: string
 }
 
 interface CustomerStats {
@@ -84,8 +85,10 @@ export function CustomersPage() {
         id: doc.id 
       } as Order))
       
+      const completedOrders = ordersList.filter(o => o.status !== 'PENDING' && o.status !== 'CANCELLED')
+      
       // Group orders by User Email
-      const grouped = ordersList.reduce<Record<string, { name: string; total: number; count: number; last: number }>>((acc, order) => {
+      const grouped = completedOrders.reduce<Record<string, { name: string; total: number; count: number; last: number }>>((acc, order) => {
         const email = order.userEmail || 'anonimo@pclink.com'
         if (!acc[email]) {
           acc[email] = {

@@ -45,16 +45,19 @@ export function DashboardPage() {
     return () => unsubscribe()
   }, [])
 
+  // Filtrar pedidos no pagados y cancelados para estadísticas y actividad
+  const completedOrders = orders.filter(o => o.status !== 'PENDING' && o.status !== 'CANCELLED')
+
   // Cálculos estadísticos en tiempo real
-  const totalSales = orders.reduce((sum, o) => sum + (o.total || 0), 0)
+  const totalSales = completedOrders.reduce((sum, o) => sum + (o.total || 0), 0)
 
   const startOfToday = new Date()
   startOfToday.setHours(0, 0, 0, 0)
   const todayMs = startOfToday.getTime()
-  const ordersToday = orders.filter(o => o.createdAt && o.createdAt >= todayMs).length
+  const ordersToday = completedOrders.filter(o => o.createdAt && o.createdAt >= todayMs).length
 
-  const uniqueUsers = new Set(orders.map(o => o.userId || 'anonymous')).size
-  const totalOrders = orders.length
+  const uniqueUsers = new Set(completedOrders.map(o => o.userId || 'anonymous')).size
+  const totalOrders = completedOrders.length
 
   const stats = [
     {
@@ -158,12 +161,12 @@ export function DashboardPage() {
             <div className="text-center py-10 text-pclink-muted text-sm">
               Cargando historial de actividad...
             </div>
-          ) : orders.length === 0 ? (
+          ) : completedOrders.length === 0 ? (
             <div className="rounded-xl border border-dashed border-pclink-border/80 bg-pclink-elevated/30 py-12 text-center text-sm text-pclink-muted">
               Sin actividad registrada todavía. Realiza compras simuladas en la app para verlas aquí.
             </div>
           ) : (
-            orders.slice(0, 5).map((o, idx) => (
+            completedOrders.slice(0, 5).map((o, idx) => (
               <motion.div
                 key={o.id}
                 initial={{ opacity: 0, x: -10 }}

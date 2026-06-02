@@ -64,6 +64,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.ui.res.painterResource
 import coil.compose.AsyncImage
 import com.pclink.app.domain.model.Product
 import com.pclink.app.domain.model.Spec
@@ -187,16 +188,24 @@ fun ProductDetailScreen(
                         }
                     }
                 }
-                Text(
-                    Format.price(product.price),
-                    style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Black)
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    Format.installments(product.price),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = PriceGreen
-                )
+                if (product.price <= 0) {
+                    Text(
+                        "Precio a consultar",
+                        style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Black),
+                        color = PClinkCyan
+                    )
+                } else {
+                    Text(
+                        Format.price(product.price),
+                        style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Black)
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        Format.installments(product.price),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = PriceGreen
+                    )
+                }
 
                 if (product.freeShipping) {
                     Spacer(Modifier.height(10.dp))
@@ -215,11 +224,13 @@ fun ProductDetailScreen(
                 StockBadge(stock = product.stock)
 
                 Spacer(Modifier.height(20.dp))
-                QuantitySelector(
-                    quantity = state.quantity,
-                    max = product.stock,
-                    onChange = viewModel::setQuantity
-                )
+                if (product.price > 0) {
+                    QuantitySelector(
+                        quantity = state.quantity,
+                        max = product.stock,
+                        onChange = viewModel::setQuantity
+                    )
+                }
 
                 Spacer(Modifier.height(28.dp))
                 SectionHeader(
@@ -263,6 +274,7 @@ fun ProductDetailScreen(
         }
 
         // Bottom action bar
+        val context = androidx.compose.ui.platform.LocalContext.current
         BuyActionBar(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -280,7 +292,21 @@ fun ProductDetailScreen(
                     onLoginClick()
                 }
             },
-            isAdded = state.isAdded
+            isAdded = state.isAdded,
+            price = product.price,
+            onConsultWhatsApp = {
+                val messageText = if (product.price <= 0) {
+                    "Hola PC Link, estoy interesado en el producto \"${product.name}\" (código: ${product.id}). ¿Cuál es el precio y disponibilidad?"
+                } else {
+                    "Hola PC Link, estoy interesado en el producto \"${product.name}\" (Precio: ${Format.price(product.price)}). ¿Tienen stock disponible?"
+                }
+                val text = java.net.URLEncoder.encode(messageText, "UTF-8")
+                val intent = android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse("https://wa.me/5492235468972?text=$text")
+                )
+                context.startActivity(intent)
+            }
         )
     }
 }
@@ -311,6 +337,8 @@ private fun ImageGallery(
             AsyncImage(
                 model = images.getOrNull(idx),
                 contentDescription = null,
+                placeholder = painterResource(com.pclink.app.R.drawable.brand_p_mark),
+                error = painterResource(com.pclink.app.R.drawable.brand_p_mark),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
@@ -517,6 +545,8 @@ private fun BuyActionBar(
     onAddToCart: () -> Unit,
     onBuyNow: () -> Unit,
     isAdded: Boolean,
+    price: Double,
+    onConsultWhatsApp: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -527,12 +557,32 @@ private fun BuyActionBar(
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 16.dp
     ) {
-        Row(
-            modifier = Modifier
-                .padding(10.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        if (price <= 0) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .padding(10.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable { onConsultWhatsApp() },
+                color = PriceGreen,
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        "Consultar precio por WhatsApp",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold),
+                        color = Color.White
+                    )
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .padding(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
             Surface(
                 modifier = Modifier
                     .weight(1f)
@@ -582,6 +632,7 @@ private fun BuyActionBar(
                         color = Color.White
                     )
                 }
+            }
             }
         }
     }

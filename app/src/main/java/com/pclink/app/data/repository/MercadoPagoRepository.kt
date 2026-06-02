@@ -10,7 +10,7 @@ import javax.inject.Singleton
 class MercadoPagoRepository @Inject constructor() {
     private val functions = FirebaseFunctions.getInstance("us-central1") // Ajusta la región si es necesario
 
-    suspend fun createPreference(items: List<CartItem>, shippingCost: Double): String? {
+    suspend fun createPreference(items: List<CartItem>, shippingCost: Double, orderId: String): String? {
         val data = hashMapOf(
             "items" to items.map { 
                 hashMapOf(
@@ -18,7 +18,8 @@ class MercadoPagoRepository @Inject constructor() {
                     "quantity" to it.quantity
                 )
             },
-            "shippingCost" to shippingCost
+            "shippingCost" to shippingCost,
+            "orderId" to orderId
         )
 
         return try {

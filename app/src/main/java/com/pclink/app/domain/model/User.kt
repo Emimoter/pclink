@@ -9,7 +9,8 @@ data class User(
     val addresses: List<Address> = emptyList(),
     val paymentMethods: List<PaymentMethod> = emptyList(),
     val memberSince: Long = System.currentTimeMillis(),
-    val tier: MembershipTier = MembershipTier.STANDARD
+    val tier: MembershipTier = MembershipTier.STANDARD,
+    val isEmailVerified: Boolean = false
 )
 
 enum class MembershipTier(val label: String) {

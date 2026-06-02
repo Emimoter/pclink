@@ -32,7 +32,8 @@ class UserRepository @Inject constructor() {
                     id = firebaseUser.uid,
                     name = firebaseUser.displayName ?: firebaseUser.email?.substringBefore("@") ?: "Usuario",
                     email = firebaseUser.email ?: "",
-                    tier = MembershipTier.STANDARD
+                    tier = MembershipTier.STANDARD,
+                    isEmailVerified = firebaseUser.isEmailVerified
                 )
             } else {
                 _user.value = GUEST
@@ -41,6 +42,28 @@ class UserRepository @Inject constructor() {
     }
 
     val isLoggedIn: Boolean get() = _user.value.id != GUEST.id
+
+    suspend fun reloadUser(): Result<Boolean> {
+        return try {
+            val firebaseUser = auth.currentUser ?: throw Exception("No hay usuario autenticado")
+            firebaseUser.reload().await()
+            val verified = firebaseUser.isEmailVerified
+            _user.value = _user.value.copy(isEmailVerified = verified)
+            Result.success(verified)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun sendVerificationEmail(): Result<Unit> {
+        return try {
+            val firebaseUser = auth.currentUser ?: throw Exception("No hay usuario autenticado")
+            firebaseUser.sendEmailVerification().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     suspend fun signIn(email: String, password: String): Result<User> {
         if (email.isBlank() || password.length < 4) {
@@ -54,7 +77,8 @@ class UserRepository @Inject constructor() {
                 id = firebaseUser.uid,
                 name = firebaseUser.displayName ?: email.substringBefore("@"),
                 email = email,
-                tier = MembershipTier.STANDARD
+                tier = MembershipTier.STANDARD,
+                isEmailVerified = firebaseUser.isEmailVerified
             )
             _user.value = u
             Result.success(u)
@@ -73,7 +97,8 @@ class UserRepository @Inject constructor() {
                 id = firebaseUser.uid,
                 name = firebaseUser.displayName ?: "Usuario Google",
                 email = firebaseUser.email ?: "",
-                tier = MembershipTier.GAMER
+                tier = MembershipTier.GAMER,
+                isEmailVerified = firebaseUser.isEmailVerified
             )
             _user.value = u
             Result.success(u)
@@ -96,11 +121,17 @@ class UserRepository @Inject constructor() {
             }
             firebaseUser.updateProfile(profileUpdates).await()
 
+            // Enviar email de verificación
+            try {
+                firebaseUser.sendEmailVerification().await()
+            } catch (_: Exception) {}
+
             val u = User(
                 id = firebaseUser.uid,
                 name = name,
                 email = email,
-                tier = MembershipTier.STANDARD
+                tier = MembershipTier.STANDARD,
+                isEmailVerified = firebaseUser.isEmailVerified
             )
             _user.value = u
             Result.success(u)

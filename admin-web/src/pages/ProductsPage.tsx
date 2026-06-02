@@ -93,6 +93,50 @@ export function ProductsPage() {
     }
   }
 
+  const handleBulkSearchImages = async () => {
+    if (selectedIds.size === 0) return
+
+    if (!confirm(`¿Estás seguro que querés buscar fotos de internet para los ${selectedIds.size} productos seleccionados de forma automática?`)) {
+      return
+    }
+
+    setBulkActionLoading(true)
+    setBatchProgress(0)
+
+    try {
+      const searchFunc = httpsCallable<{ query: string }, { urls: string[] }>(getFunctionsInstance(), 'searchProductImages')
+      const idsArray = Array.from(selectedIds)
+
+      for (let i = 0; i < idsArray.length; i++) {
+        const id = idsArray[i]
+        const product = products.find(p => p.id === id)
+        if (!product) continue
+
+        try {
+          const queryStr = `${product.brand} ${product.name} ${product.model} png`
+          const res = await searchFunc({ query: queryStr })
+          
+          if (res.data?.urls && res.data.urls.length > 0) {
+            const firstUrl = res.data.urls[0]
+            await updateProductImageUrls(getDb(), product.id, [firstUrl])
+          }
+        } catch (err) {
+          console.error(`Error searching image for product ${product.id}:`, err)
+        }
+
+        setBatchProgress(i + 1)
+        // Retardo prudente entre llamados de 300ms para evitar rate limiting
+        await new Promise(resolve => setTimeout(resolve, 300))
+      }
+    } catch (err: any) {
+      alert(`Error en el procesamiento por lote: ${err.message}`)
+    } finally {
+      setBulkActionLoading(false)
+      setBatchProgress(0)
+      setSelectedIds(new Set())
+    }
+  }
+
   const handleDeleteZeroPriceProducts = async () => {
     const zeroPriceProducts = products.filter(p => p.price === 0)
     if (zeroPriceProducts.length === 0) {
@@ -184,28 +228,26 @@ export function ProductsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          {missingCount > 0 && (
-            <motion.button
-              type="button"
-              disabled={processingBatch}
-              onClick={handleBatchSearchImages}
-              className="flex items-center gap-2 rounded-xl border border-pclink-cyan/35 bg-pclink-cyan/10 px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(0,188,212,0.1)] hover:bg-pclink-cyan/25 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              {processingBatch ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin text-pclink-cyan" />
-                  <span>Buscando {batchProgress}/{missingCount}...</span>
-                </>
-              ) : (
-                <>
-                  <Wand2 className="h-4 w-4 text-pclink-cyan" />
-                  <span>Autobuscar {missingCount} fotos</span>
-                </>
-              )}
-            </motion.button>
-          )}
+          <motion.button
+            type="button"
+            disabled={processingBatch || missingCount === 0}
+            onClick={handleBatchSearchImages}
+            className="flex items-center gap-2 rounded-xl border border-pclink-cyan/35 bg-pclink-cyan/10 px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(0,188,212,0.1)] hover:bg-pclink-cyan/25 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            whileHover={missingCount > 0 && !processingBatch ? { scale: 1.02 } : {}}
+            whileTap={missingCount > 0 && !processingBatch ? { scale: 0.98 } : {}}
+          >
+            {processingBatch ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin text-pclink-cyan" />
+                <span>Buscando {batchProgress}/{missingCount}...</span>
+              </>
+            ) : (
+              <>
+                <Wand2 className="h-4 w-4 text-pclink-cyan" />
+                <span>Autobuscar {missingCount} {missingCount === 1 ? 'foto' : 'fotos'}</span>
+              </>
+            )}
+          </motion.button>
 
           <motion.button
             type="button"
@@ -323,6 +365,24 @@ export function ProductsPage() {
               </button>
               <button disabled={bulkActionLoading} onClick={() => handleBulkFlag('isFeatured', true)} className="flex items-center gap-1 rounded-lg bg-yellow-500/20 px-3 py-1.5 text-xs font-bold text-yellow-400 hover:bg-yellow-500/30">
                 <Star className="h-3.5 w-3.5" /> + Destacar
+              </button>
+
+              <button 
+                disabled={bulkActionLoading} 
+                onClick={handleBulkSearchImages} 
+                className="flex items-center gap-1 rounded-lg border border-pclink-cyan/40 bg-pclink-cyan/10 px-3 py-1.5 text-xs font-bold text-white hover:bg-pclink-cyan/20 disabled:opacity-50"
+              >
+                {bulkActionLoading ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-pclink-cyan" />
+                    <span>Buscando ({batchProgress}/{selectedIds.size})...</span>
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="h-3.5 w-3.5 text-pclink-cyan" />
+                    <span>Autobuscar fotos</span>
+                  </>
+                )}
               </button>
               
               <button disabled={bulkActionLoading} onClick={handleBulkDelete} className="ml-4 flex items-center gap-1 rounded-lg border border-pclink-error/40 bg-pclink-error/10 px-3 py-1.5 text-xs font-bold text-pclink-error hover:bg-pclink-error/20">

@@ -48,7 +48,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import coil.compose.AsyncImage
+import java.net.URLEncoder
 import com.pclink.app.domain.model.Product
 import com.pclink.app.ui.theme.PClinkBlack
 import com.pclink.app.ui.theme.PClinkBorder
@@ -92,6 +97,8 @@ fun ProductCard(
                 AsyncImage(
                     model = product.images.firstOrNull(),
                     contentDescription = product.name,
+                    placeholder = painterResource(com.pclink.app.R.drawable.brand_p_mark),
+                    error = painterResource(com.pclink.app.R.drawable.brand_p_mark),
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(8.dp)
@@ -167,17 +174,25 @@ fun ProductCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Text(
-                    text = Format.price(product.price),
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = Format.installments(product.price),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = PriceGreen
-                )
+                if (product.price <= 0) {
+                    Text(
+                        text = "Precio a consultar",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = PClinkCyan
+                    )
+                } else {
+                    Text(
+                        text = Format.price(product.price),
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = Format.installments(product.price),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = PriceGreen
+                    )
+                }
 
                 if (product.freeShipping) {
                     Spacer(Modifier.height(6.dp))
@@ -199,7 +214,33 @@ fun ProductCard(
 
                 if (showAddToCart) {
                     Spacer(Modifier.height(10.dp))
-                    AddToCartChip(onClick = onAddToCart)
+                    if (product.price <= 0) {
+                        val context = LocalContext.current
+                        AddToCartChip(
+                            text = "Consultar",
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.FavoriteBorder,
+                                    contentDescription = null,
+                                    tint = PriceGreen,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            onClick = {
+                                val text = URLEncoder.encode(
+                                    "Hola PC Link, me interesa consultar el precio de: ${product.name} (Código: ${product.id})",
+                                    "UTF-8"
+                                )
+                                val intent = Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse("https://wa.me/5492235468972?text=$text")
+                                )
+                                context.startActivity(intent)
+                            }
+                        )
+                    } else {
+                        AddToCartChip(onClick = onAddToCart)
+                    }
                 }
             }
         }
@@ -251,7 +292,18 @@ private fun FavoriteIcon(
 }
 
 @Composable
-private fun AddToCartChip(onClick: () -> Unit) {
+private fun AddToCartChip(
+    text: String = "Agregar",
+    icon: @Composable () -> Unit = {
+        Icon(
+            Icons.Outlined.AddShoppingCart,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(16.dp)
+        )
+    },
+    onClick: () -> Unit
+) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -267,15 +319,10 @@ private fun AddToCartChip(onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
-            Icon(
-                Icons.Outlined.AddShoppingCart,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(16.dp)
-            )
+            icon()
             Spacer(Modifier.width(6.dp))
             Text(
-                "Agregar",
+                text,
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -310,6 +357,8 @@ fun CompactProductCard(
                 AsyncImage(
                     model = product.images.firstOrNull(),
                     contentDescription = product.name,
+                    placeholder = painterResource(com.pclink.app.R.drawable.brand_p_mark),
+                    error = painterResource(com.pclink.app.R.drawable.brand_p_mark),
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(8.dp)
@@ -344,10 +393,18 @@ fun CompactProductCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(6.dp))
-                Text(
-                    text = Format.price(product.price),
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
-                )
+                if (product.price <= 0) {
+                    Text(
+                        text = "Consultar",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                        color = PClinkCyan
+                    )
+                } else {
+                    Text(
+                        text = Format.price(product.price),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                    )
+                }
                 if (product.freeShipping) {
                     Text(
                         text = "Envío gratis",

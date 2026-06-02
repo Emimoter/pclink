@@ -48,21 +48,31 @@ export function AppShell() {
 
   useEffect(() => {
     const db = getDb()
-    const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(1))
+    const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(20))
     
-    // Use a flag to skip the initial load of existing orders and only notify for new ones
+    const notifiedIds = new Set<string>()
     let isInitial = true
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (isInitial) {
         isInitial = false
+        snapshot.docs.forEach((doc) => {
+          const data = doc.data()
+          if (data.status !== 'PENDING' && data.status !== 'CANCELLED') {
+            notifiedIds.add(doc.id)
+          }
+        })
         return
       }
       snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added') {
+        if (change.type === 'added' || change.type === 'modified') {
           const orderData = { id: change.doc.id, ...change.doc.data() } as any
-          setNewOrder(orderData)
-          playNotificationSound()
+          const isPaid = orderData.status !== 'PENDING' && orderData.status !== 'CANCELLED'
+          if (isPaid && !notifiedIds.has(orderData.id)) {
+            notifiedIds.add(orderData.id)
+            setNewOrder(orderData)
+            playNotificationSound()
+          }
         }
       })
     }, (error) => {

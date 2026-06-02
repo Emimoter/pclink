@@ -20,6 +20,7 @@ export interface Product {
   price: number
   stock: number
   images: string[]
+  description?: string
   updatedAt?: number
   [key: string]: any
 }
@@ -63,6 +64,18 @@ export async function updateProductCategory(
   const productRef = doc(db, 'products', productId)
   await updateDoc(productRef, {
     category,
+    updatedAt: Date.now()
+  })
+}
+
+export async function updateProductDescription(
+  db: Firestore,
+  productId: string,
+  description: string
+): Promise<void> {
+  const productRef = doc(db, 'products', productId)
+  await updateDoc(productRef, {
+    description,
     updatedAt: Date.now()
   })
 }

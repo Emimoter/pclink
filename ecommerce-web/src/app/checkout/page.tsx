@@ -11,6 +11,35 @@ import { Loader2, CreditCard, Landmark, Truck, User, MapPin, Phone, Mail } from 
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
 
+function isValidArgentinePhone(phone: string): boolean {
+  if (!phone) return false;
+  const digits = phone.replace(/\D/g, "");
+  let national = digits;
+  if (digits.startsWith("0054")) {
+    national = digits.substring(4);
+  } else if (digits.startsWith("54")) {
+    national = digits.substring(2);
+  }
+  if (national.startsWith("9") && (national.length === 11 || national.length === 13)) {
+    national = national.substring(1);
+  }
+  if (national.startsWith("0")) {
+    national = national.substring(1);
+  }
+  if (national.length === 12) {
+    if (national.startsWith("1115")) {
+      national = "11" + national.substring(4);
+    } else if (national.substring(3, 5) === "15") {
+      national = national.substring(0, 3) + national.substring(5);
+    } else if (national.substring(4, 6) === "15") {
+      national = national.substring(0, 4) + national.substring(6);
+    }
+  }
+  if (national.length !== 10) return false;
+  const firstChar = national[0];
+  return firstChar === "1" || firstChar === "2" || firstChar === "3";
+}
+
 interface AddressData {
   id: string;
   label: string;
@@ -48,6 +77,52 @@ function CheckoutForm() {
   
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  
+  const [resending, setResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+  const [checking, setChecking] = useState(false);
+
+  // Enforce Login before checkout
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/auth?redirect=/checkout");
+    }
+  }, [user, authLoading, router]);
+
+  const handleResendEmail = async () => {
+    if (!user) return;
+    setResending(true);
+    setErrorMsg("");
+    try {
+      const { sendEmailVerification } = await import("firebase/auth");
+      await sendEmailVerification(user);
+      setResendSuccess(true);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg("Error al re-enviar el correo: " + err.message);
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const handleCheckVerification = async () => {
+    if (!user) return;
+    setChecking(true);
+    setErrorMsg("");
+    try {
+      await user.reload();
+      if (user.emailVerified) {
+        window.location.reload();
+      } else {
+        setErrorMsg("Tu correo aún figura como no verificado.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg("Error al comprobar verificación: " + err.message);
+    } finally {
+      setChecking(false);
+    }
+  };
 
   // Saved addresses from Firestore
   const [savedAddresses, setSavedAddresses] = useState<AddressData[]>([]);
@@ -142,6 +217,18 @@ function CheckoutForm() {
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (items.length === 0) return;
+    if (!user) {
+      setErrorMsg("Debes iniciar sesión para realizar compras.");
+      return;
+    }
+    if (!user.emailVerified) {
+      setErrorMsg("Debes verificar tu correo electrónico para poder comprar.");
+      return;
+    }
+    if (shippingMethod !== "pickup" && !isValidArgentinePhone(phone)) {
+      setErrorMsg("Por favor, ingresá un teléfono de contacto de Argentina válido (mínimo 10 dígitos, ej: 2235407787).");
+      return;
+    }
     setSubmitting(true);
     setErrorMsg("");
 
@@ -227,6 +314,7 @@ function CheckoutForm() {
           })),
           shippingCost: shippingCost,
           email: email,
+          orderId: orderId,
           backUrls: {
             success: `${baseUrl}/checkout/success?orderId=${orderId}&status=approved`,
             failure: `${baseUrl}/checkout/success?orderId=${orderId}&status=failure`,
@@ -252,7 +340,7 @@ function CheckoutForm() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || !user) {
     return (
       <div className="flex items-center justify-center min-h-[70vh]">
         <Loader2 className="w-10 h-10 text-accent animate-spin" />
@@ -282,6 +370,35 @@ function CheckoutForm() {
   return (
     <div className="container mx-auto px-4 py-12 max-w-7xl">
       <h1 className="text-3xl lg:text-4xl font-bold text-primary mb-12 tracking-tight">Finalizar Compra</h1>
+
+      {!user.emailVerified && (
+        <div className="p-6 bg-amber-50 border border-amber-200 rounded-3xl mb-8">
+          <h3 className="text-lg font-bold text-amber-800 mb-2 flex items-center gap-2">
+            ⚠️ Verifica tu dirección de correo electrónico
+          </h3>
+          <p className="text-sm text-amber-700 mb-4">
+            Te enviamos un correo electrónico de verificación a <strong>{user.email}</strong>. Debes hacer clic en el enlace de verificación para poder realizar compras.
+          </p>
+          <div className="flex gap-4">
+            <button
+              type="button"
+              disabled={checking}
+              onClick={handleCheckVerification}
+              className="px-4 py-2 bg-accent hover:bg-accent/90 text-white font-bold text-sm rounded-xl transition-all disabled:opacity-50"
+            >
+              {checking ? "Comprobando..." : "Ya verifiqué"}
+            </button>
+            <button
+              type="button"
+              disabled={resending}
+              onClick={handleResendEmail}
+              className="px-4 py-2 border border-accent text-accent hover:bg-accent/5 font-bold text-sm rounded-xl transition-all disabled:opacity-50"
+            >
+              {resendSuccess ? "Re-enviado ✓" : resending ? "Re-enviando..." : "Re-enviar email"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {errorMsg && (
         <div className="p-4 bg-red-50 border border-red-200 text-red-600 font-semibold rounded-xl mb-8">
@@ -583,7 +700,7 @@ function CheckoutForm() {
             </span>
           </div>
 
-          <Button type="submit" disabled={submitting} className="w-full rounded-xl py-6 flex items-center justify-center gap-2">
+          <Button type="submit" disabled={submitting || !user.emailVerified} className="w-full rounded-xl py-6 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
             {submitting ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (

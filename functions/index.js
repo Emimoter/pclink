@@ -1,17 +1,16 @@
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
-const { MercadoPagoConfig, Preference } = require("mercadopago");
+const { MercadoPagoConfig, Preference, Payment } = require("mercadopago");
 
 admin.initializeApp();
 
 const mpAccessToken = defineSecret("MERCADOPAGO_ACCESS_TOKEN");
 
 exports.createPreference = onCall({ secrets: [mpAccessToken] }, async (request) => {
-    // 1. Validar autenticación
-    if (!request.auth) {
-        throw new HttpsError("unauthenticated", "Debes iniciar sesión para realizar un pago.");
-    }
+    // 1. Obtener datos del usuario (autenticado o invitado)
+    const userId = request.auth ? request.auth.uid : "guest";
+    const email = request.auth ? request.auth.token.email : (request.data.email || "guest@pclink.com");
 
     const tokenValue = mpAccessToken.value();
     if (!tokenValue) {
@@ -23,7 +22,7 @@ exports.createPreference = onCall({ secrets: [mpAccessToken] }, async (request) 
         options: { timeout: 5000 }
     });
 
-    const { items, shippingCost = 0 } = request.data;
+    const { items, shippingCost = 0, backUrls, orderId } = request.data;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
         throw new HttpsError("invalid-argument", "El carrito está vacío.");
@@ -68,16 +67,17 @@ exports.createPreference = onCall({ secrets: [mpAccessToken] }, async (request) 
             body: {
                 items: lineItems,
                 payer: {
-                    email: request.auth.token.email
+                    email: email
                 },
-                back_urls: {
+                back_urls: backUrls || {
                     success: "pclink://checkout/success",
                     failure: "pclink://checkout/failure",
                     pending: "pclink://checkout/pending"
                 },
                 auto_return: "approved",
                 statement_descriptor: "PCLINK APP",
-                external_reference: `ORDER-${Date.now()}-${request.auth.uid}`
+                external_reference: orderId || `ORDER-${Date.now()}-${userId}`,
+                notification_url: "https://us-central1-pclink-f6e0d.cloudfunctions.net/mpWebhook"
             }
         });
 
@@ -141,6 +141,38 @@ exports.searchProductImages = onCall(async (request) => {
     } catch (error) {
         console.error("Error in searchProductImages function:", error);
         throw new HttpsError("internal", error.message || "Error al realizar la búsqueda de imágenes.");
+    }
+});
+
+exports.mpWebhook = onRequest({ secrets: [mpAccessToken] }, async (req, res) => {
+    try {
+        // En algunas notificaciones el body viene como query params, pero generalmente es body
+        const type = req.body?.type || req.query?.type;
+        const dataId = req.body?.data?.id || req.query?.["data.id"];
+        
+        if (type === "payment" && dataId) {
+            const tokenValue = mpAccessToken.value();
+            const client = new MercadoPagoConfig({ accessToken: tokenValue, options: { timeout: 5000 } });
+            const paymentClient = new Payment(client);
+            
+            const paymentInfo = await paymentClient.get({ id: dataId });
+            
+            if (paymentInfo.status === "approved" && paymentInfo.external_reference) {
+                const orderId = paymentInfo.external_reference;
+                
+                // Actualizar la orden en Firestore
+                await admin.firestore().collection("orders").doc(orderId).update({
+                    status: "PAID",
+                    [`statusHistory.PAID`]: Date.now(),
+                    paymentId: paymentInfo.id
+                });
+            }
+        }
+        res.status(200).send("OK");
+    } catch (error) {
+        console.error("Error webhook MP:", error);
+        // Respondemos 200 para que MP no reintente infinitamente si es un error parseando algo
+        res.status(200).send("Error interno gestionado");
     }
 });
 
