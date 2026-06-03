@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserStore } from "@/store/useUserStore";
 import { db, auth } from "@/lib/firebase/config";
@@ -27,6 +27,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { motion, AnimatePresence } from "framer-motion";
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 function isValidMarDelPlataPhone(phone: string): boolean {
   if (!phone) return false;
   const digits = phone.replace(/\D/g, "");
@@ -91,6 +96,8 @@ export default function ProfilePage() {
   const { user, loading: authLoading } = useAuth();
   const { savedCoupons, pointsSpent, removeSavedCoupon } = useUserStore();
   const router = useRouter();
+
+  const addressInputRef = useRef<HTMLInputElement>(null);
 
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<"orders" | "addresses" | "coupons">("orders");
@@ -207,6 +214,101 @@ export default function ProfilePage() {
       fetchAddresses();
     }
   }, [user]);
+
+  useEffect(() => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!apiKey || !showAddressForm) return;
+
+    let autocompleteInstance: any = null;
+
+    const initAutocomplete = () => {
+      if (!addressInputRef.current || !window.google) return;
+      
+      const mdpBounds = {
+        north: -37.9,
+        south: -38.15,
+        east: -57.45,
+        west: -57.65,
+      };
+
+      const autocomplete = new window.google.maps.places.Autocomplete(addressInputRef.current, {
+        componentRestrictions: { country: "ar" },
+        fields: ["address_components", "geometry", "formatted_address"],
+        types: ["address"],
+        bounds: new window.google.maps.LatLngBounds(
+          new window.google.maps.LatLng(mdpBounds.south, mdpBounds.west),
+          new window.google.maps.LatLng(mdpBounds.north, mdpBounds.east)
+        ),
+        strictBounds: false
+      });
+
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        if (!place || !place.address_components) return;
+
+        let isMdp = false;
+        let streetName = "";
+        let streetNumber = "";
+
+        for (const component of place.address_components) {
+          const types = component.types;
+          const name = component.long_name;
+          const nameLower = name.toLowerCase();
+
+          if (types.includes("route")) {
+            streetName = name;
+          }
+          if (types.includes("street_number")) {
+            streetNumber = name;
+          }
+          if (
+            (types.includes("locality") || types.includes("administrative_area_level_2") || types.includes("sublocality")) &&
+            (nameLower.includes("mar del plata") || nameLower.includes("general pueyrredón") || nameLower.includes("general pueyrredon"))
+          ) {
+            isMdp = true;
+          }
+        }
+
+        if (!isMdp) {
+          setAddressError("Actualmente solo realizamos envíos dentro de Mar del Plata.");
+        } else {
+          setAddressError("");
+          setStreet(streetName || place.formatted_address || "");
+          if (streetNumber) {
+            setStreetNumber(streetNumber);
+          }
+        }
+      });
+
+      autocompleteInstance = autocomplete;
+    };
+
+    if (window.google && window.google.maps && window.google.maps.places) {
+      initAutocomplete();
+    } else {
+      const existingScript = document.getElementById("google-maps-places-script");
+      if (!existingScript) {
+        const script = document.createElement("script");
+        script.id = "google-maps-places-script";
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&language=es&region=AR`;
+        script.async = true;
+        script.onload = initAutocomplete;
+        document.body.appendChild(script);
+      } else {
+        const oldOnload = (existingScript as any).onload;
+        (existingScript as any).onload = () => {
+          if (oldOnload) oldOnload();
+          initAutocomplete();
+        };
+      }
+    }
+
+    return () => {
+      if (autocompleteInstance && window.google) {
+        window.google.maps.event.clearInstanceListeners(autocompleteInstance);
+      }
+    };
+  }, [showAddressForm]);
 
   // Calculate Points & Loyalty Tier
   const totalSpent = orders.reduce((sum, order) => sum + order.total, 0);
@@ -617,6 +719,11 @@ export default function ProfilePage() {
                         </div>
                       )}
 
+                      <div className="p-4 bg-accent/5 border border-accent/10 rounded-2xl flex items-center gap-3 text-accent text-sm font-semibold mb-2">
+                        <span className="text-lg">🚚</span>
+                        <span>Por el momento realizamos envíos únicamente dentro de Mar del Plata y zonas cercanas.</span>
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Label */}
                         <div className="space-y-1.5">
@@ -659,11 +766,12 @@ export default function ProfilePage() {
 
                         {/* Street */}
                         <div className="space-y-1.5">
-                          <label className="text-xs font-bold text-primary uppercase">Calle</label>
+                          <label className="text-xs font-bold text-primary uppercase">Dirección (Calle)</label>
                           <input
                             type="text"
                             value={street}
                             onChange={(e) => setStreet(e.target.value)}
+                            ref={addressInputRef}
                             required
                             placeholder="Ej. Luro"
                             className="w-full text-sm bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-accent text-primary"
@@ -695,41 +803,7 @@ export default function ProfilePage() {
                           />
                         </div>
 
-                        {/* City */}
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-bold text-primary uppercase">Ciudad</label>
-                          <input
-                            type="text"
-                            value={city}
-                            onChange={(e) => setCity(e.target.value)}
-                            required
-                            className="w-full text-sm bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-accent text-primary"
-                          />
-                        </div>
 
-                        {/* State */}
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-bold text-primary uppercase">Provincia</label>
-                          <input
-                            type="text"
-                            value={stateName}
-                            onChange={(e) => setStateName(e.target.value)}
-                            required
-                            className="w-full text-sm bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-accent text-primary"
-                          />
-                        </div>
-
-                        {/* Zip */}
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-bold text-primary uppercase">Código Postal</label>
-                          <input
-                            type="text"
-                            value={zipCode}
-                            onChange={(e) => setZipCode(e.target.value)}
-                            required
-                            className="w-full text-sm bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-accent text-primary"
-                          />
-                        </div>
                       </div>
 
                       {/* Default address toggle */}

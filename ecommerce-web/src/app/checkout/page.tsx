@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useRef } from "react";
 import { useCartStore } from "@/store/useCartStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,6 +10,12 @@ import { useRouter } from "next/navigation";
 import { Loader2, CreditCard, Landmark, Truck, User, MapPin, Phone, Mail } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
+
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 
 function isValidMarDelPlataPhone(phone: string): boolean {
   if (!phone) return false;
@@ -58,6 +64,8 @@ function CheckoutForm() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
+  const addressInputRef = useRef<HTMLInputElement>(null);
+
   // Form states
   const [recipient, setRecipient] = useState("");
   const [email, setEmail] = useState("");
@@ -79,6 +87,101 @@ function CheckoutForm() {
   const [resending, setResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
   const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) return;
+
+    let autocompleteInstance: any = null;
+
+    const initAutocomplete = () => {
+      if (!addressInputRef.current || !window.google) return;
+      
+      const mdpBounds = {
+        north: -37.9,
+        south: -38.15,
+        east: -57.45,
+        west: -57.65,
+      };
+
+      const autocomplete = new window.google.maps.places.Autocomplete(addressInputRef.current, {
+        componentRestrictions: { country: "ar" },
+        fields: ["address_components", "geometry", "formatted_address"],
+        types: ["address"],
+        bounds: new window.google.maps.LatLngBounds(
+          new window.google.maps.LatLng(mdpBounds.south, mdpBounds.west),
+          new window.google.maps.LatLng(mdpBounds.north, mdpBounds.east)
+        ),
+        strictBounds: false
+      });
+
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        if (!place || !place.address_components) return;
+
+        let isMdp = false;
+        let streetName = "";
+        let streetNumber = "";
+
+        for (const component of place.address_components) {
+          const types = component.types;
+          const name = component.long_name;
+          const nameLower = name.toLowerCase();
+
+          if (types.includes("route")) {
+            streetName = name;
+          }
+          if (types.includes("street_number")) {
+            streetNumber = name;
+          }
+          if (
+            (types.includes("locality") || types.includes("administrative_area_level_2") || types.includes("sublocality")) &&
+            (nameLower.includes("mar del plata") || nameLower.includes("general pueyrredón") || nameLower.includes("general pueyrredon"))
+          ) {
+            isMdp = true;
+          }
+        }
+
+        if (!isMdp) {
+          setErrorMsg("Actualmente solo realizamos envíos dentro de Mar del Plata.");
+        } else {
+          setErrorMsg("");
+          setStreet(streetName || place.formatted_address || "");
+          if (streetNumber) {
+            setNumber(streetNumber);
+          }
+        }
+      });
+
+      autocompleteInstance = autocomplete;
+    };
+
+    if (window.google && window.google.maps && window.google.maps.places) {
+      initAutocomplete();
+    } else {
+      const existingScript = document.getElementById("google-maps-places-script");
+      if (!existingScript) {
+        const script = document.createElement("script");
+        script.id = "google-maps-places-script";
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&language=es&region=AR`;
+        script.async = true;
+        script.onload = initAutocomplete;
+        document.body.appendChild(script);
+      } else {
+        const oldOnload = (existingScript as any).onload;
+        (existingScript as any).onload = () => {
+          if (oldOnload) oldOnload();
+          initAutocomplete();
+        };
+      }
+    }
+
+    return () => {
+      if (autocompleteInstance && window.google) {
+        window.google.maps.event.clearInstanceListeners(autocompleteInstance);
+      }
+    };
+  }, [shippingMethod]);
 
   // Enforce Login before checkout
   useEffect(() => {
@@ -511,10 +614,15 @@ function CheckoutForm() {
           {/* Delivery Address (only if delivery) */}
           {shippingMethod !== "pickup" && (
             <div className="bg-surface border border-border rounded-3xl p-6 md:p-8 space-y-5">
-              <h3 className="text-lg font-bold text-primary mb-6 flex items-center gap-2">
+              <h3 className="text-lg font-bold text-primary mb-2 flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-accent" />
                 Dirección de Envío
               </h3>
+
+              <div className="p-4 bg-accent/5 border border-accent/10 rounded-2xl flex items-center gap-3 text-accent text-sm font-semibold mb-4">
+                <span className="text-lg">🚚</span>
+                <span>Por el momento realizamos envíos únicamente dentro de Mar del Plata y zonas cercanas.</span>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-6">
                 {user && savedAddresses.length > 0 && (
@@ -543,13 +651,14 @@ function CheckoutForm() {
 
                 <div className="sm:col-span-8">
                   <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">
-                    Calle
+                    Dirección (Calle)
                   </label>
                   <input
                     type="text"
                     required
                     value={street}
                     onChange={(e) => setStreet(e.target.value)}
+                    ref={addressInputRef}
                     className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
                     placeholder="San Martín"
                   />
@@ -596,44 +705,6 @@ function CheckoutForm() {
                   />
                 </div>
 
-                <div className="sm:col-span-5">
-                  <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">
-                    Ciudad
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
-                  />
-                </div>
-
-                <div className="sm:col-span-4">
-                  <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">
-                    Provincia
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
-                  />
-                </div>
-
-                <div className="sm:col-span-3">
-                  <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">
-                    C. Postal
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={zip}
-                    onChange={(e) => setZip(e.target.value)}
-                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-mono"
-                  />
-                </div>
               </div>
             </div>
           )}
