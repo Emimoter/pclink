@@ -1,10 +1,10 @@
 "use client";
 
 import { useRef } from "react";
-import { motion } from "framer-motion";
-import { ShieldCheck, Cpu, MapPin, ArrowRight, ArrowLeft, Printer, RotateCcw, Wrench, Clock, Phone, History, Star } from "lucide-react";
+import { ShieldCheck, Cpu, MapPin, ArrowRight, ArrowLeft, Printer, RotateCcw, Wrench, Clock, Phone, History, Star, Sparkles, Calculator, Compass, Truck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
+import { motion } from "framer-motion";
 
 export default function AboutPage() {
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -19,6 +19,29 @@ export default function AboutPage() {
       });
     }
   };
+
+  const reasons = [
+    {
+      icon: Cpu,
+      title: "Laboratorio de Precisión",
+      desc: "Diagnósticos honestos y reparaciones electrónicas a nivel de componentes con osciloscopios e instrumental avanzado."
+    },
+    {
+      icon: ShieldCheck,
+      title: "Respaldo y Garantía Escrita",
+      desc: "Todas nuestras reparaciones y componentes vendidos cuentan con cobertura formal de garantía para tu total tranquilidad."
+    },
+    {
+      icon: Calculator,
+      title: "Presupuestos sin Sorpresas",
+      desc: "Emitimos el diagnóstico detallado y el valor final. Procedemos únicamente con tu previa validación y confirmación."
+    },
+    {
+      icon: Compass,
+      title: "Atención Técnica Fundadora",
+      desc: "Atendido por sus dueños fundadores desde 1995, asegurando asesoramiento técnico calificado y respuestas claras."
+    }
+  ];
 
   const reviews = [
     {
@@ -60,16 +83,9 @@ export default function AboutPage() {
       name: "Florencia Fortier",
       stars: 5,
       date: "Hace 9 meses",
-      text: "Excelente servicio y rapidez. Instalaron los programas que necesitaba en el día, sin perjudicar mi tiempo de trabajo. Ademas, me asesoraron correctamente. Gracias!👍",
+      text: "Excelente servicio y rapidez. Instalaron los programas que necesitaba en el día, sin perjudicar mi tiempo de trabajo. Ademas, me asesoraron correctamente. Gracias!",
       response: "Hola Florencia muchas gracias por tu reseña !"
     }
-  ];
-
-  const stats = [
-    { label: "Trayectoria", value: "30+ Años" },
-    { label: "Ubicación", value: "Tejedor 554" },
-    { label: "Garantía Técnica", value: "100% Escrita" },
-    { label: "Soporte", value: "Especializado" },
   ];
 
   const services = [
@@ -77,32 +93,39 @@ export default function AboutPage() {
       icon: Wrench,
       title: "Reparación de PC & Notebooks",
       desc: "Servicio técnico integral de hardware a nivel de componentes. Realizamos reballing, reparación de cortocircuitos en placa madre, cambio de pantallas, teclados, bisagras y mantenimiento térmico profundo.",
-      cols: "md:col-span-8",
+      cols: "md:col-span-8"
     },
     {
       icon: Printer,
-      title: "Servicio Técnico de Impresoras",
+      title: "Soporte Técnico de Impresoras",
       desc: "Mantenimiento preventivo y correctivo multimarca (Láser y Sistema Continuo). Solución a fallas mecánicas de arrastre de papel, limpieza de cabezales y calibración de inyectores.",
-      cols: "md:col-span-4",
+      cols: "md:col-span-4"
     },
     {
       icon: Cpu,
       title: "Software & Optimización",
-      desc: "Instalación limpia de sistemas operativos, respaldos preventivos, remoción de troyanos/adware y optimización avanzada del sistema para maximizar la velocidad de trabajo.",
-      cols: "md:col-span-4",
+      desc: "Instalación limpia de sistemas operativos, respaldos preventivos, remoción de software malicioso y optimización avanzada del sistema para maximizar la velocidad de trabajo.",
+      cols: "md:col-span-4"
     },
     {
       icon: RotateCcw,
       title: "Recuperación de Datos",
       desc: "Rescate de información sensible en unidades lógicas y físicas dañadas. Recuperamos archivos de discos rígidos mecánicos (HDD), SSDs, memorias SD y pendrives con sectores corruptos.",
-      cols: "md:col-span-4",
+      cols: "md:col-span-4"
     },
     {
       icon: ShieldCheck,
-      title: "Venta de Hardware e Insumos",
+      title: "Hardware e Insumos",
       desc: "Provisión de componentes seleccionados de última generación, placas de video, microprocesadores, discos de estado sólido y accesorios informáticos con garantía oficial.",
-      cols: "md:col-span-4",
-    },
+      cols: "md:col-span-4"
+    }
+  ];
+
+  const stats = [
+    { label: "Años de Trayectoria", value: "30+" },
+    { label: "Reseñas en Google", value: "84+" },
+    { label: "Equipos Reparados", value: "10K+" },
+    { label: "Garantía Técnica", value: "100%" }
   ];
 
   const containerVariants = {
@@ -128,15 +151,15 @@ export default function AboutPage() {
   } as const;
 
   return (
-    <div className="bg-background min-h-screen pb-20 relative overflow-hidden">
+    <main className="bg-background min-h-screen pb-20 relative overflow-hidden w-full max-w-full">
       {/* Ambient background light blurs */}
-      <div className="absolute top-10 left-0 w-[400px] h-[400px] bg-accent/4 rounded-full blur-[100px] pointer-events-none z-0" />
+      <div className="absolute top-10 left-0 w-[400px] h-[400px] bg-accent/5 rounded-full blur-[100px] pointer-events-none z-0" />
       <div className="absolute top-1/3 right-0 w-[500px] h-[500px] bg-slate-200/20 rounded-full blur-[120px] pointer-events-none z-0" />
 
-      {/* Hero Section - Asymmetric Split Screen */}
-      <section className="relative pt-24 pb-12 z-10">
+      {/* 1. Hero Section - Cinematic Split */}
+      <section className="relative pt-24 pb-16 z-10">
         <div className="container mx-auto px-4 max-w-5xl">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
             {/* Left Content (8 cols) */}
             <div className="md:col-span-8 space-y-6">
               <motion.div
@@ -152,7 +175,7 @@ export default function AboutPage() {
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, delay: 0.1 }}
-                className="text-4xl md:text-5xl lg:text-6xl font-black text-primary tracking-tighter leading-none"
+                className="text-4xl md:text-5xl lg:text-6xl font-black text-primary tracking-tighter leading-none max-w-4xl"
               >
                 Tres Décadas de <br />
                 <span className="text-accent">Evolución Tecnológica</span>
@@ -164,16 +187,37 @@ export default function AboutPage() {
                 transition={{ duration: 0.7, delay: 0.2 }}
                 className="text-muted text-sm md:text-base max-w-xl leading-relaxed font-medium"
               >
-                Más de 30 años liderando el servicio técnico especializado y la provisión de insumos informáticos de alta gama en la Costa Atlántica. Diagnósticos honestos, electrónica de precisión y laboratorio propio.
+                Lideramos el servicio técnico especializado y la provisión de insumos informáticos de alta gama en la Costa Atlántica. Diagnósticos honestos, electrónica de precisión y laboratorio propio.
               </motion.p>
+
+              <motion.div 
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.3 }}
+                className="flex flex-wrap gap-4 pt-2"
+              >
+                <a href="https://wa.me/5492235468972" target="_blank" rel="noopener noreferrer">
+                  <Button className="rounded-full px-6 py-4 text-xs font-bold uppercase tracking-wider h-auto gap-2 group shadow-md">
+                    <span>Contactar por WhatsApp</span>
+                    <span className="w-5 h-5 rounded-full bg-white/15 flex items-center justify-center transition-all group-hover:translate-x-0.5">
+                      <ArrowRight className="w-3 h-3 text-white" />
+                    </span>
+                  </Button>
+                </a>
+                <Link href="/products">
+                  <Button variant="secondary" className="rounded-full px-6 py-4 text-xs font-bold uppercase tracking-wider h-auto border border-border">
+                    Ver Catálogo
+                  </Button>
+                </Link>
+              </motion.div>
             </div>
             
-            {/* Right Brand Badge (4 cols) - Clean, larger, circular brand mark */}
+            {/* Right Brand Badge (4 cols) */}
             <motion.div
               initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.7, delay: 0.15 }}
-              className="md:col-span-4 flex md:justify-end justify-center pt-4 md:pt-2"
+              className="md:col-span-4 flex md:justify-end justify-center pt-4 md:pt-0"
             >
               <div className="relative p-2.5 bg-white rounded-full border border-border shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:scale-[1.03] transition-transform duration-500">
                 <img
@@ -190,117 +234,18 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Stats Bar - Negative Space Layout with divider lines */}
-      <section className="container mx-auto px-4 max-w-5xl z-10 relative mb-16">
-        <div className="border-y border-border py-8 grid grid-cols-2 md:grid-cols-4 gap-y-6 divide-y md:divide-y-0 md:divide-x divide-border">
-          {stats.map((stat, idx) => (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: idx * 0.05 }}
-              key={idx} 
-              className="text-center px-4"
-            >
-              <div className="text-2xl md:text-3xl font-black text-primary font-sans tracking-tight">{stat.value}</div>
-              <div className="text-[9px] text-muted font-bold uppercase tracking-wider mt-1.5">{stat.label}</div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* Schedule, Location & Communication */}
-      <section className="py-20 container mx-auto px-4 max-w-5xl z-10 relative">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-          {/* Card 1: Horarios */}
-          <motion.div 
-            initial={{ opacity: 0, y: 15 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="bg-surface border border-border rounded-3xl p-6 space-y-4 flex flex-col justify-between"
-          >
-            <div className="space-y-3">
-              <div className="w-10 h-10 bg-accent/10 border border-accent/20 rounded-xl flex items-center justify-center text-accent">
-                <Clock className="w-4.5 h-4.5" />
-              </div>
-              <h3 className="text-base font-extrabold text-primary tracking-tight">Horarios de Atención</h3>
-              <div className="space-y-2 text-xs text-muted">
-                <div className="flex justify-between border-b border-border/50 pb-1.5">
-                  <span>Lunes a Viernes (Mañana):</span>
-                  <span className="font-extrabold text-primary font-sans">09:00 a 13:00 hs</span>
-                </div>
-                <div className="flex justify-between border-b border-border/50 pb-1.5">
-                  <span>Lunes a Viernes (Tarde):</span>
-                  <span className="font-extrabold text-primary font-sans">16:00 a 20:00 hs</span>
-                </div>
-                <div className="flex justify-between pb-0.5">
-                  <span>Sábados:</span>
-                  <span className="font-extrabold text-primary font-sans">09:00 a 13:00 hs</span>
-                </div>
-              </div>
-            </div>
-            <p className="text-[9px] text-muted leading-relaxed">
-              * Feriados nacionales el local permanece cerrado. Ante urgencias técnicas sugerimos contacto previo por WhatsApp.
-            </p>
-          </motion.div>
-
-          {/* Card 2: Contacto */}
-          <motion.div 
-            initial={{ opacity: 0, y: 15 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.08 }}
-            className="bg-surface border border-border rounded-3xl p-6 space-y-4 flex flex-col justify-between"
-          >
-            <div className="space-y-3">
-              <div className="w-10 h-10 bg-accent/10 border border-accent/20 rounded-xl flex items-center justify-center text-accent">
-                <Phone className="w-4.5 h-4.5" />
-              </div>
-              <h3 className="text-base font-extrabold text-primary tracking-tight">Canales de Contacto</h3>
-              <div className="space-y-2 text-xs text-muted">
-                <div className="flex justify-between border-b border-border/50 pb-1.5 items-center">
-                  <span>Teléfono Local:</span>
-                  <span className="font-sans font-extrabold text-primary">223 353-3843</span>
-                </div>
-                <div className="flex justify-between border-b border-border/50 pb-1.5 items-center">
-                  <span>WhatsApp de Consulta:</span>
-                  <span className="font-sans font-extrabold text-primary">223 546-8972</span>
-                </div>
-                <div className="flex justify-between pb-0.5 items-center">
-                  <span>Dirección Local:</span>
-                  <span className="font-extrabold text-primary text-right font-sans">Av. Carlos Tejedor 554</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <Link href="/products" className="flex-1">
-                <Button className="w-full rounded-xl py-4 text-xs font-bold uppercase tracking-wider h-auto">
-                  Ver Tienda
-                </Button>
-              </Link>
-              <a href="https://wa.me/5492235468972" target="_blank" rel="noopener noreferrer" className="flex-1">
-                <Button variant="secondary" className="w-full rounded-xl py-4 text-xs font-bold uppercase tracking-wider h-auto gap-1">
-                  WhatsApp <ArrowRight className="w-3.5 h-3.5" />
-                </Button>
-              </a>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Services Grid (Compact Bento Layout) */}
-      <section className="py-20 bg-surface/30 border-y border-border z-10 relative">
+      {/* 2. ¿Por qué elegir PC Link? Section */}
+      <section className="py-24 border-t border-border bg-surface/10 z-10 relative">
         <div className="container mx-auto px-4 max-w-5xl space-y-12">
           <div className="text-center max-w-xl mx-auto space-y-2">
-            <span className="text-[9px] uppercase font-black tracking-widest text-accent font-sans">
-              Especialización técnica
+            <span className="text-[9px] uppercase font-black tracking-widest text-accent font-sans block">
+              Nuestros Valores
             </span>
             <h2 className="text-2xl md:text-3xl font-extrabold text-primary tracking-tight leading-none">
-              Nuestras Soluciones
+              ¿Por qué elegir PC Link?
             </h2>
             <p className="text-muted text-xs">
-              Laboratorio electrónico propio especializado y venta de equipamiento informático con garantía escrita.
+              La tranquilidad de dejar tu equipamiento tecnológico en manos de profesionales capacitados.
             </p>
           </div>
 
@@ -309,22 +254,24 @@ export default function AboutPage() {
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, margin: "-100px" }}
-            className="grid grid-cols-1 md:grid-cols-12 gap-5"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
           >
-            {services.map((service, idx) => (
-              <motion.div 
+            {reasons.map((reason, idx) => (
+              <motion.div
                 variants={itemVariants}
-                key={idx} 
+                key={idx}
                 whileHover={{ y: -4 }}
                 transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className={`${service.cols} bg-background border border-border rounded-3xl p-6 space-y-4 flex flex-col justify-between hover:shadow-[0_12px_30px_rgba(0,0,0,0.015)] hover:border-slate-300 transition-all duration-300`}
+                className="flex-none bg-surface/50 border border-border p-1.5 rounded-[2rem] shadow-[0_4px_20px_rgba(0,0,0,0.005)] hover:shadow-[0_12px_30px_rgba(0,0,0,0.02)] transition-all duration-500"
               >
-                <div className="space-y-3">
-                  <div className="w-10 h-10 bg-accent/10 border border-accent/20 rounded-xl flex items-center justify-center text-accent">
-                    <service.icon className="w-4.5 h-4.5" />
+                <div className="bg-background border border-border/40 p-6 rounded-[calc(2rem-0.375rem)] h-full flex flex-col justify-between space-y-4">
+                  <div className="space-y-3">
+                    <div className="w-10 h-10 bg-accent/10 border border-accent/20 rounded-xl flex items-center justify-center text-accent">
+                      <reason.icon className="w-4.5 h-4.5" />
+                    </div>
+                    <h3 className="text-sm font-extrabold text-primary tracking-tight">{reason.title}</h3>
+                    <p className="text-muted text-[11px] leading-relaxed">{reason.desc}</p>
                   </div>
-                  <h3 className="font-extrabold text-primary text-xs uppercase tracking-wider">{service.title}</h3>
-                  <p className="text-muted text-[11px] leading-relaxed">{service.desc}</p>
                 </div>
               </motion.div>
             ))}
@@ -332,126 +279,16 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* History & Story - Asymmetric Split */}
-      <section className="py-12 container mx-auto px-4 max-w-5xl z-10 relative">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="lg:col-span-7 space-y-6"
-          >
-            <div className="inline-flex items-center gap-1.5 text-accent text-[9px] font-black uppercase tracking-widest font-sans">
-              <History className="w-3.5 h-3.5" /> Nuestra Trayectoria
-            </div>
-            <h2 className="text-2xl md:text-3xl font-extrabold text-primary tracking-tight leading-tight">
-              Desde los microprocesadores clásicos hasta el hardware gamer de última generación.
-            </h2>
-            <div className="space-y-4 text-muted text-xs leading-relaxed max-w-[60ch]">
-              <p>
-                Fundada a comienzos de los años 90 en la ciudad de Mar del Plata, <strong className="text-primary font-bold">PC Link Computación</strong> nació con el firme compromiso de profesionalizar el servicio técnico informático y la venta de insumos en la zona norte de la ciudad.
-              </p>
-              <p>
-                A lo largo de más de <strong className="text-primary font-bold">30 años de trayectoria ininterrumpida</strong>, hemos visto evolucionar la tecnología desde los primeros procesadores de escritorio hasta los setups gamer y de modelado 3D más exigentes del mercado. Esa misma evolución nos ha exigido un constante perfeccionamiento, capacitándonos continuamente y dotando a nuestro laboratorio con herramientas electrónicas de última generación.
-              </p>
-              <p>
-                Hoy, seguimos ubicados en el corazón de la avenida Carlos Tejedor al 554, atendidos por sus propios dueños y técnicos fundadores, asegurando la misma atención honesta, transparente y certificada que nos ha caracterizado por más de tres décadas.
-              </p>
-            </div>
-          </motion.div>
-
-          {/* Elegant Bento Grid of Hardware (No people, compact size, 5 images) */}
-          <div className="lg:col-span-5 flex justify-center lg:justify-end mt-8 lg:mt-0">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="grid grid-cols-2 gap-3 w-full max-w-[320px] p-3 bg-surface/50 border border-border rounded-3xl"
-            >
-              {/* Image 1: GPU close-up (spans 2 columns) */}
-              <motion.div
-                whileHover={{ y: -2, scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="col-span-2 aspect-[16/10] overflow-hidden rounded-2xl border border-border bg-background"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1591488320449-011701bb6704?auto=format&fit=crop&q=80&w=350"
-                  alt="GPU de Alto Rendimiento"
-                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
-                />
-              </motion.div>
-
-              {/* Image 2: Microchips detail */}
-              <motion.div
-                whileHover={{ y: -2, scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="col-span-1 aspect-square overflow-hidden rounded-xl border border-border bg-background"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=250"
-                  alt="Microchips de Precisión"
-                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
-                />
-              </motion.div>
-
-              {/* Image 3: RAM modules */}
-              <motion.div
-                whileHover={{ y: -2, scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="col-span-1 aspect-square overflow-hidden rounded-xl border border-border bg-background"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1562976540-1502c2145186?auto=format&fit=crop&q=80&w=250"
-                  alt="Módulos de Memoria RAM"
-                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
-                />
-              </motion.div>
-
-              {/* Image 4: AIO Cooler */}
-              <motion.div
-                whileHover={{ y: -2, scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="col-span-1 aspect-square overflow-hidden rounded-xl border border-border bg-background"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&q=80&w=250"
-                  alt="Refrigeración Líquida"
-                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
-                />
-              </motion.div>
-
-              {/* Image 5: Mechanical keyboard switches */}
-              <motion.div
-                whileHover={{ y: -2, scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="col-span-1 aspect-square overflow-hidden rounded-xl border border-border bg-background"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?auto=format&fit=crop&q=80&w=250"
-                  alt="Interruptores Mecánicos"
-                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
-                />
-              </motion.div>
-            </motion.div>
-          </div>
-
-        </div>
-      </section>
-
-      {/* Reviews Section */}
-      <section className="py-24 border-t border-border bg-surface/10 z-10 relative">
+      {/* 3. Reviews Section */}
+      <section className="py-24 border-t border-border bg-surface/5 z-10 relative">
         <div className="container mx-auto px-4 max-w-5xl space-y-12">
-          
           {/* Header Row */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="space-y-3">
               <span className="text-[9px] uppercase font-black tracking-widest text-accent font-sans block">
                 Opiniones Reales
               </span>
-              <h2 className="text-3xl md:text-4xl font-extrabold text-primary tracking-tight leading-none">
+              <h2 className="text-2xl md:text-3xl font-extrabold text-primary tracking-tight leading-none">
                 Lo que dicen de nosotros
               </h2>
               <p className="text-muted text-xs max-w-md">
@@ -542,7 +379,7 @@ export default function AboutPage() {
 
                       {/* Review Text */}
                       <p className="text-[11px] leading-relaxed text-muted italic font-medium">
-                        "{rev.text}"
+                        &quot;{rev.text}&quot;
                       </p>
                     </div>
 
@@ -583,9 +420,333 @@ export default function AboutPage() {
               </Button>
             </a>
           </div>
+        </div>
+      </section>
+
+      {/* 4. Nuestra historia Section */}
+      <section className="py-24 container mx-auto px-4 max-w-5xl z-10 relative">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="lg:col-span-7 space-y-6"
+          >
+            <div className="inline-flex items-center gap-1.5 text-accent text-[9px] font-black uppercase tracking-widest font-sans">
+              <History className="w-3.5 h-3.5" /> Nuestra Historia
+            </div>
+            <h2 className="text-2xl md:text-3xl font-extrabold text-primary tracking-tight leading-tight">
+              Desde los microprocesadores clásicos hasta el hardware de última generación
+            </h2>
+            <div className="space-y-4 text-muted text-xs leading-relaxed max-w-[60ch] font-medium">
+              <p>
+                Fundada a comienzos de los años 90 en la ciudad de Mar del Plata, <strong className="text-primary font-bold">PC Link Computación</strong> nació con el firme compromiso de profesionalizar el servicio técnico informático y la venta de insumos en la zona norte de la ciudad.
+              </p>
+              <p>
+                A lo largo de más de <strong className="text-primary font-bold">30 años de trayectoria ininterrumpida</strong>, hemos visto evolucionar la tecnología desde los primeros procesadores de escritorio hasta los setups gamer y de modelado 3D más exigentes del mercado. Esa misma evolución nos ha exigido un constante perfeccionamiento, capacitándonos continuamente y dotando a nuestro laboratorio con herramientas electrónicas de última generación.
+              </p>
+              <p>
+                Hoy, seguimos ubicados en el corazón de la avenida Carlos Tejedor al 554, atendidos por sus propios dueños y técnicos fundadores, asegurando la misma atención honesta, transparente y certificada que nos ha caracterizado por más de tres décadas.
+              </p>
+            </div>
+          </motion.div>
+
+          {/* Elegant Bento Grid of Hardware (No people, compact size, 5 images) */}
+          <div className="lg:col-span-5 flex justify-center lg:justify-end mt-8 lg:mt-0">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="grid grid-cols-2 gap-3 w-full max-w-[320px] p-3 bg-surface/50 border border-border rounded-3xl"
+            >
+              {/* Image 1: GPU close-up (spans 2 columns) */}
+              <motion.div
+                whileHover={{ y: -2, scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                className="col-span-2 aspect-[16/10] overflow-hidden rounded-2xl border border-border bg-background"
+              >
+                <img
+                  src="https://images.unsplash.com/photo-1591488320449-011701bb6704?auto=format&fit=crop&q=80&w=350"
+                  alt="GPU de Alto Rendimiento"
+                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
+                />
+              </motion.div>
+
+              {/* Image 2: Microchips detail */}
+              <motion.div
+                whileHover={{ y: -2, scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                className="col-span-1 aspect-square overflow-hidden rounded-xl border border-border bg-background"
+              >
+                <img
+                  src="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=250"
+                  alt="Microchips de Precision"
+                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
+                />
+              </motion.div>
+
+              {/* Image 3: RAM modules */}
+              <motion.div
+                whileHover={{ y: -2, scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                className="col-span-1 aspect-square overflow-hidden rounded-xl border border-border bg-background"
+              >
+                <img
+                  src="https://images.unsplash.com/photo-1562976540-1502c2145186?auto=format&fit=crop&q=80&w=250"
+                  alt="Modulos de Memoria RAM"
+                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
+                />
+              </motion.div>
+
+              {/* Image 4: AIO Cooler */}
+              <motion.div
+                whileHover={{ y: -2, scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                className="col-span-1 aspect-square overflow-hidden rounded-xl border border-border bg-background"
+              >
+                <img
+                  src="https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&q=80&w=250"
+                  alt="Refrigeracion Liquida"
+                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
+                />
+              </motion.div>
+
+              {/* Image 5: Mechanical keyboard switches */}
+              <motion.div
+                whileHover={{ y: -2, scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                className="col-span-1 aspect-square overflow-hidden rounded-xl border border-border bg-background"
+              >
+                <img
+                  src="https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?auto=format&fit=crop&q=80&w=250"
+                  alt="Interruptores Mecanicos"
+                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
+                />
+              </motion.div>
+            </motion.div>
+          </div>
 
         </div>
       </section>
-    </div>
+
+      {/* 5. Qué hacemos Section - Asymmetric Bento Grid */}
+      <section className="py-24 bg-surface/30 border-y border-border z-10 relative">
+        <div className="container mx-auto px-4 max-w-5xl space-y-12">
+          <div className="text-center max-w-xl mx-auto space-y-2">
+            <span className="text-[9px] uppercase font-black tracking-widest text-accent font-sans block">
+              Servicios Especializados
+            </span>
+            <h2 className="text-2xl md:text-3xl font-extrabold text-primary tracking-tight leading-none">
+              Qué hacemos
+            </h2>
+            <p className="text-muted text-xs">
+              Especialización técnica de hardware, laboratorio electrónico propio y provisión de equipamiento informático.
+            </p>
+          </div>
+
+          <motion.div 
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: "-100px" }}
+            className="grid grid-cols-1 md:grid-cols-12 gap-6 grid-flow-dense"
+          >
+            {services.map((service, idx) => (
+              <motion.div 
+                variants={itemVariants}
+                key={idx} 
+                whileHover={{ y: -4 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                className={`${service.cols} bg-background border border-border rounded-3xl p-6 space-y-4 flex flex-col justify-between hover:shadow-[0_12px_30px_rgba(0,0,0,0.015)] hover:border-slate-300 transition-all duration-300`}
+              >
+                <div className="space-y-3">
+                  <div className="w-10 h-10 bg-accent/10 border border-accent/20 rounded-xl flex items-center justify-center text-accent">
+                    <service.icon className="w-4.5 h-4.5" />
+                  </div>
+                  <h3 className="font-extrabold text-primary text-xs uppercase tracking-wider">{service.title}</h3>
+                  <p className="text-muted text-[11px] leading-relaxed font-medium">{service.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* 6. Números de confianza Section */}
+      <section className="py-24 container mx-auto px-4 max-w-5xl z-10 relative">
+        <div className="space-y-12">
+          <div className="text-center max-w-xl mx-auto space-y-2">
+            <span className="text-[9px] uppercase font-black tracking-widest text-accent font-sans block">
+              Garantía de Calidad
+            </span>
+            <h2 className="text-2xl md:text-3xl font-extrabold text-primary tracking-tight leading-none">
+              Números de confianza
+            </h2>
+            <p className="text-muted text-xs">
+              Nuestra trayectoria y dedicación técnica respaldada por hechos concretos.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {stats.map((stat, idx) => (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: idx * 0.05 }}
+                key={idx}
+                className="bg-surface/50 border border-border p-1.5 rounded-[2rem] text-center hover:shadow-[0_8px_20px_rgba(0,0,0,0.01)] transition-all duration-300"
+              >
+                <div className="bg-background border border-border/40 py-8 px-4 rounded-[calc(2rem-0.375rem)] space-y-2">
+                  <div className="text-3xl md:text-4xl font-black text-primary font-sans tracking-tight font-extrabold">
+                    {stat.value}
+                  </div>
+                  <div className="text-[9px] text-muted font-bold uppercase tracking-wider">
+                    {stat.label}
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 7. Horarios y ubicación Section */}
+      <section className="py-24 border-t border-border bg-surface/5 z-10 relative">
+        <div className="container mx-auto px-4 max-w-5xl space-y-12">
+          <div className="text-center max-w-xl mx-auto space-y-2">
+            <span className="text-[9px] uppercase font-black tracking-widest text-accent font-sans block">
+              Contacto y Local
+            </span>
+            <h2 className="text-2xl md:text-3xl font-extrabold text-primary tracking-tight leading-none">
+              Horarios y ubicación
+            </h2>
+            <p className="text-muted text-xs">
+              Ubicación del local comercial y horarios de atención al cliente.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+            {/* Left: Schedule details */}
+            <motion.div 
+              initial={{ opacity: 0, y: 15 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="bg-surface border border-border rounded-[2rem] p-8 space-y-6 flex flex-col justify-between"
+            >
+              <div className="space-y-4">
+                <div className="w-10 h-10 bg-accent/10 border border-accent/20 rounded-xl flex items-center justify-center text-accent">
+                  <Clock className="w-4.5 h-4.5" />
+                </div>
+                <h3 className="text-lg font-extrabold text-primary tracking-tight">Horarios de Atención</h3>
+                <div className="space-y-3 text-xs text-muted font-medium">
+                  <div className="flex justify-between border-b border-border/50 pb-2">
+                    <span>Lunes a Viernes (Mañana):</span>
+                    <span className="font-extrabold text-primary font-sans">09:00 a 13:00 hs</span>
+                  </div>
+                  <div className="flex justify-between border-b border-border/50 pb-2">
+                    <span>Lunes a Viernes (Tarde):</span>
+                    <span className="font-extrabold text-primary font-sans">16:00 a 20:00 hs</span>
+                  </div>
+                  <div className="flex justify-between pb-1">
+                    <span>Sábados:</span>
+                    <span className="font-extrabold text-primary font-sans">09:00 a 13:00 hs</span>
+                  </div>
+                </div>
+              </div>
+              <p className="text-[9.5px] text-muted leading-relaxed">
+                * Los días feriados nacionales el establecimiento permanece cerrado. Para soporte técnico o consultas urgentes fuera de hora, le sugerimos comunicarse por WhatsApp.
+              </p>
+            </motion.div>
+
+            {/* Right: Map and Contact Info */}
+            <motion.div 
+              initial={{ opacity: 0, y: 15 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.08 }}
+              className="bg-surface border border-border rounded-[2rem] p-8 space-y-6 flex flex-col justify-between"
+            >
+              <div className="space-y-4">
+                <div className="w-10 h-10 bg-accent/10 border border-accent/20 rounded-xl flex items-center justify-center text-accent">
+                  <MapPin className="w-4.5 h-4.5" />
+                </div>
+                <h3 className="text-lg font-extrabold text-primary tracking-tight">Ubicación y Contacto</h3>
+                <div className="space-y-3 text-xs text-muted font-medium">
+                  <div className="flex justify-between border-b border-border/50 pb-2 items-center">
+                    <span>Dirección Comercial:</span>
+                    <span className="font-extrabold text-primary text-right font-sans">Av. Carlos Tejedor 554</span>
+                  </div>
+                  <div className="flex justify-between border-b border-border/50 pb-2 items-center">
+                    <span>Teléfono Fijo:</span>
+                    <span className="font-sans font-extrabold text-primary">223 353-3843</span>
+                  </div>
+                  <div className="flex justify-between pb-1 items-center">
+                    <span>WhatsApp Consultas:</span>
+                    <span className="font-sans font-extrabold text-primary">223 546-8972</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex gap-4">
+                <a 
+                  href="https://www.google.com/maps/place/PC+Link/@-37.9620023,-57.5615781,17z/data=!3m1!4b1!4m6!3m5!1s0x9584d96ab2cd6b93:0xc75225e6488d3c6d!8m2!3d-37.9620066!4d-57.5589978!16s%2Fg%2F11b7ck7gpx?entry=ttu" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex-1"
+                >
+                  <Button className="w-full rounded-xl py-4 text-xs font-bold uppercase tracking-wider h-auto gap-2 group justify-center">
+                    <span>Cómo llegar</span>
+                    <span className="w-5 h-5 rounded-full bg-white/15 flex items-center justify-center transition-all group-hover:translate-x-0.5">
+                      <ArrowRight className="w-3 h-3 text-white" />
+                    </span>
+                  </Button>
+                </a>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* 8. CTA Final Section */}
+      <section className="py-24 container mx-auto px-4 max-w-5xl z-10 relative">
+        <div className="relative overflow-hidden rounded-[2.5rem] bg-slate-950 border border-slate-900 shadow-2xl p-8 md:p-12 text-center space-y-6">
+          {/* Radial blur backdrop */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.15),transparent_60%)] pointer-events-none" />
+          
+          <div className="relative z-10 space-y-4 max-w-2xl mx-auto">
+            <span className="text-[9px] uppercase font-black tracking-widest text-accent font-sans block">
+              Contacto Directo
+            </span>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight leading-tight">
+              ¿Tu computadora necesita asistencia técnica?
+            </h2>
+            <p className="text-slate-400 text-xs md:text-sm font-medium leading-relaxed">
+              Traé tu equipo a nuestro laboratorio para un diagnóstico profesional, o consultanos previamente por WhatsApp para coordinar el soporte técnico inmediato.
+            </p>
+          </div>
+
+          <div className="relative z-10 flex flex-wrap justify-center gap-4 pt-4">
+            <a href="https://wa.me/5492235468972" target="_blank" rel="noopener noreferrer">
+              <Button className="rounded-full px-8 py-4 h-auto text-xs font-bold uppercase tracking-wider flex items-center gap-2 group shadow-lg">
+                <span>Escribir por WhatsApp</span>
+                <span className="w-5 h-5 rounded-full bg-white/15 flex items-center justify-center transition-all group-hover:translate-x-0.5">
+                  <ArrowRight className="w-3 h-3 text-white" />
+                </span>
+              </Button>
+            </a>
+            <Link href="/products">
+              <Button variant="secondary" className="rounded-full px-8 py-4 h-auto text-xs font-bold uppercase tracking-wider border border-slate-800 bg-slate-900 text-slate-200 hover:bg-slate-850 hover:text-white">
+                Ver Catálogo de Insumos
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }
