@@ -236,7 +236,7 @@ function ProductsPageContent() {
         <div className="flex flex-col lg:flex-row gap-4 items-start justify-center lg:justify-start w-full">
           {/* Categoría Principal: PC de Escritorio (Pinned) */}
           {pcCategory && (
-            <div className="w-full max-w-[296px] xl:max-w-[376px] lg:w-[296px] xl:w-[376px] h-[180px] lg:h-[296px] shrink-0 mx-auto lg:mx-0">
+            <div className="w-full max-w-[296px] xl:max-w-[376px] lg:w-[296px] xl:w-[376px] h-[180px] lg:h-[296px] shrink-0 mx-auto lg:mx-0 py-2">
               <motion.div
                 whileHover={{ y: -4 }}
                 whileTap={{ scale: 0.98 }}
@@ -274,7 +274,7 @@ function ProductsPageContent() {
           {/* Categorías Secundarias: Grilla Desplazable sin scrollbar */}
           <div 
             id="small-categories-container"
-            className="w-full lg:flex-1 lg:min-w-0 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth"
+            className="w-full lg:flex-1 lg:min-w-0 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth py-2"
             style={{
               WebkitMaskImage: 'linear-gradient(to right, black calc(100% - 48px), transparent 100%)',
               maskImage: 'linear-gradient(to right, black calc(100% - 48px), transparent 100%)'
