@@ -145,6 +145,15 @@ function ProductsPageContent() {
   });
 
   const [sortBy, setSortBy] = useState<string>("");
+  const [visibleCount, setVisibleCount] = useState(12);
+
+  // Reset visible count when category or search changes
+  const filterKey = `${category || ""}-${search}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey);
+    setVisibleCount(12);
+  }
 
   const filteredProducts = products.filter((p) => {
     const name = p.name ? String(p.name).toLowerCase() : "";
@@ -337,7 +346,7 @@ function ProductsPageContent() {
               )}
             </h1>
             <p className="text-xs text-muted font-bold tracking-wide uppercase font-mono">
-              Mostrando {filteredProducts.length} producto{filteredProducts.length !== 1 && 's'}
+              Mostrando {Math.min(visibleCount, filteredProducts.length)} de {filteredProducts.length} producto{filteredProducts.length !== 1 && 's'}
             </p>
           </div>
 
@@ -370,10 +379,27 @@ function ProductsPageContent() {
             <Loader2 className="w-8 h-8 text-accent animate-spin" />
           </div>
         ) : sortedProducts.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {sortedProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
+          <div className="space-y-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {sortedProducts.slice(0, visibleCount).map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+
+            {visibleCount < sortedProducts.length && (
+              <div className="flex flex-col items-center gap-3 pt-2">
+                <p className="text-[10px] text-muted font-bold uppercase tracking-widest font-sans">
+                  {Math.min(visibleCount, sortedProducts.length)} de {sortedProducts.length} productos
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => setVisibleCount((prev) => prev + 12)}
+                  className="rounded-xl px-8 py-4 text-xs font-black uppercase tracking-wider hover:bg-surface transition-all"
+                >
+                  Ver más productos
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center py-32 bg-surface border border-border rounded-3xl">
