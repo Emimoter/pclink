@@ -266,17 +266,13 @@ function ProductsPageContent() {
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent z-10" />
                 
-                <div className="absolute bottom-3 inset-x-3 z-20 flex flex-col items-center">
-                  <div className={cn(
-                    "px-4 py-2.5 rounded-2xl backdrop-blur-md transition-all duration-300 flex flex-col items-center gap-1 w-full text-center border",
-                    category === pcCategory.categoryId
-                      ? "bg-accent/15 border-accent/30"
-                      : "bg-black/50 border-white/10 group-hover:bg-black/70"
-                  )}>
-                    <span className="font-bold text-white uppercase tracking-wider font-sans leading-tight text-xs md:text-sm">
-                      {pcCategory.name}
-                    </span>
-                  </div>
+                <div className="absolute bottom-4 inset-x-4 z-20 flex flex-col items-center justify-end h-full">
+                  <span className="font-black text-white text-center uppercase tracking-widest font-sans leading-none text-xs md:text-sm lg:text-base">
+                    {pcCategory.name}
+                  </span>
+                  {category === pcCategory.categoryId && (
+                    <span className="w-1.5 h-1.5 bg-accent rounded-full mt-2 animate-pulse" />
+                  )}
                 </div>
               </motion.div>
             </div>
@@ -313,23 +309,17 @@ function ProductsPageContent() {
                           className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 select-none"
                         />
                       ) : (
-                        <div className="absolute inset-0 bg-gradient-to-br from-accent/80 via-primary/95 to-background group-hover:scale-105 transition-transform duration-700 flex flex-col items-center justify-center p-4">
-                          <LayoutGrid className="w-8 h-8 text-white/90 mb-1 group-hover:scale-110 transition-transform duration-500" />
-                        </div>
+                        <div className="absolute inset-0 bg-gradient-to-br from-accent/80 via-primary/95 to-background group-hover:scale-105 transition-transform duration-700 flex items-center justify-center" />
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent z-10" />
 
-                      <div className="absolute bottom-3 inset-x-3 z-20 flex flex-col items-center">
-                        <div className={cn(
-                          "px-3 py-1.5 rounded-2xl backdrop-blur-md transition-all duration-300 flex flex-col items-center gap-0.5 w-full text-center border",
-                          isSelected 
-                            ? "bg-accent/15 border-accent/30" 
-                            : "bg-black/50 border-white/10 group-hover:bg-black/70"
-                        )}>
-                          <span className="font-bold text-white uppercase tracking-wider font-sans leading-tight text-[9px] md:text-[10px] lg:text-xs">
-                            {item.name}
-                          </span>
-                        </div>
+                      <div className="absolute bottom-4 inset-x-4 z-20 flex flex-col items-center justify-end h-full">
+                        <span className="font-black text-white text-center uppercase tracking-widest font-sans leading-none text-[10px] md:text-xs">
+                          {item.name}
+                        </span>
+                        {isSelected && (
+                          <span className="w-1.5 h-1.5 bg-accent rounded-full mt-2 animate-pulse" />
+                        )}
                       </div>
                     </motion.div>
                   );
