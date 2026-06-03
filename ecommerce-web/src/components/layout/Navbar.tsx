@@ -8,47 +8,136 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, ShoppingCart, User, Menu, X, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCartStore } from "@/store/useCartStore";
+import { useProducts } from "@/hooks/useProducts";
 
 function NavbarSearch() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [searchVal, setSearchVal] = useState(searchParams.get("search") || "");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const { products } = useProducts();
 
   useEffect(() => {
     setSearchVal(searchParams.get("search") || "");
   }, [searchParams]);
 
-  const handleSearch = (value: string) => {
-    setSearchVal(value);
+  // Filter suggestions client-side
+  const suggestions = searchVal.trim().length >= 2
+    ? products.filter((p) => {
+        const name = p.name ? String(p.name).toLowerCase() : "";
+        const desc = p.description ? String(p.description).toLowerCase() : "";
+        const query = searchVal.toLowerCase();
+        return name.includes(query) || desc.includes(query);
+      }).slice(0, 5)
+    : [];
+
+  const handleSearchSubmit = (value: string) => {
     const isStore = pathname === "/" || pathname === "/products";
     const targetPath = isStore ? pathname : "/";
     const params = new URLSearchParams(window.location.search);
     
-    if (value) {
-      params.set("search", value);
+    if (value.trim()) {
+      params.set("search", value.trim());
     } else {
       params.delete("search");
     }
 
+    const newUrl = `${targetPath}?${params.toString()}`;
+    
     if (!isStore) {
-      router.push(`/?search=${encodeURIComponent(value)}`);
+      router.push(`/?search=${encodeURIComponent(value.trim())}`);
     } else {
-      router.replace(`${targetPath}?${params.toString()}`);
+      router.replace(newUrl);
     }
+
+    setShowSuggestions(false);
+
+    // Scroll to products catalog smoothly
+    setTimeout(() => {
+      const element = document.getElementById("products-catalog");
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 200);
+  };
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSearchSubmit(searchVal);
   };
 
   return (
-    <div className="relative flex-1 max-w-[700px] min-w-[130px] ml-4 md:ml-12 lg:ml-20">
+    <form 
+      onSubmit={onSubmit}
+      className="relative flex-1 max-w-[700px] min-w-[130px] ml-4 md:ml-12 lg:ml-20"
+    >
       <input
         type="text"
         placeholder="Buscar productos..."
         value={searchVal}
-        onChange={(e) => handleSearch(e.target.value)}
+        onChange={(e) => {
+          setSearchVal(e.target.value);
+          setShowSuggestions(true);
+        }}
+        onFocus={() => setShowSuggestions(true)}
+        onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
         className="w-full h-12 md:h-[50px] bg-background border border-border rounded-full pl-12 pr-4 text-sm md:text-base focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-bold shadow-sm placeholder:text-muted/60"
       />
-      <Search className="w-5 h-5 md:w-[22px] md:h-[22px] text-muted absolute left-4.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-    </div>
+      <button 
+        type="submit" 
+        className="absolute left-4 top-1/2 -translate-y-1/2 hover:text-accent transition-colors focus:outline-none"
+      >
+        <Search className="w-5 h-5 md:w-[22px] md:h-[22px] text-muted hover:text-accent transition-colors" />
+      </button>
+
+      {/* Suggestions dropdown */}
+      <AnimatePresence>
+        {showSuggestions && suggestions.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="absolute top-full left-0 right-0 mt-2 bg-background/95 backdrop-blur-md border border-border rounded-2xl shadow-xl overflow-hidden z-50 flex flex-col divide-y divide-border"
+          >
+            {suggestions.map((product) => (
+              <div
+                key={product.id}
+                onClick={() => {
+                  router.push(`/products/${product.id}`);
+                  setSearchVal("");
+                  setShowSuggestions(false);
+                }}
+                className="flex items-center gap-3 p-3 hover:bg-surface cursor-pointer transition-colors"
+              >
+                {product.images && product.images.length > 0 ? (
+                  <img
+                    src={product.images[0]}
+                    alt={product.name}
+                    className="w-10 h-10 object-contain rounded-lg bg-surface shrink-0"
+                  />
+                ) : (
+                  <div className="w-10 h-10 bg-surface flex items-center justify-center rounded-lg shrink-0">
+                    <Search className="w-4 h-4 text-muted" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-xs md:text-sm font-bold text-primary truncate">
+                    {product.name}
+                  </p>
+                  <p className="text-[10px] text-accent font-bold uppercase tracking-wider font-mono">
+                    {product.category?.replace(/-/g, ' ')}
+                  </p>
+                </div>
+                <div className="text-xs md:text-sm font-black text-primary shrink-0">
+                  ${product.price}
+                </div>
+              </div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </form>
   );
 }
 
