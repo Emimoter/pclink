@@ -23,8 +23,8 @@ export default function AboutPage() {
   const reasons = [
     {
       icon: Cpu,
-      title: "Laboratorio de Precisión",
-      desc: "Diagnósticos honestos y reparaciones electrónicas a nivel de componentes con osciloscopios e instrumental avanzado."
+      title: "Servicio Técnico de Precisión",
+      desc: "Diagnósticos honestos y reparaciones electrónicas a nivel de componentes con instrumental de diagnóstico avanzado."
     },
     {
       icon: ShieldCheck,
@@ -182,7 +182,7 @@ export default function AboutPage() {
                 transition={{ duration: 0.7, delay: 0.2 }}
                 className="text-muted text-sm md:text-base max-w-xl leading-relaxed font-medium"
               >
-                Lideramos el servicio técnico especializado y la provisión de insumos informáticos de alta gama en la Costa Atlántica. Diagnósticos honestos, electrónica de precisión y laboratorio propio.
+                Lideramos el soporte especializado y la provisión de insumos informáticos de alta gama en la Costa Atlántica. Brindamos diagnósticos honestos, electrónica de precisión y servicio técnico propio.
               </motion.p>
 
               <motion.div 
@@ -287,7 +287,7 @@ export default function AboutPage() {
                 Lo que dicen de nosotros
               </h2>
               <p className="text-muted text-xs max-w-md">
-                Nuestros clientes valoran la rapidez, honestidad y precisión técnica de nuestro laboratorio.
+                Nuestros clientes valoran la rapidez, honestidad y precisión de nuestro servicio técnico especializado.
               </p>
             </div>
 
@@ -431,7 +431,7 @@ export default function AboutPage() {
               Qué hacemos
             </h2>
             <p className="text-muted text-xs">
-              Especialización técnica de hardware, laboratorio electrónico propio y provisión de equipamiento informático.
+              Especialización en hardware, servicio técnico electrónico calificado y provisión de equipamiento informático.
             </p>
           </div>
 
@@ -577,7 +577,7 @@ export default function AboutPage() {
               ¿Tu computadora necesita asistencia técnica?
             </h2>
             <p className="text-slate-400 text-xs md:text-sm font-medium leading-relaxed">
-              Traé tu equipo a nuestro laboratorio para un diagnóstico profesional, o consultanos previamente por WhatsApp para coordinar el soporte técnico inmediato.
+              Traé tu equipo a nuestro local para un diagnóstico técnico profesional, o consultanos previamente por WhatsApp para coordinar la asistencia inmediata.
             </p>
           </div>
 
