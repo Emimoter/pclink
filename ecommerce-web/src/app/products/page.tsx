@@ -124,12 +124,6 @@ const VISUAL_CATEGORIES = [
     name: "Ofertas",
     categoryId: "OFFERS",
     image: "/images/categories/offers.png",
-  },
-  {
-    id: "all",
-    name: "Todas las Categorías",
-    categoryId: "ALL",
-    image: "",
   }
 ];
 
