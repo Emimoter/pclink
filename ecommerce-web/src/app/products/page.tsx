@@ -249,10 +249,10 @@ function ProductsPageContent() {
                 transition={{ type: "spring", stiffness: 300, damping: 20 }}
                 onClick={() => handleCategorySelect(pcCategory.categoryId)}
                 className={cn(
-                  "relative overflow-hidden cursor-pointer group rounded-3xl border transition-all duration-500 h-full w-full select-none",
+                  "relative overflow-hidden cursor-pointer group rounded-3xl border transition-all duration-500 h-full w-full select-none shadow-[0_4px_20px_rgba(0,0,0,0.08)]",
                   category === pcCategory.categoryId
-                    ? "border-accent ring-2 ring-accent/25 shadow-[0_10px_25px_rgba(6,182,212,0.1)]"
-                    : "border-border hover:border-slate-300 hover:shadow-[0_12px_24px_rgba(0,0,0,0.02)]"
+                    ? "border-accent ring-2 ring-accent/25 shadow-[0_10px_30px_rgba(6,182,212,0.15)]"
+                    : "border-border/60 hover:border-slate-300 hover:shadow-[0_12px_35px_rgba(0,0,0,0.12)]"
                 )}
               >
                 {pcCategory.image ? (
@@ -280,7 +280,7 @@ function ProductsPageContent() {
           {/* Categorías Secundarias: Grilla Desplazable sin scrollbar */}
           <div 
             id="small-categories-container"
-            className="w-full max-w-[296px] sm:max-w-[452px] md:max-w-[572px] lg:max-w-[572px] xl:max-w-[768px] overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth mx-auto lg:mx-0"
+            className="flex-1 min-w-0 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth"
           >
             <div className="grid grid-flow-col grid-rows-2 gap-4 h-[296px] w-max auto-cols-[140px] md:auto-cols-[180px]">
               {otherCategories.map((item) => {
@@ -294,10 +294,10 @@ function ProductsPageContent() {
                     transition={{ type: "spring", stiffness: 300, damping: 20 }}
                     onClick={() => handleCategorySelect(item.categoryId)}
                     className={cn(
-                      "relative overflow-hidden cursor-pointer group rounded-3xl border transition-all duration-500 snap-start flex-shrink-0 select-none row-span-1 col-span-1 h-full w-full",
+                      "relative overflow-hidden cursor-pointer group rounded-3xl border transition-all duration-500 snap-start flex-shrink-0 select-none row-span-1 col-span-1 h-full w-full shadow-[0_4px_20px_rgba(0,0,0,0.08)]",
                       isSelected 
-                        ? "border-accent ring-2 ring-accent/25 shadow-[0_10px_25px_rgba(6,182,212,0.1)]" 
-                        : "border-border hover:border-slate-300 hover:shadow-[0_12px_24px_rgba(0,0,0,0.02)]"
+                        ? "border-accent ring-2 ring-accent/25 shadow-[0_10px_30px_rgba(6,182,212,0.15)]" 
+                        : "border-border/60 hover:border-slate-300 hover:shadow-[0_12px_35px_rgba(0,0,0,0.12)]"
                     )}
                   >
                     {item.image ? (
