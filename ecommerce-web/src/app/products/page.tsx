@@ -276,11 +276,6 @@ function ProductsPageContent() {
                     <span className="font-bold text-white uppercase tracking-wider font-sans leading-tight text-xs md:text-sm">
                       {pcCategory.name}
                     </span>
-                    {category === pcCategory.categoryId && (
-                      <span className="text-[9px] text-accent font-black tracking-widest uppercase animate-pulse">
-                        Activo
-                      </span>
-                    )}
                   </div>
                 </div>
               </motion.div>
@@ -334,11 +329,6 @@ function ProductsPageContent() {
                           <span className="font-bold text-white uppercase tracking-wider font-sans leading-tight text-[9px] md:text-[10px] lg:text-xs">
                             {item.name}
                           </span>
-                          {isSelected && (
-                            <span className="text-[8px] text-accent font-black tracking-widest uppercase animate-pulse">
-                              Activo
-                            </span>
-                          )}
                         </div>
                       </div>
                     </motion.div>
@@ -346,9 +336,8 @@ function ProductsPageContent() {
                 })}
               </div>
             </div>
-            {/* Left and Right fade overlays to signal scrollability */}
-            <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-background to-transparent pointer-events-none opacity-0 group-hover/scroll:opacity-100 transition-opacity duration-300" />
-            <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent pointer-events-none opacity-100 group-hover/scroll:opacity-100 transition-opacity duration-300" />
+            {/* Right fade overlay to signal scrollability */}
+            <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent pointer-events-none opacity-100 transition-opacity duration-300" />
           </div>
         </div>
       </div>
