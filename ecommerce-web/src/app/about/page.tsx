@@ -334,7 +334,10 @@ export default function AboutPage() {
                 </button>
               </div>
             </div>
+          </div>
 
+          {/* Carousel Viewport */}
+          <div className="relative group">
             <div
               ref={carouselRef}
               className="flex gap-6 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-8 pt-2 scroll-smooth"
