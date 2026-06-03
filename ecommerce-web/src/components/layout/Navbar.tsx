@@ -4,8 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
-import { motion } from "framer-motion";
-import { Search, ShoppingCart, User, Menu } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, ShoppingCart, User, Menu, X, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCartStore } from "@/store/useCartStore";
 
@@ -56,6 +56,12 @@ export default function Navbar() {
   const pathname = usePathname();
   const totalItems = useCartStore((state) => state.totalItems);
   const setIsOpen = useCartStore((state) => state.setIsOpen);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Close mobile menu on page transition
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
 
   const navLinks = [
     { href: "/", label: "Tienda" },
@@ -74,8 +80,12 @@ export default function Navbar() {
         {/* Left Side: Logo & Search */}
         <div className="flex items-center gap-6 flex-1 max-w-[900px] min-w-0">
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-            <button className="md:hidden p-2 text-muted hover:text-primary">
-              <Menu className="w-6 h-6" />
+            <button 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+              className="md:hidden p-2 text-muted hover:text-primary transition-colors focus:outline-none"
+              aria-label={isMobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
+            >
+              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
             <Link href="/" className="flex items-center">
               <Image
@@ -144,6 +154,44 @@ export default function Navbar() {
           </div>
         </div>
       </div>
+
+      {/* Mobile Menu Overlay */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="md:hidden border-b border-border bg-background/95 backdrop-blur-md absolute top-20 left-0 right-0 overflow-hidden z-40 shadow-lg"
+          >
+            <nav className="flex flex-col p-6 gap-3">
+              {navLinks.map((link) => {
+                const isActive = link.href === "/"
+                  ? pathname === "/" || pathname.startsWith("/products")
+                  : pathname === link.href;
+
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={cn(
+                      "py-3 px-5 rounded-2xl text-sm font-bold transition-all flex items-center justify-between border border-transparent",
+                      isActive
+                        ? "text-accent bg-accent/5 border-accent/15"
+                        : "text-muted hover:text-primary hover:bg-surface/50"
+                    )}
+                  >
+                    <span>{link.label}</span>
+                    <ArrowRight className={cn("w-4 h-4 transition-transform", isActive ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2")} />
+                  </Link>
+                );
+              })}
+            </nav>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }

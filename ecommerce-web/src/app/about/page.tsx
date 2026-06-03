@@ -212,7 +212,7 @@ export default function AboutPage() {
               initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.7, delay: 0.15 }}
-              className="md:col-span-4 flex justify-center pt-4 md:pt-0"
+              className="hidden md:flex md:col-span-4 justify-center pt-4 md:pt-0"
             >
               <div className="relative p-2.5 bg-white rounded-full border border-border shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:scale-[1.03] transition-transform duration-500">
                 <img
