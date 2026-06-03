@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { ShieldCheck, Cpu, MapPin, ArrowRight, ArrowLeft, Printer, RotateCcw, Wrench, Clock, Phone, History, Star, Sparkles, Calculator, Compass, Truck } from "lucide-react";
+import { ShieldCheck, Cpu, MapPin, ArrowRight, ArrowLeft, Printer, RotateCcw, Wrench, Clock, Phone, Star, Sparkles, Calculator, Compass, Truck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -121,12 +121,7 @@ export default function AboutPage() {
     }
   ];
 
-  const stats = [
-    { label: "Años de Trayectoria", value: "30+" },
-    { label: "Reseñas en Google", value: "84+" },
-    { label: "Equipos Reparados", value: "10K+" },
-    { label: "Garantía Técnica", value: "100%" }
-  ];
+
 
   const containerVariants = {
     hidden: {},
@@ -423,114 +418,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* 4. Nuestra historia Section */}
-      <section className="py-24 container mx-auto px-4 max-w-5xl z-10 relative">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="lg:col-span-7 space-y-6"
-          >
-            <div className="inline-flex items-center gap-1.5 text-accent text-[9px] font-black uppercase tracking-widest font-sans">
-              <History className="w-3.5 h-3.5" /> Nuestra Historia
-            </div>
-            <h2 className="text-2xl md:text-3xl font-extrabold text-primary tracking-tight leading-tight">
-              Desde los microprocesadores clásicos hasta el hardware de última generación
-            </h2>
-            <div className="space-y-4 text-muted text-xs leading-relaxed max-w-[60ch] font-medium">
-              <p>
-                Fundada a comienzos de los años 90 en la ciudad de Mar del Plata, <strong className="text-primary font-bold">PC Link Computación</strong> nació con el firme compromiso de profesionalizar el servicio técnico informático y la venta de insumos en la zona norte de la ciudad.
-              </p>
-              <p>
-                A lo largo de más de <strong className="text-primary font-bold">30 años de trayectoria ininterrumpida</strong>, hemos visto evolucionar la tecnología desde los primeros procesadores de escritorio hasta los setups gamer y de modelado 3D más exigentes del mercado. Esa misma evolución nos ha exigido un constante perfeccionamiento, capacitándonos continuamente y dotando a nuestro laboratorio con herramientas electrónicas de última generación.
-              </p>
-              <p>
-                Hoy, seguimos ubicados en el corazón de la avenida Carlos Tejedor al 554, atendidos por sus propios dueños y técnicos fundadores, asegurando la misma atención honesta, transparente y certificada que nos ha caracterizado por más de tres décadas.
-              </p>
-            </div>
-          </motion.div>
 
-          {/* Elegant Bento Grid of Hardware (No people, compact size, 5 images) */}
-          <div className="lg:col-span-5 flex justify-center lg:justify-end mt-8 lg:mt-0">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="grid grid-cols-2 gap-3 w-full max-w-[320px] p-3 bg-surface/50 border border-border rounded-3xl"
-            >
-              {/* Image 1: GPU close-up (spans 2 columns) */}
-              <motion.div
-                whileHover={{ y: -2, scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="col-span-2 aspect-[16/10] overflow-hidden rounded-2xl border border-border bg-background"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1591488320449-011701bb6704?auto=format&fit=crop&q=80&w=350"
-                  alt="GPU de Alto Rendimiento"
-                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
-                />
-              </motion.div>
-
-              {/* Image 2: Microchips detail */}
-              <motion.div
-                whileHover={{ y: -2, scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="col-span-1 aspect-square overflow-hidden rounded-xl border border-border bg-background"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=250"
-                  alt="Microchips de Precision"
-                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
-                />
-              </motion.div>
-
-              {/* Image 3: RAM modules */}
-              <motion.div
-                whileHover={{ y: -2, scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="col-span-1 aspect-square overflow-hidden rounded-xl border border-border bg-background"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1562976540-1502c2145186?auto=format&fit=crop&q=80&w=250"
-                  alt="Modulos de Memoria RAM"
-                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
-                />
-              </motion.div>
-
-              {/* Image 4: AIO Cooler */}
-              <motion.div
-                whileHover={{ y: -2, scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="col-span-1 aspect-square overflow-hidden rounded-xl border border-border bg-background"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&q=80&w=250"
-                  alt="Refrigeracion Liquida"
-                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
-                />
-              </motion.div>
-
-              {/* Image 5: Mechanical keyboard switches */}
-              <motion.div
-                whileHover={{ y: -2, scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="col-span-1 aspect-square overflow-hidden rounded-xl border border-border bg-background"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?auto=format&fit=crop&q=80&w=250"
-                  alt="Interruptores Mecanicos"
-                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
-                />
-              </motion.div>
-            </motion.div>
-          </div>
-
-        </div>
-      </section>
 
       {/* 5. Qué hacemos Section - Asymmetric Bento Grid */}
       <section className="py-24 bg-surface/30 border-y border-border z-10 relative">
@@ -575,44 +463,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* 6. Números de confianza Section */}
-      <section className="py-24 container mx-auto px-4 max-w-5xl z-10 relative">
-        <div className="space-y-12">
-          <div className="text-center max-w-xl mx-auto space-y-2">
-            <span className="text-[9px] uppercase font-black tracking-widest text-accent font-sans block">
-              Garantía de Calidad
-            </span>
-            <h2 className="text-2xl md:text-3xl font-extrabold text-primary tracking-tight leading-none">
-              Números de confianza
-            </h2>
-            <p className="text-muted text-xs">
-              Nuestra trayectoria y dedicación técnica respaldada por hechos concretos.
-            </p>
-          </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {stats.map((stat, idx) => (
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: idx * 0.05 }}
-                key={idx}
-                className="bg-surface/50 border border-border p-1.5 rounded-[2rem] text-center hover:shadow-[0_8px_20px_rgba(0,0,0,0.01)] transition-all duration-300"
-              >
-                <div className="bg-background border border-border/40 py-8 px-4 rounded-[calc(2rem-0.375rem)] space-y-2">
-                  <div className="text-3xl md:text-4xl font-black text-primary font-sans tracking-tight font-extrabold">
-                    {stat.value}
-                  </div>
-                  <div className="text-[9px] text-muted font-bold uppercase tracking-wider">
-                    {stat.label}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* 7. Horarios y ubicación Section */}
       <section className="py-24 border-t border-border bg-surface/5 z-10 relative">
