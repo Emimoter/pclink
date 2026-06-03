@@ -283,7 +283,7 @@ function ProductsPageContent() {
               id="small-categories-container"
               className="w-full overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth"
             >
-              <div className="grid grid-flow-col grid-rows-2 gap-4 h-[296px] w-max auto-cols-[140px] md:auto-cols-[180px]">
+              <div className="grid grid-flow-col grid-rows-2 gap-4 h-[296px] w-max auto-cols-[140px] md:auto-cols-[180px] pr-16">
                 {otherCategories.map((item) => {
                   const isSelected = category === item.categoryId;
 
