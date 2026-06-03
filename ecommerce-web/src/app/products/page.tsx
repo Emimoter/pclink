@@ -281,6 +281,10 @@ function ProductsPageContent() {
           <div 
             id="small-categories-container"
             className="w-full lg:flex-1 lg:min-w-0 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth"
+            style={{
+              WebkitMaskImage: 'linear-gradient(to right, black calc(100% - 48px), transparent 100%)',
+              maskImage: 'linear-gradient(to right, black calc(100% - 48px), transparent 100%)'
+            }}
           >
             <div className="grid grid-flow-col grid-rows-2 gap-4 h-[296px] w-max auto-cols-[140px] md:auto-cols-[180px] pr-16">
               {otherCategories.map((item) => {
