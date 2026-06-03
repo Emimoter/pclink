@@ -283,7 +283,7 @@ function ProductsPageContent() {
           )}
 
           {/* Categorías Secundarias: Grilla Desplazable sin scrollbar */}
-          <div className="flex-1 min-w-0 relative group/scroll">
+          <div className="flex-1 min-w-0 relative">
             <div 
               id="small-categories-container"
               className="w-full overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth"
@@ -337,7 +337,7 @@ function ProductsPageContent() {
               </div>
             </div>
             {/* Right fade overlay to signal scrollability */}
-            <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent pointer-events-none opacity-100 transition-opacity duration-300" />
+            <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent pointer-events-none" />
           </div>
         </div>
       </div>
