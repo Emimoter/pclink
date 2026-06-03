@@ -147,7 +147,12 @@ export default function PcClubPage() {
         
         {/* Header Hero (Asymmetric split layout) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 mb-20 items-center">
-          <div className="lg:col-span-7 space-y-6">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: [0.32, 0.72, 0, 1] }}
+            className="lg:col-span-7 space-y-6"
+          >
             <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-accent/5 border border-accent/15 rounded-full text-accent text-[9px] font-black tracking-widest uppercase font-sans">
               <Sparkles className="w-3.5 h-3.5" /> Club de Fidelización
             </div>
@@ -171,10 +176,15 @@ export default function PcClubPage() {
                 </Link>
               </div>
             )}
-          </div>
+          </motion.div>
           
           {/* Card Component (Frosted Dark Titanium Credit Card Design) */}
-          <div className="lg:col-span-5 flex justify-center lg:justify-end">
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.7, delay: 0.15, ease: [0.32, 0.72, 0, 1] }}
+            className="lg:col-span-5 flex justify-center lg:justify-end"
+          >
             <motion.div 
               whileHover={{ y: -4, rotate: 0.5 }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
@@ -216,7 +226,7 @@ export default function PcClubPage() {
                 )}
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         </div>
 
         {user ? (
@@ -226,7 +236,12 @@ export default function PcClubPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               
               {/* Card 1: Points */}
-              <div className="bg-surface border border-border rounded-[2rem] p-8 relative overflow-hidden hover:shadow-[0_15px_30px_rgba(0,0,0,0.005)] transition-all duration-300">
+              <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.25, ease: [0.32, 0.72, 0, 1] }}
+                className="bg-surface border border-border rounded-[2rem] p-8 relative overflow-hidden hover:shadow-[0_15px_30px_rgba(0,0,0,0.005)] transition-all duration-300"
+              >
                 <div className="flex justify-between items-start mb-6">
                   <span className="text-[10px] font-black text-muted uppercase tracking-widest font-sans">Mis Puntos</span>
                   <div className="w-8 h-8 bg-accent/10 rounded-xl flex items-center justify-center text-accent">
@@ -257,10 +272,15 @@ export default function PcClubPage() {
                     <span className="font-extrabold text-primary">{pointsSpent}</span>
                   </div>
                 </div>
-              </div>
+              </motion.div>
 
               {/* Card 2: Tier */}
-              <div className="bg-surface border border-border rounded-[2rem] p-8 hover:shadow-[0_15px_30px_rgba(0,0,0,0.005)] transition-all duration-300 flex flex-col justify-between min-h-[220px]">
+              <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.35, ease: [0.32, 0.72, 0, 1] }}
+                className="bg-surface border border-border rounded-[2rem] p-8 hover:shadow-[0_15px_30px_rgba(0,0,0,0.005)] transition-all duration-300 flex flex-col justify-between min-h-[220px]"
+              >
                 <div>
                   <div className="flex justify-between items-start mb-6">
                     <span className="text-[10px] font-black text-muted uppercase tracking-widest font-sans">Nivel Actual</span>
@@ -313,10 +333,15 @@ export default function PcClubPage() {
                     </div>
                   )
                 )}
-              </div>
+              </motion.div>
 
               {/* Card 3: Stats Summary */}
-              <div className="bg-surface border border-border rounded-[2rem] p-8 hover:shadow-[0_15px_30px_rgba(0,0,0,0.005)] transition-all duration-300">
+              <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.45, ease: [0.32, 0.72, 0, 1] }}
+                className="bg-surface border border-border rounded-[2rem] p-8 hover:shadow-[0_15px_30px_rgba(0,0,0,0.005)] transition-all duration-300"
+              >
                 <div className="flex justify-between items-start mb-6">
                   <span className="text-[10px] font-black text-muted uppercase tracking-widest font-sans">Historial Club</span>
                   <div className="w-8 h-8 bg-accent/10 rounded-xl flex items-center justify-center text-accent">
@@ -345,11 +370,16 @@ export default function PcClubPage() {
                     )}
                   </div>
                 </div>
-              </div>
+              </motion.div>
             </div>
 
             {/* Vouchers Section */}
-            <div className="space-y-6">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.55, ease: [0.32, 0.72, 0, 1] }}
+              className="space-y-6"
+            >
               <div>
                 <h2 className="text-2xl font-black text-primary tracking-tight font-sans">Canjear Beneficios</h2>
                 <p className="text-muted text-xs mt-1 leading-relaxed max-w-[65ch]">
@@ -359,14 +389,16 @@ export default function PcClubPage() {
 
               {/* Unique cut-out Coupon Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {VOUCHERS.map((v) => {
+                {VOUCHERS.map((v, idx) => {
                   const canRedeem = netPoints >= v.cost;
                   return (
                     <motion.div
                       key={v.percent}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 0.6 + idx * 0.1, ease: [0.32, 0.72, 0, 1] }}
                       whileHover={{ y: -4 }}
-                      transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                      className="bg-surface border border-border rounded-[2rem] p-6 flex flex-col justify-between hover:shadow-[0_20px_40px_rgba(0,0,0,0.015)] hover:border-slate-300 transition-all duration-300 relative overflow-hidden"
+                      className="bg-surface border border-border rounded-[2rem] p-6 flex flex-col justify-between hover:shadow-[0_20px_40px_rgba(0,0,0,0.015)] hover:border-slate-300 transition-shadow transition-colors duration-300 relative overflow-hidden"
                     >
                       {/* Decorative ticket notch circles on left/right edges */}
                       <div className="absolute top-1/3 -left-3 w-6 h-6 bg-background rounded-full border-r border-border pointer-events-none z-10" />
@@ -403,10 +435,13 @@ export default function PcClubPage() {
                   );
                 })}
               </div>
-            </div>
+            </motion.div>
 
             {/* Redirection to Profile */}
             <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.85, ease: [0.32, 0.72, 0, 1] }}
               whileHover={{ y: -2 }}
               className="bg-surface border border-border rounded-[2.2rem] p-6 flex flex-col sm:flex-row items-center justify-between gap-4"
             >
@@ -432,7 +467,12 @@ export default function PcClubPage() {
             {/* Rules Grid (Border-Grouped Layout) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               
-              <div className="bg-surface border border-border rounded-[2rem] p-8 space-y-4 hover:shadow-[0_15px_30px_rgba(0,0,0,0.005)] transition-all duration-300">
+              <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2, ease: [0.32, 0.72, 0, 1] }}
+                className="bg-surface border border-border rounded-[2rem] p-8 space-y-4 hover:shadow-[0_15px_30px_rgba(0,0,0,0.005)] transition-all duration-300"
+              >
                 <div className="w-12 h-12 bg-accent/5 border border-accent/15 rounded-2xl flex items-center justify-center text-accent">
                   <Coins className="w-5 h-5" />
                 </div>
@@ -440,9 +480,14 @@ export default function PcClubPage() {
                 <p className="text-muted text-xs leading-relaxed">
                   Por cada $100 gastados en nuestro sitio web, acumulás 1 punto. Aumentá tus compras para multiplicar tus recompensas.
                 </p>
-              </div>
+              </motion.div>
 
-              <div className="bg-surface border border-border rounded-[2rem] p-8 space-y-4 hover:shadow-[0_15px_30px_rgba(0,0,0,0.005)] transition-all duration-300">
+              <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.35, ease: [0.32, 0.72, 0, 1] }}
+                className="bg-surface border border-border rounded-[2rem] p-8 space-y-4 hover:shadow-[0_15px_30px_rgba(0,0,0,0.005)] transition-all duration-300"
+              >
                 <div className="w-12 h-12 bg-accent/5 border border-accent/15 rounded-2xl flex items-center justify-center text-accent">
                   <Award className="w-5 h-5" />
                 </div>
@@ -450,9 +495,14 @@ export default function PcClubPage() {
                 <p className="text-muted text-xs leading-relaxed">
                   Alcanzá Plata (1.1x puntos) a partir de 5 compras o Oro (1.2x puntos) desde 10 compras. ¡Los clientes fieles ganan más rápido!
                 </p>
-              </div>
+              </motion.div>
 
-              <div className="bg-surface border border-border rounded-[2rem] p-8 space-y-4 hover:shadow-[0_15px_30px_rgba(0,0,0,0.005)] transition-all duration-300">
+              <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.5, ease: [0.32, 0.72, 0, 1] }}
+                className="bg-surface border border-border rounded-[2rem] p-8 space-y-4 hover:shadow-[0_15px_30px_rgba(0,0,0,0.005)] transition-all duration-300"
+              >
                 <div className="w-12 h-12 bg-accent/5 border border-accent/15 rounded-2xl flex items-center justify-center text-accent">
                   <Ticket className="w-5 h-5" />
                 </div>
@@ -460,11 +510,16 @@ export default function PcClubPage() {
                 <p className="text-muted text-xs leading-relaxed">
                   Usá tus puntos acumulados para canjear cupones del 15%, 20% o 25% de descuento directo en tus siguientes carritos de compras.
                 </p>
-              </div>
+              </motion.div>
             </div>
 
             {/* Info Welcome Banner (Double Layered Card) */}
-            <div className="bg-surface border border-border rounded-[2.2rem] p-8 md:p-12 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.6, ease: [0.32, 0.72, 0, 1] }}
+              className="bg-surface border border-border rounded-[2.2rem] p-8 md:p-12 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8"
+            >
               <div className="absolute right-0 bottom-0 w-64 h-64 bg-accent/4 rounded-full blur-[80px] pointer-events-none z-0" />
               
               <div className="max-w-2xl space-y-4 relative z-10">
@@ -486,7 +541,7 @@ export default function PcClubPage() {
                   </Button>
                 </Link>
               </div>
-            </div>
+            </motion.div>
           </div>
         )}
       </div>
