@@ -9,34 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
-function isValidArgentinePhone(phone: string): boolean {
-  if (!phone) return false;
-  const digits = phone.replace(/\D/g, "");
-  let national = digits;
-  if (digits.startsWith("0054")) {
-    national = digits.substring(4);
-  } else if (digits.startsWith("54")) {
-    national = digits.substring(2);
-  }
-  if (national.startsWith("9") && (national.length === 11 || national.length === 13)) {
-    national = national.substring(1);
-  }
-  if (national.startsWith("0")) {
-    national = national.substring(1);
-  }
-  if (national.length === 12) {
-    if (national.startsWith("1115")) {
-      national = "11" + national.substring(4);
-    } else if (national.substring(3, 5) === "15") {
-      national = national.substring(0, 3) + national.substring(5);
-    } else if (national.substring(4, 6) === "15") {
-      national = national.substring(0, 4) + national.substring(6);
-    }
-  }
-  if (national.length !== 10) return false;
-  const firstChar = national[0];
-  return firstChar === "1" || firstChar === "2" || firstChar === "3";
-}
+
 
 function OtpVerificationView({
   email,
@@ -182,7 +155,6 @@ function AuthForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
   const [loadingForm, setLoadingForm] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
@@ -212,12 +184,6 @@ function AuthForm() {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
         // Sign Up
-        if (!isValidArgentinePhone(phone)) {
-          setErrorMsg("Por favor, ingresá un número de teléfono de contacto de Argentina válido (mínimo 10 dígitos, ej: 2235555555).");
-          setLoadingForm(false);
-          return;
-        }
-
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const firebaseUser = userCredential.user;
 
@@ -231,7 +197,7 @@ function AuthForm() {
           uid: firebaseUser.uid,
           name: name,
           email: email,
-          phone: phone,
+          phone: "",
           createdAt: Date.now(),
         });
 
@@ -347,35 +313,19 @@ function AuthForm() {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {!isLogin && (
-            <>
-              <div>
-                <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">
-                  Nombre Completo
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
-                  placeholder="Juan Pérez"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">
-                  Teléfono
-                </label>
-                <input
-                  type="tel"
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-mono"
-                  placeholder="2235555555"
-                />
-              </div>
-            </>
+            <div>
+              <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">
+                Nombre Completo
+              </label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
+                placeholder="Juan Pérez"
+              />
+            </div>
           )}
 
           <div>
