@@ -288,51 +288,51 @@ export default function AboutPage() {
               </p>
             </div>
 
-            {/* Scorecard Box */}
-            <div className="flex items-center gap-4 bg-surface border border-border p-4 rounded-3xl shrink-0 shadow-sm">
-              <div className="text-center border-r border-border/80 pr-4">
-                <div className="text-3xl font-black text-primary font-sans leading-none font-extrabold">4.4</div>
-                <div className="text-[8px] text-muted font-bold uppercase tracking-wider mt-1.5">Puntuación</div>
-              </div>
-              <div className="space-y-1">
-                <div className="flex gap-0.5 text-amber-400">
-                  <Star className="w-4 h-4 fill-current" />
-                  <Star className="w-4 h-4 fill-current" />
-                  <Star className="w-4 h-4 fill-current" />
-                  <Star className="w-4 h-4 fill-current" />
-                  {/* Half star implementation */}
-                  <div className="relative">
-                    <Star className="w-4 h-4 text-slate-200 fill-current" />
-                    <div className="absolute top-0 left-0 overflow-hidden w-[40%] text-amber-400">
-                      <Star className="w-4 h-4 fill-current" />
+            {/* Scorecard and Carousel controls wrapper to keep them together without overlap */}
+            <div className="flex items-center gap-4 shrink-0">
+              {/* Scorecard Box */}
+              <div className="flex items-center gap-4 bg-surface border border-border p-4 rounded-3xl shadow-sm">
+                <div className="text-center border-r border-border/80 pr-4">
+                  <div className="text-3xl font-black text-primary font-sans leading-none font-extrabold">4.4</div>
+                  <div className="text-[8px] text-muted font-bold uppercase tracking-wider mt-1.5">Puntuación</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex gap-0.5 text-amber-400">
+                    <Star className="w-4 h-4 fill-current" />
+                    <Star className="w-4 h-4 fill-current" />
+                    <Star className="w-4 h-4 fill-current" />
+                    <Star className="w-4 h-4 fill-current" />
+                    {/* Half star implementation */}
+                    <div className="relative">
+                      <Star className="w-4 h-4 text-slate-200 fill-current" />
+                      <div className="absolute top-0 left-0 overflow-hidden w-[40%] text-amber-400">
+                        <Star className="w-4 h-4 fill-current" />
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="text-[10px] text-muted font-semibold">
-                  Basado en <strong className="text-primary">84 reseñas</strong> en Google
+                  <div className="text-[10px] text-muted font-semibold">
+                    Basado en <strong className="text-primary">84 reseñas</strong> en Google
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Carousel Viewport */}
-          <div className="relative group">
-            {/* Carousel scroll arrows */}
-            <div className="absolute -top-16 right-0 flex gap-2">
-              <button
-                onClick={() => scroll("left")}
-                className="w-10 h-10 rounded-full border border-border bg-surface hover:bg-slate-50 text-muted hover:text-primary transition-all flex items-center justify-center cursor-pointer shadow-sm active:scale-[0.95]"
-                aria-label="Anterior"
-              >
-                <ArrowLeft className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => scroll("right")}
-                className="w-10 h-10 rounded-full border border-border bg-surface hover:bg-slate-50 text-muted hover:text-primary transition-all flex items-center justify-center cursor-pointer shadow-sm active:scale-[0.95]"
-                aria-label="Siguiente"
-              >
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              {/* Carousel scroll arrows */}
+              <div className="flex gap-2 self-center">
+                <button
+                  onClick={() => scroll("left")}
+                  className="w-10 h-10 rounded-full border border-border bg-surface hover:bg-slate-50 text-muted hover:text-primary transition-all flex items-center justify-center cursor-pointer shadow-sm active:scale-[0.95]"
+                  aria-label="Anterior"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => scroll("right")}
+                  className="w-10 h-10 rounded-full border border-border bg-surface hover:bg-slate-50 text-muted hover:text-primary transition-all flex items-center justify-center cursor-pointer shadow-sm active:scale-[0.95]"
+                  aria-label="Siguiente"
+                >
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <div
