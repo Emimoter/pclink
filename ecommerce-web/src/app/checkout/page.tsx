@@ -11,7 +11,7 @@ import { Loader2, CreditCard, Landmark, Truck, User, MapPin, Phone, Mail } from 
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
 
-function isValidArgentinePhone(phone: string): boolean {
+function isValidMarDelPlataPhone(phone: string): boolean {
   if (!phone) return false;
   const digits = phone.replace(/\D/g, "");
   let national = digits;
@@ -35,9 +35,7 @@ function isValidArgentinePhone(phone: string): boolean {
       national = national.substring(0, 4) + national.substring(6);
     }
   }
-  if (national.length !== 10) return false;
-  const firstChar = national[0];
-  return firstChar === "1" || firstChar === "2" || firstChar === "3";
+  return national.length === 10 && national.startsWith("223");
 }
 
 interface AddressData {
@@ -225,8 +223,8 @@ function CheckoutForm() {
       setErrorMsg("Debes verificar tu correo electrónico para poder comprar.");
       return;
     }
-    if (shippingMethod !== "pickup" && !isValidArgentinePhone(phone)) {
-      setErrorMsg("Por favor, ingresá un teléfono de contacto de Argentina válido (mínimo 10 dígitos, ej: 2235407787).");
+    if (shippingMethod !== "pickup" && !isValidMarDelPlataPhone(phone)) {
+      setErrorMsg("Por favor, ingresá un teléfono de contacto de Mar del Plata válido (ej: 2235407787).");
       return;
     }
     setSubmitting(true);

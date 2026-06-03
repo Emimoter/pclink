@@ -27,6 +27,32 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { motion, AnimatePresence } from "framer-motion";
+function isValidMarDelPlataPhone(phone: string): boolean {
+  if (!phone) return false;
+  const digits = phone.replace(/\D/g, "");
+  let national = digits;
+  if (digits.startsWith("0054")) {
+    national = digits.substring(4);
+  } else if (digits.startsWith("54")) {
+    national = digits.substring(2);
+  }
+  if (national.startsWith("9") && (national.length === 11 || national.length === 13)) {
+    national = national.substring(1);
+  }
+  if (national.startsWith("0")) {
+    national = national.substring(1);
+  }
+  if (national.length === 12) {
+    if (national.startsWith("1115")) {
+      national = "11" + national.substring(4);
+    } else if (national.substring(3, 5) === "15") {
+      national = national.substring(0, 3) + national.substring(5);
+    } else if (national.substring(4, 6) === "15") {
+      national = national.substring(0, 4) + national.substring(6);
+    }
+  }
+  return national.length === 10 && national.startsWith("223");
+}
 
 interface OrderItem {
   productId: string;
@@ -89,6 +115,7 @@ export default function ProfilePage() {
   const [zipCode, setZipCode] = useState("7600");
   const [isDefault, setIsDefault] = useState(false);
   const [submittingAddress, setSubmittingAddress] = useState(false);
+  const [addressError, setAddressError] = useState("");
 
   // Copied code feedback
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -200,6 +227,7 @@ export default function ProfilePage() {
 
   // Address actions
   const handleOpenAddressForm = (addr: AddressData | null = null) => {
+    setAddressError("");
     if (addr) {
       setEditingAddress(addr);
       setAddressLabel(addr.label);
@@ -231,6 +259,13 @@ export default function ProfilePage() {
   const handleSaveAddress = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    setAddressError("");
+
+    if (!isValidMarDelPlataPhone(phone)) {
+      setAddressError("Por favor, ingresá un teléfono de contacto de Mar del Plata válido (ej: 2235407787).");
+      return;
+    }
+
     setSubmittingAddress(true);
 
     const addrId = editingAddress ? editingAddress.id : `addr-${Date.now()}`;
@@ -575,6 +610,12 @@ export default function ProfilePage() {
                           <X className="w-5 h-5 text-muted" />
                         </button>
                       </div>
+
+                      {addressError && (
+                        <div className="p-4 bg-red-50 border border-red-200 text-red-600 text-sm font-semibold rounded-xl">
+                          {addressError}
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Label */}
