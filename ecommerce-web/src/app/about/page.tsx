@@ -515,7 +515,7 @@ export default function AboutPage() {
                   key={idx}
                   whileHover={{ y: -4 }}
                   transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                  className="flex-none w-[300px] md:w-[350px] bg-surface/50 border border-border p-1.5 rounded-[2rem] snap-start shadow-[0_4px_20px_rgba(0,0,0,0.01)] hover:shadow-[0_12px_30px_rgba(0,0,0,0.03)] transition-all duration-500"
+                  className="flex-none w-[300px] md:w-[320px] lg:w-[calc((100%-3rem)/3)] bg-surface/50 border border-border p-1.5 rounded-[2rem] snap-start shadow-[0_4px_20px_rgba(0,0,0,0.01)] hover:shadow-[0_12px_30px_rgba(0,0,0,0.03)] transition-all duration-500"
                 >
                   <div className="bg-background border border-border/40 p-6 rounded-[calc(2rem-0.375rem)] h-full flex flex-col justify-between space-y-4">
                     <div className="space-y-3">
