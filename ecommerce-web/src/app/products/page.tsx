@@ -278,51 +278,55 @@ function ProductsPageContent() {
           )}
 
           {/* Categorías Secundarias: Grilla Desplazable sin scrollbar */}
-          <div 
-            id="small-categories-container"
-            className="flex-1 min-w-0 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth"
-          >
-            <div className="grid grid-flow-col grid-rows-2 gap-4 h-[296px] w-max auto-cols-[140px] md:auto-cols-[180px]">
-              {otherCategories.map((item) => {
-                const isSelected = category === item.categoryId;
+          <div className="w-full lg:flex-1 lg:min-w-0 relative">
+            <div 
+              id="small-categories-container"
+              className="w-full overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth"
+            >
+              <div className="grid grid-flow-col grid-rows-2 gap-4 h-[296px] w-max auto-cols-[140px] md:auto-cols-[180px]">
+                {otherCategories.map((item) => {
+                  const isSelected = category === item.categoryId;
 
-                return (
-                  <motion.div
-                    key={item.id}
-                    whileHover={{ y: -4 }}
-                    whileTap={{ scale: 0.98 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                    onClick={() => handleCategorySelect(item.categoryId)}
-                    className={cn(
-                      "relative overflow-hidden cursor-pointer group rounded-3xl border transition-all duration-500 snap-start flex-shrink-0 select-none row-span-1 col-span-1 h-full w-full shadow-[0_4px_20px_rgba(0,0,0,0.08)]",
-                      isSelected 
-                        ? "border-accent ring-2 ring-accent/25 shadow-[0_10px_30px_rgba(6,182,212,0.15)]" 
-                        : "border-border/60 hover:border-slate-300 hover:shadow-[0_12px_35px_rgba(0,0,0,0.12)]"
-                    )}
-                  >
-                    {item.image ? (
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 select-none"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 bg-gradient-to-br from-accent/80 via-primary/95 to-background group-hover:scale-105 transition-transform duration-700 flex items-center justify-center" />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent z-10" />
-
-                    <div className="absolute bottom-4 inset-x-4 z-20 flex flex-col items-center justify-end h-full">
-                      <span className="font-black text-white text-center uppercase tracking-widest font-sans leading-none text-[10px] md:text-xs">
-                        {item.name}
-                      </span>
-                      {isSelected && (
-                        <span className="w-1.5 h-1.5 bg-accent rounded-full mt-2 animate-pulse" />
+                  return (
+                    <motion.div
+                      key={item.id}
+                      whileHover={{ y: -4 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                      onClick={() => handleCategorySelect(item.categoryId)}
+                      className={cn(
+                        "relative overflow-hidden cursor-pointer group rounded-3xl border transition-all duration-500 snap-start flex-shrink-0 select-none row-span-1 col-span-1 h-full w-full shadow-[0_4px_20px_rgba(0,0,0,0.08)]",
+                        isSelected 
+                          ? "border-accent ring-2 ring-accent/25 shadow-[0_10px_30px_rgba(6,182,212,0.15)]" 
+                          : "border-border/60 hover:border-slate-300 hover:shadow-[0_12px_35px_rgba(0,0,0,0.12)]"
                       )}
-                    </div>
-                  </motion.div>
-                );
-              })}
+                    >
+                      {item.image ? (
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 select-none"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-br from-accent/80 via-primary/95 to-background group-hover:scale-105 transition-transform duration-700 flex items-center justify-center" />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent z-10" />
+
+                      <div className="absolute bottom-4 inset-x-4 z-20 flex flex-col items-center justify-end h-full">
+                        <span className="font-black text-white text-center uppercase tracking-widest font-sans leading-none text-[10px] md:text-xs">
+                          {item.name}
+                        </span>
+                        {isSelected && (
+                          <span className="w-1.5 h-1.5 bg-accent rounded-full mt-2 animate-pulse" />
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
             </div>
+            {/* Right fade overlay to signal scrollability - Static and does not react to hover */}
+            <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-background to-transparent pointer-events-none z-20" />
           </div>
         </div>
       </div>
