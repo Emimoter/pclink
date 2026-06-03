@@ -98,11 +98,11 @@ export default function PcClubPage() {
   const basePoints = Math.floor((totalSpent / 100) * multiplier) + 800;
   const netPoints = Math.max(0, basePoints - pointsSpent);
 
-  // Available vouchers to redeem
+  // Available coupons to redeem
   const VOUCHERS = [
-    { percent: 15, cost: 1000, title: "Voucher 15% OFF", desc: "Válido para cualquier componente de hardware o notebook." },
-    { percent: 20, cost: 1800, title: "Voucher 20% OFF", desc: "Válido para periféricos, accesorios y monitores." },
-    { percent: 25, cost: 2500, title: "Voucher 25% OFF", desc: "Válido en la compra final de periféricos seleccionados." },
+    { percent: 15, cost: 1000, title: "Cupón 15% OFF", desc: "Válido para cualquier componente de hardware o notebook." },
+    { percent: 20, cost: 1800, title: "Cupón 20% OFF", desc: "Válido para periféricos, accesorios y monitores." },
+    { percent: 25, cost: 2500, title: "Cupón 25% OFF", desc: "Válido en la compra final de periféricos seleccionados." },
   ];
 
   // Handle voucher redemption
@@ -381,7 +381,7 @@ export default function PcClubPage() {
               className="space-y-6"
             >
               <div>
-                <h2 className="text-2xl font-black text-primary tracking-tight font-sans">Canjear Beneficios</h2>
+                <h2 className="text-2xl font-black text-primary tracking-tight font-sans">Canjear Cupones</h2>
                 <p className="text-muted text-xs mt-1 leading-relaxed max-w-[65ch]">
                   Elegí el descuento que más te convenga y canjealo al instante con tus puntos acumulados.
                 </p>
@@ -398,38 +398,44 @@ export default function PcClubPage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, delay: 0.6 + idx * 0.1, ease: [0.32, 0.72, 0, 1] }}
                       whileHover={{ y: -4 }}
-                      className="bg-surface border border-border rounded-[2rem] p-6 flex flex-col justify-between hover:shadow-[0_20px_40px_rgba(0,0,0,0.015)] hover:border-slate-300 transition-shadow transition-colors duration-300 relative overflow-hidden"
+                      className="bg-surface border border-border rounded-2xl p-0 flex flex-col justify-between hover:shadow-[0_20px_40px_rgba(0,0,0,0.015)] hover:border-slate-300 transition-shadow transition-colors duration-300 relative overflow-hidden"
                     >
-                      {/* Decorative ticket notch circles on left/right edges */}
-                      <div className="absolute top-1/3 -left-3 w-6 h-6 bg-background rounded-full border-r border-border pointer-events-none z-10" />
-                      <div className="absolute top-1/3 -right-3 w-6 h-6 bg-background rounded-full border-l border-border pointer-events-none z-10" />
+                      {/* Coupon notch cutouts - centered on both sides */}
+                      <div className="absolute top-1/2 -translate-y-1/2 -left-3.5 w-7 h-7 bg-background rounded-full border border-border pointer-events-none z-10" />
+                      <div className="absolute top-1/2 -translate-y-1/2 -right-3.5 w-7 h-7 bg-background rounded-full border border-border pointer-events-none z-10" />
 
-                      <div className="space-y-4">
+                      {/* Top section: discount amount */}
+                      <div className="px-6 pt-6 pb-4 space-y-4">
                         <div className="flex items-center justify-between">
                           <span className="text-3xl font-black text-accent font-sans">{v.percent}% OFF</span>
                           <span className="text-[9px] font-black px-2.5 py-1 bg-accent/5 border border-accent/20 rounded-xl text-accent font-sans uppercase tracking-widest">
                             {v.cost} pts
                           </span>
                         </div>
-                        
-                        {/* Dotted divider line */}
-                        <div className="border-t border-dashed border-border/80 my-3" />
+                      </div>
+                      
+                      {/* Perforated coupon tear line */}
+                      <div className="relative mx-4">
+                        <div className="border-t-2 border-dashed border-border/60" />
+                      </div>
 
+                      {/* Bottom section: details and redeem button */}
+                      <div className="px-6 pt-4 pb-6 flex flex-col justify-between flex-1">
                         <div className="space-y-2">
                           <h3 className="font-extrabold text-primary text-xs uppercase tracking-wider">{v.title}</h3>
                           <p className="text-muted text-[11px] leading-relaxed">{v.desc}</p>
                         </div>
-                      </div>
 
-                      <div className="mt-8">
-                        <Button
-                          onClick={() => handleRedeem(v.percent, v.cost)}
-                          disabled={!canRedeem}
-                          className="w-full rounded-2xl py-4 text-[10px] tracking-wider uppercase font-black"
-                          variant={canRedeem ? "primary" : "secondary"}
-                        >
-                          {canRedeem ? "Canjear Voucher" : "Puntos Insuficientes"}
-                        </Button>
+                        <div className="mt-6">
+                          <Button
+                            onClick={() => handleRedeem(v.percent, v.cost)}
+                            disabled={!canRedeem}
+                            className="w-full rounded-2xl py-4 text-[10px] tracking-wider uppercase font-black"
+                            variant={canRedeem ? "primary" : "secondary"}
+                          >
+                            {canRedeem ? "Canjear Cupón" : "Puntos Insuficientes"}
+                          </Button>
+                        </div>
                       </div>
                     </motion.div>
                   );
