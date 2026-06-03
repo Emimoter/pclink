@@ -1,11 +1,70 @@
 "use client";
 
+import { useRef } from "react";
 import { motion } from "framer-motion";
-import { ShieldCheck, Cpu, MapPin, ArrowRight, Printer, RotateCcw, Wrench, Clock, Phone, History } from "lucide-react";
+import { ShieldCheck, Cpu, MapPin, ArrowRight, ArrowLeft, Printer, RotateCcw, Wrench, Clock, Phone, History, Star } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
 
 export default function AboutPage() {
+  const carouselRef = useRef<HTMLDivElement>(null);
+
+  const scroll = (direction: "left" | "right") => {
+    if (carouselRef.current) {
+      const { scrollLeft, clientWidth } = carouselRef.current;
+      const scrollAmount = clientWidth * 0.8;
+      carouselRef.current.scrollTo({
+        left: direction === "left" ? scrollLeft - scrollAmount : scrollLeft + scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  };
+
+  const reviews = [
+    {
+      name: "Mariana Dopchiz",
+      stars: 5,
+      date: "Hace 9 meses",
+      text: "Es la segunda computadora que llevo para hacerle cambios que mejoren su eficiencia/rendimiento y: Hacen un diagnóstico y te informan los cambios que hay que hacer y cual es su valor para que vos lo valides y a partir de ahí proceden. No te encontras con sorpresas. Lo hacen en tiempo récord, cumplen con el plazo acordado y a un precio razonable de mercado.",
+      response: "Hola Mariana, muchísimas gracias por tu reseña ! valoramos mucho tu opinión."
+    },
+    {
+      name: "Carolina Picone",
+      stars: 5,
+      date: "Hace 3 meses",
+      text: "Increíble la atención! Necesitaba funcionando mi computadora con urgencia y me lo solucionaron rapidísimo. Muy genios!",
+      response: "Hola Carolina, muchas gracias por tu reseña !!"
+    },
+    {
+      name: "andrea pollo",
+      stars: 5,
+      date: "Hace un año",
+      text: "Excelente atención y asesoramiento!!!  Rápidos y resolutivos. Lleve una impresora por problemas de inyectores tapados de 48hs estaba lista. Agradezco totalmente la rapidez ya que es de uso laboral. Tienen opciones de tinta originales y genéricas a un muy bien precio.",
+      response: "Muy amable Andrea, agradecemos tu opinión y buena onda!"
+    },
+    {
+      name: "Rocío Lascano Pérez",
+      stars: 5,
+      date: "Hace 4 meses",
+      text: "Llevé mí computadora para actualizar, me asesoraron muy bien y cumplieron con el tiempo de arreglo que habían quedado. Súper conforme con el lugar.",
+      response: "Hola Rocío, muchas gracias por tu reseña !!"
+    },
+    {
+      name: "Gabriel Alberto Gandiani",
+      stars: 5,
+      date: "Hace 9 meses",
+      text: "La atención es excelente y calificada. Buscan que encuentres la solución a tu problema. Las reparaciones y los equipos que venden son de muy buena calidad. Altamente recomendables.",
+      response: "Hola Gabriel, muchas gracias por tu reseña y opinión."
+    },
+    {
+      name: "Florencia Fortier",
+      stars: 5,
+      date: "Hace 9 meses",
+      text: "Excelente servicio y rapidez. Instalaron los programas que necesitaba en el día, sin perjudicar mi tiempo de trabajo. Ademas, me asesoraron correctamente. Gracias!👍",
+      response: "Hola Florencia muchas gracias por tu reseña !"
+    }
+  ];
+
   const stats = [
     { label: "Trayectoria", value: "30+ Años" },
     { label: "Ubicación", value: "Tejedor 554" },
@@ -377,6 +436,152 @@ export default function AboutPage() {
                 />
               </motion.div>
             </motion.div>
+          </div>
+
+        </div>
+      </section>
+
+      {/* Reviews Section */}
+      <section className="py-24 border-t border-border bg-surface/10 z-10 relative">
+        <div className="container mx-auto px-4 max-w-5xl space-y-12">
+          
+          {/* Header Row */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="space-y-3">
+              <span className="text-[9px] uppercase font-black tracking-widest text-accent font-sans block">
+                Opiniones Reales
+              </span>
+              <h2 className="text-3xl md:text-4xl font-extrabold text-primary tracking-tight leading-none">
+                Lo que dicen de nosotros
+              </h2>
+              <p className="text-muted text-xs max-w-md">
+                Nuestros clientes valoran la rapidez, honestidad y precisión técnica de nuestro laboratorio.
+              </p>
+            </div>
+
+            {/* Scorecard Box */}
+            <div className="flex items-center gap-4 bg-surface border border-border p-4 rounded-3xl shrink-0 shadow-sm">
+              <div className="text-center border-r border-border/80 pr-4">
+                <div className="text-3xl font-black text-primary font-sans leading-none font-extrabold">4.4</div>
+                <div className="text-[8px] text-muted font-bold uppercase tracking-wider mt-1.5">Puntuación</div>
+              </div>
+              <div className="space-y-1">
+                <div className="flex gap-0.5 text-amber-400">
+                  <Star className="w-4 h-4 fill-current" />
+                  <Star className="w-4 h-4 fill-current" />
+                  <Star className="w-4 h-4 fill-current" />
+                  <Star className="w-4 h-4 fill-current" />
+                  {/* Half star implementation */}
+                  <div className="relative">
+                    <Star className="w-4 h-4 text-slate-200 fill-current" />
+                    <div className="absolute top-0 left-0 overflow-hidden w-[40%] text-amber-400">
+                      <Star className="w-4 h-4 fill-current" />
+                    </div>
+                  </div>
+                </div>
+                <div className="text-[10px] text-muted font-semibold">
+                  Basado en <strong className="text-primary">84 reseñas</strong> en Google
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Carousel Viewport */}
+          <div className="relative group">
+            {/* Carousel scroll arrows */}
+            <div className="absolute -top-16 right-0 flex gap-2">
+              <button
+                onClick={() => scroll("left")}
+                className="w-10 h-10 rounded-full border border-border bg-surface hover:bg-slate-50 text-muted hover:text-primary transition-all flex items-center justify-center cursor-pointer shadow-sm active:scale-[0.95]"
+                aria-label="Anterior"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => scroll("right")}
+                className="w-10 h-10 rounded-full border border-border bg-surface hover:bg-slate-50 text-muted hover:text-primary transition-all flex items-center justify-center cursor-pointer shadow-sm active:scale-[0.95]"
+                aria-label="Siguiente"
+              >
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div
+              ref={carouselRef}
+              className="flex gap-6 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-8 pt-2 scroll-smooth"
+            >
+              {reviews.map((rev, idx) => (
+                <motion.div
+                  key={idx}
+                  whileHover={{ y: -4 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                  className="flex-none w-[300px] md:w-[350px] bg-surface/50 border border-border p-1.5 rounded-[2rem] snap-start shadow-[0_4px_20px_rgba(0,0,0,0.01)] hover:shadow-[0_12px_30px_rgba(0,0,0,0.03)] transition-all duration-500"
+                >
+                  <div className="bg-background border border-border/40 p-6 rounded-[calc(2rem-0.375rem)] h-full flex flex-col justify-between space-y-4">
+                    <div className="space-y-3">
+                      {/* Card Header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent text-xs font-black font-sans">
+                            {rev.name[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-extrabold text-primary truncate max-w-[150px] leading-tight">
+                              {rev.name}
+                            </h4>
+                            <span className="text-[9px] text-muted mt-0.5 block">{rev.date}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex gap-0.5 text-amber-400">
+                          {[...Array(rev.stars)].map((_, i) => (
+                            <Star key={i} className="w-3.5 h-3.5 fill-current" />
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Review Text */}
+                      <p className="text-[11px] leading-relaxed text-muted italic font-medium">
+                        "{rev.text}"
+                      </p>
+                    </div>
+
+                    {/* Owner Response */}
+                    {rev.response && (
+                      <div className="bg-surface/60 border border-border/30 rounded-2xl p-3 text-[10px] text-muted space-y-1">
+                        <div className="font-bold text-primary flex items-center gap-1.5 uppercase text-[8px] tracking-wider">
+                          <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                          Respuesta de PC Link
+                        </div>
+                        <p className="leading-relaxed font-medium">
+                          {rev.response}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* CTA to Google Reviews */}
+          <div className="text-center pt-4">
+            <a
+              href="https://www.google.com/search?q=pclink+computacion+mar+del+plata#lrd=0x9584d96ab2cd6b93:0xc75225e6488d3c6d,1,,,,"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex"
+            >
+              <Button
+                variant="secondary"
+                className="rounded-full px-6 py-4 h-auto text-xs font-bold uppercase tracking-wider flex items-center gap-2 group border border-border/80 hover:border-muted shadow-sm transition-all"
+              >
+                <span>Leer más opiniones en Google</span>
+                <span className="w-5 h-5 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center transition-all group-hover:translate-x-0.5">
+                  <ArrowRight className="w-3 h-3" />
+                </span>
+              </Button>
+            </a>
           </div>
 
         </div>
