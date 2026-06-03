@@ -172,8 +172,8 @@ export default function AboutPage() {
                 transition={{ duration: 0.7, delay: 0.1 }}
                 className="text-4xl md:text-5xl lg:text-6xl font-black text-primary tracking-tighter leading-none max-w-4xl"
               >
-                Tres Décadas de <br />
-                <span className="text-accent">Evolución Tecnológica</span>
+                Tu tienda de tecnología <br />
+                <span className="text-accent">en Mar del Plata</span>
               </motion.h1>
               
               <motion.p
@@ -212,17 +212,14 @@ export default function AboutPage() {
               initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.7, delay: 0.15 }}
-              className="md:col-span-4 flex md:justify-end justify-center pt-4 md:pt-0"
+              className="md:col-span-4 flex justify-center pt-4 md:pt-0"
             >
               <div className="relative p-2.5 bg-white rounded-full border border-border shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:scale-[1.03] transition-transform duration-500">
                 <img
                   src="/logo.png"
                   alt="PC Link Logo"
-                  className="h-28 w-28 md:h-36 md:w-36 object-contain rounded-full"
+                  className="h-40 w-40 md:h-52 md:w-52 object-contain rounded-full"
                 />
-                <div className="absolute -bottom-1 -right-1 bg-accent border-2 border-white text-white text-[8px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full shadow-md font-sans">
-                  Est. 1995
-                </div>
               </div>
             </motion.div>
           </div>
