@@ -129,15 +129,16 @@ export default function PcClubPage() {
   };
 
   if (authLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[70vh]">
-        <Loader2 className="w-8 h-8 text-accent animate-spin" />
-      </div>
-    );
+    return <PcClubSkeleton />;
   }
 
   return (
-    <div className="bg-background min-h-screen py-20 px-4 relative overflow-hidden">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="bg-background min-h-screen py-20 px-4 relative overflow-hidden"
+    >
       {/* Background blurs */}
       <div className="absolute top-10 left-0 w-[400px] h-[400px] bg-accent/4 rounded-full blur-[100px] pointer-events-none z-0" />
       <div className="absolute top-1/2 right-0 w-[500px] h-[500px] bg-slate-200/20 rounded-full blur-[120px] pointer-events-none z-0" />
@@ -204,9 +205,13 @@ export default function PcClubPage() {
                   {user ? user.displayName || "Socio Registrado" : "Invitado Especial"}
                 </div>
                 {user && (
-                  <div className="mt-3 text-[10px] text-zinc-400 font-sans font-bold tracking-wider flex items-center gap-1.5">
+                  <div className="mt-3 text-[10px] text-zinc-400 font-sans font-bold tracking-wider flex items-center gap-1.5 min-h-[16px]">
                     <Coins className="w-3.5 h-3.5 text-accent" />
-                    <span>{netPoints} PUNTOS DISPONIBLES</span>
+                    {loadingOrders ? (
+                      <div className="h-3 w-28 bg-zinc-800 animate-pulse rounded" />
+                    ) : (
+                      <span>{netPoints} PUNTOS DISPONIBLES</span>
+                    )}
                   </div>
                 )}
               </div>
@@ -228,8 +233,12 @@ export default function PcClubPage() {
                     <Coins className="w-4 h-4" />
                   </div>
                 </div>
-                <div className="text-4xl lg:text-5xl font-black text-primary tracking-tight font-sans">
-                  {loadingOrders ? "..." : netPoints}
+                <div className="text-4xl lg:text-5xl font-black text-primary tracking-tight font-sans min-h-[40px] flex items-center">
+                  {loadingOrders ? (
+                    <div className="h-10 w-24 bg-zinc-200 dark:bg-zinc-800/80 animate-pulse rounded-lg" />
+                  ) : (
+                    netPoints
+                  )}
                 </div>
                 <p className="text-[10px] font-semibold text-muted mt-2">
                   Saldo disponible para canjear
@@ -237,7 +246,11 @@ export default function PcClubPage() {
                 <div className="mt-6 pt-4 border-t border-border/60 grid grid-cols-2 gap-2 text-[10px]">
                   <div>
                     <span className="text-muted block">Ganados:</span>
-                    <span className="font-extrabold text-primary">{loadingOrders ? "..." : basePoints}</span>
+                    {loadingOrders ? (
+                      <div className="h-3.5 w-12 bg-zinc-200 dark:bg-zinc-800/60 animate-pulse rounded mt-0.5" />
+                    ) : (
+                      <span className="font-extrabold text-primary">{basePoints}</span>
+                    )}
                   </div>
                   <div>
                     <span className="text-muted block">Canjeados:</span>
@@ -247,7 +260,7 @@ export default function PcClubPage() {
               </div>
 
               {/* Card 2: Tier */}
-              <div className="bg-surface border border-border rounded-[2rem] p-8 hover:shadow-[0_15px_30px_rgba(0,0,0,0.005)] transition-all duration-300 flex flex-col justify-between">
+              <div className="bg-surface border border-border rounded-[2rem] p-8 hover:shadow-[0_15px_30px_rgba(0,0,0,0.005)] transition-all duration-300 flex flex-col justify-between min-h-[220px]">
                 <div>
                   <div className="flex justify-between items-start mb-6">
                     <span className="text-[10px] font-black text-muted uppercase tracking-widest font-sans">Nivel Actual</span>
@@ -255,28 +268,50 @@ export default function PcClubPage() {
                       <Shield className="w-4 h-4" />
                     </div>
                   </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-black text-primary tracking-tight font-sans">{tier}</span>
-                    <span className="text-[9px] font-black text-accent px-2 py-0.5 bg-accent/10 border border-accent/20 rounded-md">
-                      {multiplier}x Puntos
-                    </span>
-                  </div>
-                  <p className="text-[10px] font-semibold text-muted mt-3 leading-relaxed">
-                    {nextTierMessage}
-                  </p>
+                  {loadingOrders ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="h-8 w-24 bg-zinc-200 dark:bg-zinc-800/80 animate-pulse rounded-lg" />
+                        <div className="h-5 w-16 bg-zinc-200 dark:bg-zinc-800/50 animate-pulse rounded-md" />
+                      </div>
+                      <div className="h-3.5 w-48 bg-zinc-100 dark:bg-zinc-800/40 animate-pulse rounded mt-3" />
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-black text-primary tracking-tight font-sans">{tier}</span>
+                        <span className="text-[9px] font-black text-accent px-2 py-0.5 bg-accent/10 border border-accent/20 rounded-md">
+                          {multiplier}x Puntos
+                        </span>
+                      </div>
+                      <p className="text-[10px] font-semibold text-muted mt-3 leading-relaxed">
+                        {nextTierMessage}
+                      </p>
+                    </>
+                  )}
                 </div>
                 
                 {/* Progress bar to next tier */}
-                {tier !== "Oro" && (
+                {loadingOrders ? (
                   <div className="mt-6 space-y-1.5">
-                    <div className="flex justify-between text-[9px] text-muted font-bold">
-                      <span>Progreso</span>
-                      <span>{progressToNext}%</span>
+                    <div className="flex justify-between">
+                      <div className="h-2.5 w-12 bg-zinc-100 dark:bg-zinc-800/30 animate-pulse rounded" />
+                      <div className="h-2.5 w-8 bg-zinc-100 dark:bg-zinc-800/30 animate-pulse rounded" />
                     </div>
-                    <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
-                      <div className="h-full bg-accent transition-all duration-500" style={{ width: `${progressToNext}%` }} />
-                    </div>
+                    <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden" />
                   </div>
+                ) : (
+                  tier !== "Oro" && (
+                    <div className="mt-6 space-y-1.5">
+                      <div className="flex justify-between text-[9px] text-muted font-bold">
+                        <span>Progreso</span>
+                        <span>{progressToNext}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
+                        <div className="h-full bg-accent transition-all duration-500" style={{ width: `${progressToNext}%` }} />
+                      </div>
+                    </div>
+                  )
                 )}
               </div>
 
@@ -293,13 +328,21 @@ export default function PcClubPage() {
                     <span className="text-muted font-medium">Puntos de Bienvenida:</span>
                     <span className="font-extrabold text-primary">+800</span>
                   </div>
-                  <div className="flex justify-between border-b border-border/40 pb-2">
+                  <div className="flex justify-between border-b border-border/40 pb-2 h-6 items-center">
                     <span className="text-muted font-medium">Compras Realizadas:</span>
-                    <span className="font-extrabold text-primary">{ordersCount}</span>
+                    {loadingOrders ? (
+                      <div className="h-3.5 w-8 bg-zinc-200 dark:bg-zinc-800/60 animate-pulse rounded" />
+                    ) : (
+                      <span className="font-extrabold text-primary">{ordersCount}</span>
+                    )}
                   </div>
-                  <div className="flex justify-between pb-0.5">
+                  <div className="flex justify-between pb-0.5 h-6 items-center">
                     <span className="text-muted font-medium">Facturación Total:</span>
-                    <span className="font-extrabold text-primary">${totalSpent.toLocaleString("es-AR")}</span>
+                    {loadingOrders ? (
+                      <div className="h-3.5 w-16 bg-zinc-200 dark:bg-zinc-800/60 animate-pulse rounded" />
+                    ) : (
+                      <span className="font-extrabold text-primary">${totalSpent.toLocaleString("es-AR")}</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -511,6 +554,175 @@ export default function PcClubPage() {
           </div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
+  );
+}
+
+function PcClubSkeleton() {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+      className="bg-background min-h-screen py-20 px-4 relative overflow-hidden"
+    >
+      {/* Background blurs */}
+      <div className="absolute top-10 left-0 w-[400px] h-[400px] bg-accent/4 rounded-full blur-[100px] pointer-events-none z-0" />
+      <div className="absolute top-1/2 right-0 w-[500px] h-[500px] bg-slate-200/20 rounded-full blur-[120px] pointer-events-none z-0" />
+
+      <div className="container mx-auto max-w-5xl relative z-10">
+        {/* Header Hero Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 mb-20 items-center">
+          <div className="lg:col-span-7 space-y-6">
+            {/* Pill */}
+            <div className="w-40 h-6 bg-zinc-200 dark:bg-zinc-800/60 rounded-full animate-pulse border border-zinc-300 dark:border-zinc-800/80" />
+            
+            {/* Title */}
+            <div className="space-y-3">
+              <div className="h-12 w-2/3 bg-zinc-200 dark:bg-zinc-800/80 rounded-2xl animate-pulse" />
+            </div>
+            
+            {/* Description */}
+            <div className="space-y-2">
+              <div className="h-4 w-full bg-zinc-205 dark:bg-zinc-800/50 rounded animate-pulse" />
+              <div className="h-4 w-[90%] bg-zinc-205 dark:bg-zinc-800/50 rounded animate-pulse" />
+              <div className="h-4 w-[75%] bg-zinc-205 dark:bg-zinc-800/50 rounded animate-pulse" />
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-4 pt-2">
+              <div className="w-32 h-11 bg-zinc-200 dark:bg-zinc-800/60 rounded-xl animate-pulse" />
+              <div className="w-32 h-11 bg-zinc-200 dark:bg-zinc-800/40 rounded-xl animate-pulse" />
+            </div>
+          </div>
+
+          {/* Member Card Skeleton */}
+          <div className="lg:col-span-5 flex justify-center lg:justify-end">
+            <div className="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-[2.2rem] p-8 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.15)] flex flex-col justify-between aspect-video relative overflow-hidden">
+              <div className="absolute -right-12 -top-12 w-40 h-40 bg-zinc-800/20 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.06),rgba(255,255,255,0))]" />
+              
+              <div className="flex justify-between items-start z-10">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-zinc-800 animate-pulse shrink-0" />
+                  <div className="w-20 h-3 bg-zinc-800 animate-pulse rounded" />
+                </div>
+                <div className="w-24 h-5 rounded-full bg-zinc-800 animate-pulse" />
+              </div>
+              
+              <div className="mt-8 z-10 space-y-3">
+                <div className="w-24 h-2 bg-zinc-800 animate-pulse rounded" />
+                <div className="w-40 h-5 bg-zinc-800 animate-pulse rounded-lg" />
+                <div className="w-48 h-3.5 bg-zinc-800 animate-pulse rounded-md mt-2" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Dashboard Grid Skeleton */}
+        <div className="space-y-16">
+          {/* Stats cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Card 1 */}
+            <div className="bg-surface border border-border rounded-[2rem] p-8 space-y-4">
+              <div className="flex justify-between items-start">
+                <div className="w-16 h-3 bg-zinc-200 dark:bg-zinc-800/50 rounded animate-pulse" />
+                <div className="w-8 h-8 bg-zinc-250 dark:bg-zinc-800/60 rounded-xl animate-pulse" />
+              </div>
+              <div className="h-10 w-28 bg-zinc-200 dark:bg-zinc-800/80 rounded-xl animate-pulse" />
+              <div className="h-3 w-36 bg-zinc-200 dark:bg-zinc-800/40 rounded animate-pulse" />
+              <div className="pt-4 border-t border-border/60 grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <div className="h-2 w-10 bg-zinc-200 dark:bg-zinc-800/30 rounded animate-pulse" />
+                  <div className="h-3.5 w-14 bg-zinc-200 dark:bg-zinc-800/60 rounded animate-pulse" />
+                </div>
+                <div className="space-y-1">
+                  <div className="h-2 w-10 bg-zinc-200 dark:bg-zinc-800/30 rounded animate-pulse" />
+                  <div className="h-3.5 w-14 bg-zinc-200 dark:bg-zinc-800/60 rounded animate-pulse" />
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2 */}
+            <div className="bg-surface border border-border rounded-[2rem] p-8 space-y-4 flex flex-col justify-between h-[220px]">
+              <div className="space-y-4">
+                <div className="flex justify-between items-start">
+                  <div className="w-20 h-3 bg-zinc-200 dark:bg-zinc-800/50 rounded animate-pulse" />
+                  <div className="w-8 h-8 bg-zinc-250 dark:bg-zinc-800/60 rounded-xl animate-pulse" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-24 bg-zinc-200 dark:bg-zinc-800/80 rounded-xl animate-pulse" />
+                  <div className="h-5 w-16 bg-zinc-200 dark:bg-zinc-800/50 rounded-md animate-pulse" />
+                </div>
+                <div className="h-3 w-48 bg-zinc-200 dark:bg-zinc-800/40 rounded animate-pulse" />
+              </div>
+              <div className="space-y-2 pt-2">
+                <div className="flex justify-between">
+                  <div className="h-2 w-12 bg-zinc-200 dark:bg-zinc-800/30 rounded animate-pulse" />
+                  <div className="h-2 w-8 bg-zinc-200 dark:bg-zinc-800/30 rounded animate-pulse" />
+                </div>
+                <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800/30 rounded-full overflow-hidden" />
+              </div>
+            </div>
+
+            {/* Card 3 */}
+            <div className="bg-surface border border-border rounded-[2rem] p-8 space-y-4">
+              <div className="flex justify-between items-start">
+                <div className="w-24 h-3 bg-zinc-200 dark:bg-zinc-800/50 rounded animate-pulse" />
+                <div className="w-8 h-8 bg-zinc-250 dark:bg-zinc-800/60 rounded-xl animate-pulse" />
+              </div>
+              <div className="space-y-3.5 pt-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex justify-between items-center border-b border-border/40 pb-2 last:border-0 last:pb-0 h-6">
+                    <div className="h-3.5 w-28 bg-zinc-200 dark:bg-zinc-800/40 rounded animate-pulse" />
+                    <div className="h-3.5 w-10 bg-zinc-200 dark:bg-zinc-800/60 rounded animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Vouchers section skeleton */}
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <div className="h-7 w-48 bg-zinc-200 dark:bg-zinc-800/80 rounded-lg animate-pulse" />
+              <div className="h-3.5 w-96 bg-zinc-200 dark:bg-zinc-800/40 rounded animate-pulse" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="bg-surface border border-border rounded-[2rem] p-6 flex flex-col justify-between relative overflow-hidden h-[300px]"
+                >
+                  {/* Decorative notch circles */}
+                  <div className="absolute top-1/3 -left-3 w-6 h-6 bg-background rounded-full border-r border-border pointer-events-none z-10" />
+                  <div className="absolute top-1/3 -right-3 w-6 h-6 bg-background rounded-full border-l border-border pointer-events-none z-10" />
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="h-8 w-20 bg-zinc-200 dark:bg-zinc-800/80 rounded-xl animate-pulse" />
+                      <div className="h-5 w-16 bg-zinc-200 dark:bg-zinc-800/60 rounded-xl animate-pulse" />
+                    </div>
+                    
+                    <div className="border-t border-dashed border-border/80 my-3" />
+
+                    <div className="space-y-2">
+                      <div className="h-4 w-32 bg-zinc-200 dark:bg-zinc-800/60 rounded animate-pulse" />
+                      <div className="h-3.5 w-full bg-zinc-200 dark:bg-zinc-800/40 rounded animate-pulse" />
+                      <div className="h-3.5 w-[85%] bg-zinc-200 dark:bg-zinc-800/40 rounded animate-pulse" />
+                    </div>
+                  </div>
+
+                  <div className="mt-8">
+                    <div className="w-full h-11 bg-zinc-200 dark:bg-zinc-800/60 rounded-2xl animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
 }
