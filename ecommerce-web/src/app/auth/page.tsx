@@ -41,9 +41,11 @@ function isValidArgentinePhone(phone: string): boolean {
 function OtpVerificationView({
   email,
   onCancel,
+  onSuccess,
 }: {
   email: string;
   onCancel: () => void;
+  onSuccess: () => void;
 }) {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -73,15 +75,14 @@ function OtpVerificationView({
       const verifyOTPFn = httpsCallable(functions, "verifyOTP");
       await verifyOTPFn({ code });
       
-      // Recargar el usuario local de Firebase Auth
-      if (auth.currentUser) {
-        await auth.currentUser.reload();
-      }
       setSuccessMsg("¡Correo verificado con éxito!");
+      
+      setTimeout(() => {
+        onSuccess();
+      }, 2000);
     } catch (err: any) {
       console.error("Error al verificar OTP:", err);
       setErrorMsg(err.message || "Código incorrecto o expirado.");
-    } finally {
       setLoading(false);
     }
   };
@@ -310,6 +311,14 @@ function AuthForm() {
         onCancel={() => {
           setIsVerifyingOtp(false);
           auth.signOut();
+        }}
+        onSuccess={async () => {
+          if (auth.currentUser) {
+            await auth.currentUser.reload();
+            const { updateCurrentUser } = await import("firebase/auth");
+            await updateCurrentUser(auth, auth.currentUser);
+          }
+          router.replace(redirect);
         }}
       />
     );
