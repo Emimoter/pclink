@@ -59,6 +59,21 @@ function isValidMarDelPlataPhone(phone: string): boolean {
   return national.length === 10 && national.startsWith("223");
 }
 
+function parseAddressString(fullAddress: string) {
+  const clean = fullAddress.trim();
+  const match = clean.match(/^(.*?)\s+(\d+[a-zA-Z]?)\s*$/);
+  if (match) {
+    return {
+      street: match[1].trim(),
+      number: match[2].trim()
+    };
+  }
+  return {
+    street: clean,
+    number: ""
+  };
+}
+
 interface OrderItem {
   productId: string;
   productName: string;
@@ -115,7 +130,6 @@ export default function ProfilePage() {
   const [recipientName, setRecipientName] = useState("");
   const [phone, setPhone] = useState("");
   const [street, setStreet] = useState("");
-  const [streetNumber, setStreetNumber] = useState("");
   const [apartment, setApartment] = useState("");
   const [city, setCity] = useState("Mar del Plata");
   const [stateName, setStateName] = useState("Buenos Aires");
@@ -273,10 +287,8 @@ export default function ProfilePage() {
           setAddressError("Actualmente solo realizamos envíos dentro de Mar del Plata.");
         } else {
           setAddressError("");
-          setStreet(streetName || place.formatted_address || "");
-          if (streetNumber) {
-            setStreetNumber(streetNumber);
-          }
+          const combined = streetNumber ? `${streetName} ${streetNumber}` : streetName;
+          setStreet(combined || place.formatted_address || "");
         }
       });
 
@@ -335,8 +347,8 @@ export default function ProfilePage() {
       setAddressLabel(addr.label);
       setRecipientName(addr.recipient);
       setPhone(addr.phone);
-      setStreet(addr.street);
-      setStreetNumber(addr.number);
+      const fullAddrStr = addr.number ? `${addr.street} ${addr.number}` : addr.street;
+      setStreet(fullAddrStr || "");
       setApartment(addr.apartment || "");
       setCity(addr.city);
       setStateName(addr.state);
@@ -348,7 +360,6 @@ export default function ProfilePage() {
       setRecipientName(user?.displayName || "");
       setPhone("");
       setStreet("");
-      setStreetNumber("");
       setApartment("");
       setCity("Mar del Plata");
       setStateName("Buenos Aires");
@@ -368,6 +379,12 @@ export default function ProfilePage() {
       return;
     }
 
+    const { street: parsedStreet, number: parsedNumber } = parseAddressString(street);
+    if (!parsedNumber) {
+      setAddressError("Por favor, ingresá la altura/número en la dirección (ej: Luro 1234).");
+      return;
+    }
+
     setSubmittingAddress(true);
 
     const addrId = editingAddress ? editingAddress.id : `addr-${Date.now()}`;
@@ -377,8 +394,8 @@ export default function ProfilePage() {
       label: addressLabel,
       recipient: recipientName,
       phone,
-      street,
-      number: streetNumber,
+      street: parsedStreet,
+      number: parsedNumber,
       apartment,
       city,
       state: stateName,
@@ -765,28 +782,15 @@ export default function ProfilePage() {
                         </div>
 
                         {/* Street */}
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-bold text-primary uppercase">Dirección (Calle)</label>
+                        <div className="space-y-1.5 md:col-span-2">
+                          <label className="text-xs font-bold text-primary uppercase">Dirección (Calle y número)</label>
                           <input
                             type="text"
                             value={street}
                             onChange={(e) => setStreet(e.target.value)}
                             ref={addressInputRef}
                             required
-                            placeholder="Ej. Luro"
-                            className="w-full text-sm bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-accent text-primary"
-                          />
-                        </div>
-
-                        {/* Number */}
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-bold text-primary uppercase">Número</label>
-                          <input
-                            type="text"
-                            value={streetNumber}
-                            onChange={(e) => setStreetNumber(e.target.value)}
-                            required
-                            placeholder="Ej. 1234"
+                            placeholder="Ej: Luro 1234"
                             className="w-full text-sm bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-accent text-primary"
                           />
                         </div>

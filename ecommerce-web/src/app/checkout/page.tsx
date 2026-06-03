@@ -44,6 +44,21 @@ function isValidMarDelPlataPhone(phone: string): boolean {
   return national.length === 10 && national.startsWith("223");
 }
 
+function parseAddressString(fullAddress: string) {
+  const clean = fullAddress.trim();
+  const match = clean.match(/^(.*?)\s+(\d+[a-zA-Z]?)\s*$/);
+  if (match) {
+    return {
+      street: match[1].trim(),
+      number: match[2].trim()
+    };
+  }
+  return {
+    street: clean,
+    number: ""
+  };
+}
+
 interface AddressData {
   id: string;
   label: string;
@@ -71,7 +86,6 @@ function CheckoutForm() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [street, setStreet] = useState("");
-  const [number, setNumber] = useState("");
   const [apartment, setApartment] = useState("");
   const [city, setCity] = useState("Mar del Plata");
   const [state, setState] = useState("Buenos Aires");
@@ -146,10 +160,8 @@ function CheckoutForm() {
           setErrorMsg("Actualmente solo realizamos envíos dentro de Mar del Plata.");
         } else {
           setErrorMsg("");
-          setStreet(streetName || place.formatted_address || "");
-          if (streetNumber) {
-            setNumber(streetNumber);
-          }
+          const combined = streetNumber ? `${streetName} ${streetNumber}` : streetName;
+          setStreet(combined || place.formatted_address || "");
         }
       });
 
@@ -275,8 +287,8 @@ function CheckoutForm() {
   const applySelectedAddress = (addr: AddressData) => {
     setRecipient(addr.recipient || "");
     setPhone(addr.phone || "");
-    setStreet(addr.street || "");
-    setNumber(addr.number || "");
+    const fullAddrStr = addr.number ? `${addr.street} ${addr.number}` : addr.street;
+    setStreet(fullAddrStr || "");
     setApartment(addr.apartment || "");
     setCity(addr.city || "Mar del Plata");
     setState(addr.state || "Buenos Aires");
@@ -291,7 +303,6 @@ function CheckoutForm() {
       setRecipient(user?.displayName || "");
       setPhone("");
       setStreet("");
-      setNumber("");
       setApartment("");
       setCity("Mar del Plata");
       setState("Buenos Aires");
@@ -330,6 +341,13 @@ function CheckoutForm() {
       setErrorMsg("Por favor, ingresá un teléfono de contacto de Mar del Plata válido (ej: 2235407787).");
       return;
     }
+
+    const { street: parsedStreet, number: parsedNumber } = parseAddressString(street);
+    if (shippingMethod !== "pickup" && !parsedNumber) {
+      setErrorMsg("Por favor, ingresá la altura/número en la dirección (ej: San Martín 1234).");
+      return;
+    }
+
     setSubmitting(true);
     setErrorMsg("");
 
@@ -350,8 +368,8 @@ function CheckoutForm() {
         label: addressLabel,
         recipient: recipient,
         phone: phone,
-        street: shippingMethod === "pickup" ? "Sucursal Central" : street,
-        number: shippingMethod === "pickup" ? "—" : number,
+        street: shippingMethod === "pickup" ? "Sucursal Central" : parsedStreet,
+        number: shippingMethod === "pickup" ? "—" : parsedNumber,
         apartment: shippingMethod === "pickup" ? "" : apartment,
         city: shippingMethod === "pickup" ? "Mar del Plata" : city,
         state: shippingMethod === "pickup" ? "Buenos Aires" : state,
@@ -649,9 +667,9 @@ function CheckoutForm() {
                   </div>
                 )}
 
-                <div className="sm:col-span-8">
+                <div className="sm:col-span-12">
                   <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">
-                    Dirección (Calle)
+                    Dirección (Calle y número)
                   </label>
                   <input
                     type="text"
@@ -660,21 +678,7 @@ function CheckoutForm() {
                     onChange={(e) => setStreet(e.target.value)}
                     ref={addressInputRef}
                     className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
-                    placeholder="San Martín"
-                  />
-                </div>
-
-                <div className="sm:col-span-4">
-                  <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">
-                    Número
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={number}
-                    onChange={(e) => setNumber(e.target.value)}
-                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
-                    placeholder="1234"
+                    placeholder="Ej: San Martín 1234"
                   />
                 </div>
 
