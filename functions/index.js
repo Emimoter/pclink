@@ -1,7 +1,9 @@
 const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const { MercadoPagoConfig, Preference, Payment } = require("mercadopago");
+const { loginGrupoNucleo, getGrupoNucleoExchange, fetchGrupoNucleoCatalog } = require("./grupoNucleo");
 
 admin.initializeApp();
 
@@ -304,9 +306,112 @@ exports.verifyOTP = onCall(async (request) => {
 
         return { success: true };
     } catch (error) {
-        console.error("Error in verifyOTP:", error);
-        if (error instanceof HttpsError) throw error;
         throw new HttpsError("internal", error.message || "Error al verificar el código.");
+    }
+});
+
+exports.getGrupoNucleoCatalog = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+    }
+    
+    const email = request.auth.token.email;
+    const adminDoc = await admin.firestore().collection("admins").doc(email).get();
+    if (!adminDoc.exists) {
+        throw new HttpsError("permission-denied", "Acceso denegado.");
+    }
+
+    try {
+        const credsDoc = await admin.firestore().collection("settings").doc("grupo_nucleo_config").get();
+        if (!credsDoc.exists) {
+            return { success: false, error: "CREDENTIALS_MISSING", message: "Credenciales de Grupo Núcleo no configuradas." };
+        }
+        const creds = credsDoc.data();
+        const token = await loginGrupoNucleo(creds.clientId, creds.username, creds.password);
+        const catalog = await fetchGrupoNucleoCatalog(token);
+        const exchangeRate = await getGrupoNucleoExchange(token);
+
+        return { success: true, catalog, exchangeRate };
+    } catch (error) {
+        console.error("Error fetching GN catalog:", error);
+        throw new HttpsError("internal", error.message || "Error al obtener catálogo de Grupo Núcleo.");
+    }
+});
+
+exports.syncGrupoNucleoCron = onSchedule("every 24 hours", async (event) => {
+    console.log("Starting Grupo Núcleo sync job...");
+    try {
+        const credsDoc = await admin.firestore().collection("settings").doc("grupo_nucleo_config").get();
+        if (!credsDoc.exists) {
+            console.warn("Credentials missing. Skipping Grupo Núcleo sync.");
+            return;
+        }
+        const creds = credsDoc.data();
+        
+        const token = await loginGrupoNucleo(creds.clientId, creds.username, creds.password);
+        const catalog = await fetchGrupoNucleoCatalog(token);
+        const exchangeRate = await getGrupoNucleoExchange(token);
+        console.log(`Fetched GN Catalog with ${catalog.length} items. USD exchange rate: ${exchangeRate}`);
+
+        const gnMap = new Map();
+        for (const item of catalog) {
+            gnMap.set(String(item.id), item);
+        }
+
+        const productsSnapshot = await admin.firestore()
+            .collection("products")
+            .where("externalSource", "==", "grupo_nucleo")
+            .get();
+
+        console.log(`Found ${productsSnapshot.size} products to sync in Firestore.`);
+        
+        let batch = admin.firestore().batch();
+        let updateCount = 0;
+
+        for (const docSnap of productsSnapshot.docs) {
+            const product = docSnap.data();
+            const externalId = product.externalId;
+            const margin = parseFloat(product.margin) || 0;
+
+            if (!externalId) continue;
+
+            const gnItem = gnMap.get(String(externalId));
+            const productRef = docSnap.ref;
+
+            if (gnItem) {
+                const costInARS = gnItem.currency === 'USD' ? (gnItem.price * exchangeRate) : gnItem.price;
+                const taxRate = gnItem.tax || 0;
+                const costWithTax = costInARS * (1 + taxRate / 100);
+                const finalPrice = Math.round(costWithTax * (1 + margin / 100));
+
+                batch.update(productRef, {
+                    price: finalPrice,
+                    stock: gnItem.stock,
+                    updatedAt: Date.now()
+                });
+                updateCount++;
+            } else {
+                batch.update(productRef, {
+                    stock: 0,
+                    updatedAt: Date.now()
+                });
+                console.log(`Product ${docSnap.id} (GN ID ${externalId}) not found in catalog. Setting stock to 0.`);
+                updateCount++;
+            }
+
+            if (updateCount % 400 === 0) {
+                await batch.commit();
+                batch = admin.firestore().batch();
+            }
+        }
+
+        if (updateCount % 400 !== 0) {
+            await batch.commit();
+        }
+
+        console.log(`Successfully synced ${updateCount} products.`);
+    } catch (error) {
+        console.error("Error running Grupo Núcleo sync cron:", error);
     }
 });
 

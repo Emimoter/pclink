@@ -12,6 +12,7 @@ import { CustomersPage } from './pages/CustomersPage'
 import { LoyaltyPage } from './pages/LoyaltyPage'
 import { ShippingPage } from './pages/ShippingPage'
 import { PrivacyPage } from './pages/PrivacyPage'
+import { GrupoNucleoPage } from './pages/GrupoNucleoPage'
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="pedidos" element={<OrdersPage />} />
           <Route path="productos" element={<ProductsPage />} />
           <Route path="importar" element={<ImportCatalogPage />} />
+          <Route path="grupo-nucleo" element={<GrupoNucleoPage />} />
           <Route path="sliders" element={<SlidersPage />} />
           <Route path="notificaciones" element={<NotificationsPage />} />
           <Route path="clientes" element={<CustomersPage />} />

@@ -10,6 +10,7 @@ import {
   UploadCloud,
   Gift,
   Truck,
+  Database,
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -18,6 +19,7 @@ const links = [
   { to: '/pedidos', icon: ShoppingBag, label: 'Pedidos' },
   { to: '/productos', icon: Package, label: 'Productos' },
   { to: '/importar', icon: UploadCloud, label: 'Importar catálogo' },
+  { to: '/grupo-nucleo', icon: Database, label: 'Grupo Núcleo' },
   { to: '/sliders', icon: Images, label: 'Sliders' },
   { to: '/notificaciones', icon: Bell, label: 'Notificaciones' },
   { to: '/clientes', icon: UsersRound, label: 'Clientes recurrentes' },
