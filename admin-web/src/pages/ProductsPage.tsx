@@ -22,6 +22,7 @@ export function ProductsPage() {
   const [deletingZeroStock, setDeletingZeroStock] = useState(false)
   const [deletingST, setDeletingST] = useState(false)
   const [categorizing, setCategorizing] = useState(false)
+  const [toolsMenuOpen, setToolsMenuOpen] = useState(false)
   const [limitCount, setLimitCount] = useState(20)
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -317,75 +318,103 @@ export function ProductsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <motion.button
-            type="button"
-            disabled={processingBatch || missingCount === 0}
-            onClick={handleBatchSearchImages}
-            className="flex items-center gap-2 rounded-xl border border-pclink-cyan/35 bg-pclink-cyan/10 px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(0,188,212,0.1)] hover:bg-pclink-cyan/25 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            whileHover={missingCount > 0 && !processingBatch ? { scale: 1.02 } : {}}
-            whileTap={missingCount > 0 && !processingBatch ? { scale: 0.98 } : {}}
-          >
-            {processingBatch ? (
+          <div className="relative inline-block text-left">
+            <motion.button
+              type="button"
+              onClick={() => setToolsMenuOpen(!toolsMenuOpen)}
+              className="flex items-center gap-2 rounded-xl border border-pclink-cyan/35 bg-pclink-cyan/10 px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(0,188,212,0.1)] hover:bg-pclink-cyan/20 cursor-pointer"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Wand2 className="h-4 w-4 text-pclink-cyan" />
+              <span>Herramientas</span>
+            </motion.button>
+
+            {toolsMenuOpen && (
               <>
-                <Loader2 className="h-4 w-4 animate-spin text-pclink-cyan" />
-                <span>Buscando {batchProgress}/{missingCount}...</span>
-              </>
-            ) : (
-              <>
-                <Wand2 className="h-4 w-4 text-pclink-cyan" />
-                <span>Autobuscar {missingCount} {missingCount === 1 ? 'foto' : 'fotos'}</span>
+                <div 
+                  className="fixed inset-0 z-30" 
+                  onClick={() => setToolsMenuOpen(false)}
+                />
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  className="absolute right-0 mt-2 w-56 origin-top-right rounded-xl border border-pclink-border/50 bg-pclink-bg/95 backdrop-blur-xl shadow-2xl z-40 p-1.5 space-y-1"
+                >
+                  <button
+                    type="button"
+                    disabled={processingBatch || missingCount === 0}
+                    onClick={() => {
+                      setToolsMenuOpen(false)
+                      handleBatchSearchImages()
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white hover:bg-pclink-cyan/15 disabled:opacity-40 disabled:hover:bg-transparent cursor-pointer transition-colors"
+                  >
+                    {processingBatch ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-pclink-cyan" />
+                    ) : (
+                      <ImageIcon className="h-3.5 w-3.5 text-pclink-cyan-light" />
+                    )}
+                    <span>
+                      {processingBatch 
+                        ? `Buscando (${batchProgress}/${missingCount})...` 
+                        : `Autobuscar ${missingCount} ${missingCount === 1 ? 'foto' : 'fotos'}`}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={deletingZeroStock}
+                    onClick={() => {
+                      setToolsMenuOpen(false)
+                      handleDeleteZeroStockProducts()
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-semibold text-pclink-error hover:bg-pclink-error/10 disabled:opacity-45 disabled:hover:bg-transparent cursor-pointer transition-colors"
+                  >
+                    {deletingZeroStock ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
+                    <span>Limpiar Stock en 0</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={deletingST}
+                    onClick={() => {
+                      setToolsMenuOpen(false)
+                      handleDeleteSTProducts()
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-semibold text-pclink-error hover:bg-pclink-error/10 disabled:opacity-45 disabled:hover:bg-transparent cursor-pointer transition-colors"
+                  >
+                    {deletingST ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
+                    <span>Eliminar productos "ST"</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={categorizing}
+                    onClick={() => {
+                      setToolsMenuOpen(false)
+                      handleAutoCategorizeAll()
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-semibold text-pclink-cyan-light hover:bg-pclink-cyan/15 disabled:opacity-45 disabled:hover:bg-transparent cursor-pointer transition-colors"
+                  >
+                    {categorizing ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Tag className="h-3.5 w-3.5" />
+                    )}
+                    <span>Auto-categorizar todo</span>
+                  </button>
+                </motion.div>
               </>
             )}
-          </motion.button>
-
-          <div className="flex flex-col gap-2">
-            <motion.button
-              type="button"
-              disabled={deletingZeroStock}
-              onClick={handleDeleteZeroStockProducts}
-              className="flex items-center gap-2 rounded-xl border border-pclink-error/30 bg-pclink-error/10 px-4 py-2.5 text-sm font-bold text-pclink-error shadow-[0_0_20px_rgba(244,67,54,0.1)] hover:bg-pclink-error/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer w-full justify-center"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              {deletingZeroStock ? (
-                <Loader2 className="h-4 w-4 animate-spin text-pclink-error" />
-              ) : (
-                <Trash2 className="h-4 w-4 text-pclink-error" />
-              )}
-              Limpiar Stock en 0
-            </motion.button>
-
-            <motion.button
-              type="button"
-              disabled={deletingST}
-              onClick={handleDeleteSTProducts}
-              className="flex items-center gap-2 rounded-xl border border-pclink-error/30 bg-pclink-error/10 px-4 py-2.5 text-sm font-bold text-pclink-error shadow-[0_0_20px_rgba(244,67,54,0.1)] hover:bg-pclink-error/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer w-full justify-center"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              {deletingST ? (
-                <Loader2 className="h-4 w-4 animate-spin text-pclink-error" />
-              ) : (
-                <Trash2 className="h-4 w-4 text-pclink-error" />
-              )}
-              Eliminar productos "ST "
-            </motion.button>
-
-            <motion.button
-              type="button"
-              disabled={categorizing}
-              onClick={handleAutoCategorizeAll}
-              className="flex items-center gap-2 rounded-xl border border-pclink-cyan/35 bg-pclink-cyan/5 px-4 py-2.5 text-sm font-bold text-pclink-cyan-light shadow-[0_0_20px_rgba(0,188,212,0.05)] hover:bg-pclink-cyan/15 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer w-full justify-center"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              {categorizing ? (
-                <Loader2 className="h-4 w-4 animate-spin text-pclink-cyan" />
-              ) : (
-                <Tag className="h-4 w-4 text-pclink-cyan" />
-              )}
-              Auto-categorizar todo
-            </motion.button>
           </div>
 
           <motion.button
