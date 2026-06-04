@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, Search, Image as ImageIcon, AlertCircle, Flame, Star, Target, Sparkles, Heart, Wand2, Loader2, Trash2 } from 'lucide-react'
+import { Plus, Search, Image as ImageIcon, AlertCircle, Flame, Star, Target, Sparkles, Heart, Wand2, Loader2, Trash2, Tag } from 'lucide-react'
 import { getDb, getFunctionsInstance } from '../lib/firebase'
 import { subscribeToProducts, updateProductImageUrls, deleteProduct, updateProductFlag, updateProductCategory, type Product } from '../lib/catalog/products'
 import { CATEGORY_IDS, CATEGORY_LABELS, type CategoryIdValue } from '../lib/catalog/constants'
 import { ProductEditorSheet } from '../components/ProductEditorSheet'
 import { httpsCallable } from 'firebase/functions'
 import { collection, getDocs, query, where } from 'firebase/firestore'
+import { guessCategory } from '../lib/catalog/smartCategories'
 
 export function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
@@ -20,6 +21,7 @@ export function ProductsPage() {
   const [batchProgress, setBatchProgress] = useState(0)
   const [deletingZeroStock, setDeletingZeroStock] = useState(false)
   const [deletingST, setDeletingST] = useState(false)
+  const [categorizing, setCategorizing] = useState(false)
   const [limitCount, setLimitCount] = useState(20)
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -201,6 +203,52 @@ export function ProductsPage() {
     }
   }
 
+  const handleAutoCategorizeAll = async () => {
+    setCategorizing(true)
+    try {
+      const snapshot = await getDocs(collection(getDb(), 'products'))
+      const toUpdate: Array<{ id: string; category: CategoryIdValue }> = []
+      
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data()
+        const name = data.name || ''
+        const brand = data.brand || ''
+        const model = data.model || ''
+        const currentCategory = data.category
+        
+        const guessedCategory = guessCategory(name, brand, model)
+        
+        if (guessedCategory && guessedCategory !== currentCategory) {
+          toUpdate.push({
+            id: docSnap.id,
+            category: guessedCategory
+          })
+        }
+      }
+      
+      if (toUpdate.length === 0) {
+        alert('Todos los productos ya tienen la categoría correcta según el algoritmo de palabras clave.')
+        setCategorizing(false)
+        return
+      }
+      
+      if (!confirm(`Se encontraron ${toUpdate.length} productos con categorías sugeridas distintas a las actuales. ¿Querés actualizarlos automáticamente?`)) {
+        setCategorizing(false)
+        return
+      }
+      
+      for (const item of toUpdate) {
+        await updateProductCategory(getDb(), item.id, item.category)
+      }
+      
+      alert(`¡Listo! Se actualizaron las categorías de ${toUpdate.length} productos.`)
+    } catch (err: any) {
+      alert(`Error auto-categorizando productos: ${err.message}`)
+    } finally {
+      setCategorizing(false)
+    }
+  }
+
   const toggleSelection = (id: string) => {
     const next = new Set(selectedIds)
     if (next.has(id)) next.delete(id)
@@ -321,6 +369,22 @@ export function ProductsPage() {
                 <Trash2 className="h-4 w-4 text-pclink-error" />
               )}
               Eliminar productos "ST "
+            </motion.button>
+
+            <motion.button
+              type="button"
+              disabled={categorizing}
+              onClick={handleAutoCategorizeAll}
+              className="flex items-center gap-2 rounded-xl border border-pclink-cyan/35 bg-pclink-cyan/5 px-4 py-2.5 text-sm font-bold text-pclink-cyan-light shadow-[0_0_20px_rgba(0,188,212,0.05)] hover:bg-pclink-cyan/15 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer w-full justify-center"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              {categorizing ? (
+                <Loader2 className="h-4 w-4 animate-spin text-pclink-cyan" />
+              ) : (
+                <Tag className="h-4 w-4 text-pclink-cyan" />
+              )}
+              Auto-categorizar todo
             </motion.button>
           </div>
 
