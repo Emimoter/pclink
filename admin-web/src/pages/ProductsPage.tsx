@@ -17,7 +17,7 @@ export function ProductsPage() {
 
   const [processingBatch, setProcessingBatch] = useState(false)
   const [batchProgress, setBatchProgress] = useState(0)
-  const [deletingZeroPrice, setDeletingZeroPrice] = useState(false)
+  const [deletingZeroStock, setDeletingZeroStock] = useState(false)
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkActionLoading, setBulkActionLoading] = useState(false)
@@ -137,26 +137,26 @@ export function ProductsPage() {
     }
   }
 
-  const handleDeleteZeroPriceProducts = async () => {
-    const zeroPriceProducts = products.filter(p => p.price === 0)
-    if (zeroPriceProducts.length === 0) {
-      alert('No hay productos con precio $0')
+  const handleDeleteZeroStockProducts = async () => {
+    const zeroStockProducts = products.filter(p => p.stock === 0)
+    if (zeroStockProducts.length === 0) {
+      alert('No hay productos con stock 0')
       return
     }
 
-    if (!confirm(`¿Estás seguro que querés eliminar permanentemente ${zeroPriceProducts.length} productos con precio $0?`)) {
+    if (!confirm(`¿Estás seguro que querés eliminar permanentemente ${zeroStockProducts.length} productos con stock 0?`)) {
       return
     }
 
-    setDeletingZeroPrice(true)
+    setDeletingZeroStock(true)
     try {
-      for (const product of zeroPriceProducts) {
+      for (const product of zeroStockProducts) {
         await deleteProduct(getDb(), product.id)
       }
     } catch (err: any) {
       alert(`Error eliminando productos: ${err.message}`)
     } finally {
-      setDeletingZeroPrice(false)
+      setDeletingZeroStock(false)
     }
   }
 
@@ -251,18 +251,18 @@ export function ProductsPage() {
 
           <motion.button
             type="button"
-            disabled={deletingZeroPrice}
-            onClick={handleDeleteZeroPriceProducts}
+            disabled={deletingZeroStock}
+            onClick={handleDeleteZeroStockProducts}
             className="flex items-center gap-2 rounded-xl border border-pclink-error/30 bg-pclink-error/10 px-4 py-2.5 text-sm font-bold text-pclink-error shadow-[0_0_20px_rgba(244,67,54,0.1)] hover:bg-pclink-error/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-            {deletingZeroPrice ? (
+            {deletingZeroStock ? (
               <Loader2 className="h-4 w-4 animate-spin text-pclink-error" />
             ) : (
               <Trash2 className="h-4 w-4 text-pclink-error" />
             )}
-            Limpiar Stock en $0
+            Limpiar Stock en 0
           </motion.button>
 
           <motion.button
