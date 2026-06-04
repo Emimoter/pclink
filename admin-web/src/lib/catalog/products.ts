@@ -2,6 +2,7 @@ import {
   collection, 
   query, 
   orderBy, 
+  limit,
   onSnapshot, 
   doc, 
   updateDoc,
@@ -25,8 +26,8 @@ export interface Product {
   [key: string]: any
 }
 
-export function subscribeToProducts(db: Firestore, callback: (products: Product[]) => void) {
-  const q = query(collection(db, 'products'), orderBy('name', 'asc'))
+export function subscribeToProducts(db: Firestore, limitCount: number, callback: (products: Product[]) => void) {
+  const q = query(collection(db, 'products'), orderBy('name', 'asc'), limit(limitCount))
   return onSnapshot(q, (snapshot) => {
     const products = snapshot.docs.map(doc => ({
       ...doc.data(),

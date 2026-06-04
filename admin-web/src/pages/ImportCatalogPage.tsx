@@ -109,7 +109,7 @@ export function ImportCatalogPage() {
   const [loadingFirestore, setLoadingFirestore] = useState(true)
 
   useEffect(() => {
-    return subscribeToProducts(getDb(), (data) => {
+    return subscribeToProducts(getDb(), 10000, (data) => {
       setFirestoreProducts(data)
       setLoadingFirestore(false)
     })

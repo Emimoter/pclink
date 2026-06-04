@@ -6,6 +6,7 @@ import { subscribeToProducts, updateProductImageUrls, deleteProduct, updateProdu
 import { CATEGORY_IDS, CATEGORY_LABELS, type CategoryIdValue } from '../lib/catalog/constants'
 import { ProductEditorSheet } from '../components/ProductEditorSheet'
 import { httpsCallable } from 'firebase/functions'
+import { collection, getDocs, query, where } from 'firebase/firestore'
 
 export function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
@@ -18,16 +19,22 @@ export function ProductsPage() {
   const [processingBatch, setProcessingBatch] = useState(false)
   const [batchProgress, setBatchProgress] = useState(0)
   const [deletingZeroStock, setDeletingZeroStock] = useState(false)
+  const [deletingST, setDeletingST] = useState(false)
+  const [limitCount, setLimitCount] = useState(20)
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkActionLoading, setBulkActionLoading] = useState(false)
 
+  const isFiltering = searchQuery !== '' || selectedCategory !== 'ALL' || activeFilter !== 'all'
+  const currentLimit = isFiltering ? 1000 : limitCount
+
   useEffect(() => {
-    return subscribeToProducts(getDb(), (data) => {
+    setLoading(true)
+    return subscribeToProducts(getDb(), currentLimit, (data) => {
       setProducts(data)
       setLoading(false)
     })
-  }, [])
+  }, [currentLimit])
 
   const filteredProducts = products.filter(p => {
     const matchesSearch = 
@@ -138,25 +145,59 @@ export function ProductsPage() {
   }
 
   const handleDeleteZeroStockProducts = async () => {
-    const zeroStockProducts = products.filter(p => p.stock === 0)
-    if (zeroStockProducts.length === 0) {
-      alert('No hay productos con stock 0')
-      return
-    }
-
-    if (!confirm(`¿Estás seguro que querés eliminar permanentemente ${zeroStockProducts.length} productos con stock 0?`)) {
-      return
-    }
-
     setDeletingZeroStock(true)
     try {
-      for (const product of zeroStockProducts) {
-        await deleteProduct(getDb(), product.id)
+      const q = query(collection(getDb(), 'products'), where('stock', '==', 0))
+      const snapshot = await getDocs(q)
+      if (snapshot.empty) {
+        alert('No hay productos con stock 0 en la base de datos.')
+        setDeletingZeroStock(false)
+        return
+      }
+
+      if (!confirm(`¿Estás seguro que querés eliminar permanentemente ${snapshot.size} productos con stock 0?`)) {
+        setDeletingZeroStock(false)
+        return
+      }
+
+      for (const docSnap of snapshot.docs) {
+        await deleteProduct(getDb(), docSnap.id)
       }
     } catch (err: any) {
       alert(`Error eliminando productos: ${err.message}`)
     } finally {
       setDeletingZeroStock(false)
+    }
+  }
+
+  const handleDeleteSTProducts = async () => {
+    setDeletingST(true)
+    try {
+      const snapshot = await getDocs(collection(getDb(), 'products'))
+      const stDocs = snapshot.docs.filter(docSnap => {
+        const id = docSnap.id
+        const name = docSnap.data().name || ''
+        return id.startsWith('ST ') || name.startsWith('ST ')
+      })
+
+      if (stDocs.length === 0) {
+        alert('No se encontraron productos que comiencen con "ST " en la base de datos.')
+        setDeletingST(false)
+        return
+      }
+
+      if (!confirm(`¿Estás seguro que querés eliminar permanentemente ${stDocs.length} productos que comienzan con "ST "?`)) {
+        setDeletingST(false)
+        return
+      }
+
+      for (const docSnap of stDocs) {
+        await deleteProduct(getDb(), docSnap.id)
+      }
+    } catch (err: any) {
+      alert(`Error eliminando productos ST: ${err.message}`)
+    } finally {
+      setDeletingST(false)
     }
   }
 
@@ -249,21 +290,39 @@ export function ProductsPage() {
             )}
           </motion.button>
 
-          <motion.button
-            type="button"
-            disabled={deletingZeroStock}
-            onClick={handleDeleteZeroStockProducts}
-            className="flex items-center gap-2 rounded-xl border border-pclink-error/30 bg-pclink-error/10 px-4 py-2.5 text-sm font-bold text-pclink-error shadow-[0_0_20px_rgba(244,67,54,0.1)] hover:bg-pclink-error/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            {deletingZeroStock ? (
-              <Loader2 className="h-4 w-4 animate-spin text-pclink-error" />
-            ) : (
-              <Trash2 className="h-4 w-4 text-pclink-error" />
-            )}
-            Limpiar Stock en 0
-          </motion.button>
+          <div className="flex flex-col gap-2">
+            <motion.button
+              type="button"
+              disabled={deletingZeroStock}
+              onClick={handleDeleteZeroStockProducts}
+              className="flex items-center gap-2 rounded-xl border border-pclink-error/30 bg-pclink-error/10 px-4 py-2.5 text-sm font-bold text-pclink-error shadow-[0_0_20px_rgba(244,67,54,0.1)] hover:bg-pclink-error/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer w-full justify-center"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              {deletingZeroStock ? (
+                <Loader2 className="h-4 w-4 animate-spin text-pclink-error" />
+              ) : (
+                <Trash2 className="h-4 w-4 text-pclink-error" />
+              )}
+              Limpiar Stock en 0
+            </motion.button>
+
+            <motion.button
+              type="button"
+              disabled={deletingST}
+              onClick={handleDeleteSTProducts}
+              className="flex items-center gap-2 rounded-xl border border-pclink-error/30 bg-pclink-error/10 px-4 py-2.5 text-sm font-bold text-pclink-error shadow-[0_0_20px_rgba(244,67,54,0.1)] hover:bg-pclink-error/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer w-full justify-center"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              {deletingST ? (
+                <Loader2 className="h-4 w-4 animate-spin text-pclink-error" />
+              ) : (
+                <Trash2 className="h-4 w-4 text-pclink-error" />
+              )}
+              Eliminar productos "ST "
+            </motion.button>
+          </div>
 
           <motion.button
             type="button"
@@ -505,6 +564,20 @@ export function ProductsPage() {
           </table>
         </div>
       </div>
+
+      {!isFiltering && products.length >= limitCount && (
+        <div className="mt-6 flex justify-center">
+          <motion.button
+            type="button"
+            onClick={() => setLimitCount(prev => prev + 20)}
+            className="flex items-center gap-2 rounded-xl border border-pclink-cyan/30 bg-pclink-cyan/5 px-6 py-3 text-sm font-bold text-pclink-cyan-light shadow-[0_0_15px_rgba(0,188,212,0.05)] hover:bg-pclink-cyan/15 cursor-pointer"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Cargar 20 más
+          </motion.button>
+        </div>
+      )}
 
       <ProductEditorSheet 
         product={activeProduct} 
