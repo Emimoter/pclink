@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserStore } from "@/store/useUserStore";
 import { db } from "@/lib/firebase/config";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { Award, Coins, Ticket, ArrowRight, Check, Copy, Loader2, Shield, Gift, Sparkles, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
@@ -23,6 +23,28 @@ export default function PcClubPage() {
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [redeemedCoupon, setRedeemedCoupon] = useState<{ code: string; percent: number } | null>(null);
+
+  const [pointsRatio, setPointsRatio] = useState<number>(100);
+  const [welcomePoints, setWelcomePoints] = useState<number>(800);
+
+  // Fetch loyalty configuration from Firestore
+  useEffect(() => {
+    async function fetchLoyaltyConfig() {
+      try {
+        const configDoc = await getDoc(doc(db, "settings", "loyalty"));
+        if (configDoc.exists()) {
+          const data = configDoc.data();
+          if (typeof data.pointsRatio === "number") setPointsRatio(data.pointsRatio);
+          const survey = typeof data.surveyBonus === "number" ? data.surveyBonus : 500;
+          const email = typeof data.emailBonus === "number" ? data.emailBonus : 300;
+          setWelcomePoints(survey + email);
+        }
+      } catch (error) {
+        console.error("Error loading loyalty settings:", error);
+      }
+    }
+    fetchLoyaltyConfig();
+  }, []);
 
   // Fetch user orders from Firestore to calculate points
   useEffect(() => {
@@ -94,16 +116,45 @@ export default function PcClubPage() {
     progressToNext = Math.min(100, Math.round(Math.max(ordersProgress, spentProgress) * 100));
   }
 
-  // Base Points: $100 spent = 1 point * multiplier + 800 welcome points
-  const basePoints = Math.floor((totalSpent / 100) * multiplier) + 800;
+  // Base Points: pointsRatio spent = 1 point * multiplier + welcome points
+  const basePoints = Math.floor((totalSpent / pointsRatio) * multiplier) + welcomePoints;
   const netPoints = Math.max(0, basePoints - pointsSpent);
 
-  // Available coupons to redeem
-  const VOUCHERS = [
+  const [vouchersList, setVouchersList] = useState<any[]>([
     { percent: 15, cost: 1000, title: "Cupón 15% OFF", desc: "Válido para cualquier componente de hardware o notebook." },
     { percent: 20, cost: 1800, title: "Cupón 20% OFF", desc: "Válido para periféricos, accesorios y monitores." },
     { percent: 25, cost: 2500, title: "Cupón 25% OFF", desc: "Válido en la compra final de periféricos seleccionados." },
-  ];
+  ]);
+
+  // Load vouchers from Firestore
+  useEffect(() => {
+    async function fetchVouchers() {
+      try {
+        const q = query(collection(db, "vouchers"));
+        const snapshot = await getDocs(q);
+        const list: any[] = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          list.push({
+            id: doc.id,
+            percent: data.discountPercent,
+            cost: data.pointsCost,
+            title: data.title,
+            desc: data.description,
+            color: data.color || "emerald",
+            tag: data.tag || ""
+          });
+        });
+        if (list.length > 0) {
+          list.sort((a, b) => a.cost - b.cost);
+          setVouchersList(list);
+        }
+      } catch (error) {
+        console.error("Error loading vouchers from Firestore:", error);
+      }
+    }
+    fetchVouchers();
+  }, []);
 
   // Handle voucher redemption
   const handleRedeem = (percent: number, cost: number) => {
@@ -389,7 +440,7 @@ export default function PcClubPage() {
 
               {/* Unique cut-out Coupon Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {VOUCHERS.map((v, idx) => {
+                {vouchersList.map((v, idx) => {
                   const canRedeem = netPoints >= v.cost;
                   return (
                     <motion.div

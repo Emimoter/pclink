@@ -107,6 +107,26 @@ function getBaseDescription(productName, categoryId) {
     return `La **${name}** es una notebook potente, portátil y con una excelente autonomía de batería. Diseñada con hardware moderno para ofrecer fluidez en tus tareas diarias de estudio, trabajo, navegación multimedia y entretenimiento.`;
   }
 
+  // PC Armadas (PC_ARMADAS)
+  if (cat === "PC_ARMADAS" || name.toLowerCase().includes("pc armada") || name.toLowerCase().includes("computadora")) {
+    return `La **${name}** es una PC armada y configurada por profesionales, lista para usar. Equipada con componentes balanceados de alta calidad para ofrecer un rendimiento óptimo en juegos, productividad y multitarea diaria.`;
+  }
+
+  // Sillas Gamer (SILLAS_GAMER)
+  if (cat === "SILLAS_GAMER" || name.toLowerCase().includes("silla gamer") || name.toLowerCase().includes("silla gaming")) {
+    return `La **${name}** es una silla gamer ergonómica de alta gama. Cuenta con almohadillas lumbar y cervical ajustables, respaldo reclinable y apoyabrazos reforzados para garantizar el máximo confort durante largas jornadas de juego o trabajo.`;
+  }
+
+  // Cargadores (CARGADORES)
+  if (cat === "CARGADORES" || name.toLowerCase().includes("cargador")) {
+    return `El **${name}** es un cargador de alta eficiencia con protección contra sobrecargas y cortocircuitos. Ideal para mantener tus dispositivos alimentados de forma rápida, segura y confiable en cualquier momento.`;
+  }
+
+  // Parlantes (PARLANTES)
+  if (cat === "PARLANTES" || name.toLowerCase().includes("parlante") || name.toLowerCase().includes("speaker") || name.toLowerCase().includes("bluetooth parlante")) {
+    return `El **${name}** es un parlante de alta fidelidad sonora con graves profundos y agudos cristalinos. Perfecto para disfrutar de tu música favorita, películas o juegos con una experiencia de audio envolvente y clara.`;
+  }
+
   // Default / Gaming / Offers / Accesorios
   return `El **${name}** es un componente de hardware y tecnología de alta calidad seleccionado para ofrecer el mejor rendimiento y durabilidad en tu setup tecnológico diario.`;
 }

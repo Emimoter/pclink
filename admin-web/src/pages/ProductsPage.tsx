@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { Plus, Search, Image as ImageIcon, AlertCircle, Flame, Star, Target, Sparkles, Heart, Wand2, Loader2, Trash2, Tag } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Plus, Search, Image as ImageIcon, AlertCircle, Flame, Star, Target, Sparkles, Heart, Wand2, Loader2, Trash2, Tag, Settings, Save } from 'lucide-react'
 import { getDb, getFunctionsInstance } from '../lib/firebase'
 import { subscribeToProducts, updateProductImageUrls, deleteProduct, updateProductFlag, updateProductCategory, type Product } from '../lib/catalog/products'
 import { CATEGORY_IDS, CATEGORY_LABELS, type CategoryIdValue } from '../lib/catalog/constants'
 import { ProductEditorSheet } from '../components/ProductEditorSheet'
 import { httpsCallable } from 'firebase/functions'
-import { collection, getDocs, query, where } from 'firebase/firestore'
+import { collection, getDocs, query, where, doc, getDoc, setDoc } from 'firebase/firestore'
 import { guessCategory } from '../lib/catalog/smartCategories'
 
 export function ProductsPage() {
@@ -14,7 +14,7 @@ export function ProductsPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
-  const [activeFilter, setActiveFilter] = useState<'all' | 'flash' | 'featured' | 'bestSeller' | 'newArrival' | 'recommended'>('all')
+  const [activeFilter, setActiveFilter] = useState<'all' | 'flash' | 'featured' | 'bestSeller' | 'newArrival' | 'recommended' | 'onDemand'>('all')
   const [selectedCategory, setSelectedCategory] = useState<CategoryIdValue | 'ALL'>('ALL')
 
   const [processingBatch, setProcessingBatch] = useState(false)
@@ -24,6 +24,10 @@ export function ProductsPage() {
   const [categorizing, setCategorizing] = useState(false)
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false)
   const [limitCount, setLimitCount] = useState(20)
+  const [geminiApiKey, setGeminiApiKey] = useState('')
+  const [savingGeminiKey, setSavingGeminiKey] = useState(false)
+  const [isGeminiModalOpen, setIsGeminiModalOpen] = useState(false)
+  const [generatingBatchDesc, setGeneratingBatchDesc] = useState(false)
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkActionLoading, setBulkActionLoading] = useState(false)
@@ -38,6 +42,39 @@ export function ProductsPage() {
       setLoading(false)
     })
   }, [currentLimit])
+
+  useEffect(() => {
+    async function loadGeminiConfig() {
+      try {
+        const docRef = doc(getDb(), 'settings', 'gemini_config')
+        const docSnap = await getDoc(docRef)
+        if (docSnap.exists()) {
+          setGeminiApiKey(docSnap.data().apiKey || '')
+        }
+      } catch (err) {
+        console.error('Error loading Gemini API Key:', err)
+      }
+    }
+    loadGeminiConfig()
+  }, [])
+
+  const handleSaveGeminiKey = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSavingGeminiKey(true)
+    try {
+      const docRef = doc(getDb(), 'settings', 'gemini_config')
+      await setDoc(docRef, {
+        apiKey: geminiApiKey,
+        updatedAt: Date.now()
+      })
+      alert('¡API Key de Gemini guardada correctamente!')
+      setIsGeminiModalOpen(false)
+    } catch (err: any) {
+      alert(`Error al guardar API Key: ${err.message}`)
+    } finally {
+      setSavingGeminiKey(false)
+    }
+  }
 
   const filteredProducts = products.filter(p => {
     const matchesSearch = 
@@ -55,6 +92,7 @@ export function ProductsPage() {
       case 'bestSeller': return !!p.isBestSeller
       case 'newArrival': return !!p.isNewArrival
       case 'recommended': return !!p.inRecommendedFeed
+      case 'onDemand': return !!p.onDemand
       default: return true
     }
   })
@@ -62,6 +100,8 @@ export function ProductsPage() {
   const activeProduct = products.find(p => p.id === selectedProductId) || null
   const productsWithoutImages = products.filter(p => !p.images || p.images.length === 0 || !p.images[0])
   const missingCount = productsWithoutImages.length
+  const productsWithoutDesc = products.filter(p => !p.description || p.description.trim() === '' || p.description.startsWith('Producto importado'))
+  const missingDescCount = productsWithoutDesc.length
 
   const handleBatchSearchImages = async () => {
     if (productsWithoutImages.length === 0) return
@@ -147,6 +187,109 @@ export function ProductsPage() {
     }
   }
 
+  const handleBatchGenerateDescriptions = async () => {
+    if (productsWithoutDesc.length === 0) return
+
+    if (!confirm(`¿Estás seguro que querés generar descripciones con IA para ${productsWithoutDesc.length} productos sin descripción?`)) {
+      return
+    }
+
+    setGeneratingBatchDesc(true)
+    setBatchProgress(0)
+
+    try {
+      const genFunc = httpsCallable<{ productIds: string[], override: boolean }, { success: boolean, results: any[] }>(
+        getFunctionsInstance(), 
+        'generateBatchProductDescriptions'
+      )
+      
+      const BATCH_SIZE = 10
+      const idsArray = productsWithoutDesc.map(p => p.id)
+      
+      for (let i = 0; i < idsArray.length; i += BATCH_SIZE) {
+        const batchIds = idsArray.slice(i, i + BATCH_SIZE)
+        await genFunc({ productIds: batchIds, override: true })
+        setBatchProgress(Math.min(i + BATCH_SIZE, idsArray.length))
+      }
+
+      alert('¡Listo! Descripciones generadas exitosamente.')
+    } catch (err: any) {
+      alert(`Error en la generación por lote: ${err.message}`)
+    } finally {
+      setGeneratingBatchDesc(false)
+      setBatchProgress(0)
+    }
+  }
+
+  const handleBatchRewriteAllDescriptions = async () => {
+    if (products.length === 0) return
+
+    if (!confirm(`¿Estás seguro que querés REESCRIBIR con IA las descripciones de los ${products.length} productos del catálogo? Esto reemplazará las descripciones actuales.`)) {
+      return
+    }
+
+    setGeneratingBatchDesc(true)
+    setBatchProgress(0)
+
+    try {
+      const genFunc = httpsCallable<{ productIds: string[], override: boolean }, { success: boolean, results: any[] }>(
+        getFunctionsInstance(), 
+        'generateBatchProductDescriptions'
+      )
+      
+      const BATCH_SIZE = 10
+      const idsArray = products.map(p => p.id)
+      
+      for (let i = 0; i < idsArray.length; i += BATCH_SIZE) {
+        const batchIds = idsArray.slice(i, i + BATCH_SIZE)
+        await genFunc({ productIds: batchIds, override: true })
+        setBatchProgress(Math.min(i + BATCH_SIZE, idsArray.length))
+      }
+
+      alert('¡Listo! Todas las descripciones fueron reescritas exitosamente.')
+    } catch (err: any) {
+      alert(`Error en la generación por lote: ${err.message}`)
+    } finally {
+      setGeneratingBatchDesc(false)
+      setBatchProgress(0)
+    }
+  }
+
+  const handleBulkGenerateDescriptions = async () => {
+    if (selectedIds.size === 0) return
+
+    if (!confirm(`¿Estás seguro que querés autogenerar descripciones con IA para los ${selectedIds.size} productos seleccionados?`)) {
+      return
+    }
+
+    setBulkActionLoading(true)
+    setBatchProgress(0)
+
+    try {
+      const genFunc = httpsCallable<{ productIds: string[], override: boolean }, { success: boolean, results: any[] }>(
+        getFunctionsInstance(), 
+        'generateBatchProductDescriptions'
+      )
+      
+      const BATCH_SIZE = 10
+      const idsArray = Array.from(selectedIds)
+      
+      for (let i = 0; i < idsArray.length; i += BATCH_SIZE) {
+        const batchIds = idsArray.slice(i, i + BATCH_SIZE)
+        await genFunc({ productIds: batchIds, override: true })
+        setBatchProgress(Math.min(i + BATCH_SIZE, idsArray.length))
+      }
+
+      alert('¡Listo! Descripciones generadas exitosamente.')
+    } catch (err: any) {
+      alert(`Error al generar descripciones: ${err.message}`)
+    } finally {
+      setBulkActionLoading(false)
+      setBatchProgress(0)
+      setSelectedIds(new Set())
+    }
+  }
+
   const handleDeleteZeroStockProducts = async () => {
     setDeletingZeroStock(true)
     try {
@@ -158,12 +301,20 @@ export function ProductsPage() {
         return
       }
 
-      if (!confirm(`¿Estás seguro que querés eliminar permanentemente ${snapshot.size} productos con stock 0?`)) {
+      // Filter out products that are on-demand
+      const docsToDelete = snapshot.docs.filter(docSnap => !docSnap.data().onDemand)
+      if (docsToDelete.length === 0) {
+        alert('No hay productos locales con stock 0 (se ignoraron los productos bajo pedido de proveedores).')
         setDeletingZeroStock(false)
         return
       }
 
-      for (const docSnap of snapshot.docs) {
+      if (!confirm(`¿Estás seguro que querés eliminar permanentemente ${docsToDelete.length} productos locales con stock 0? (Se ignorarán ${snapshot.size - docsToDelete.length} productos bajo pedido de proveedores)`)) {
+        setDeletingZeroStock(false)
+        return
+      }
+
+      for (const docSnap of docsToDelete) {
         await deleteProduct(getDb(), docSnap.id)
       }
     } catch (err: any) {
@@ -412,6 +563,60 @@ export function ProductsPage() {
                     )}
                     <span>Auto-categorizar todo</span>
                   </button>
+
+                  <button
+                    type="button"
+                    disabled={generatingBatchDesc || missingDescCount === 0}
+                    onClick={() => {
+                      setToolsMenuOpen(false)
+                      handleBatchGenerateDescriptions()
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-semibold text-pclink-cyan-light hover:bg-pclink-cyan/15 disabled:opacity-45 disabled:hover:bg-transparent cursor-pointer transition-colors"
+                  >
+                    {generatingBatchDesc ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-pclink-cyan" />
+                    ) : (
+                      <Wand2 className="h-3.5 w-3.5 text-pclink-cyan" />
+                    )}
+                    <span>
+                      {generatingBatchDesc 
+                        ? `Generando (${batchProgress}/${missingDescCount})...` 
+                        : `Autogenerar ${missingDescCount} descripciones`}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={generatingBatchDesc || products.length === 0}
+                    onClick={() => {
+                      setToolsMenuOpen(false)
+                      handleBatchRewriteAllDescriptions()
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-semibold text-pclink-cyan-light hover:bg-pclink-cyan/15 disabled:opacity-45 disabled:hover:bg-transparent cursor-pointer transition-colors"
+                  >
+                    {generatingBatchDesc ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-pclink-cyan" />
+                    ) : (
+                      <Wand2 className="h-3.5 w-3.5 text-pclink-cyan" />
+                    )}
+                    <span>
+                      {generatingBatchDesc 
+                        ? `Reescribiendo (${batchProgress}/${products.length})...` 
+                        : `Reescribir TODAS las descripciones`}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setToolsMenuOpen(false)
+                      setIsGeminiModalOpen(true)
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-semibold text-pclink-cyan hover:bg-pclink-cyan/15 cursor-pointer transition-colors"
+                  >
+                    <Settings className="h-3.5 w-3.5 text-pclink-cyan-light" />
+                    <span>Configurar Gemini API</span>
+                  </button>
                 </motion.div>
               </>
             )}
@@ -463,7 +668,8 @@ export function ProductsPage() {
             { id: 'featured', label: 'Destacados', icon: Star, color: 'text-yellow-400 border-yellow-500/20', count: products.filter(p => p.isFeatured).length },
             { id: 'bestSeller', label: 'Selección PcLink', icon: Target, color: 'text-cyan-400 border-cyan-500/20', count: products.filter(p => p.isBestSeller).length },
             { id: 'newArrival', label: 'Nuevos', icon: Sparkles, color: 'text-purple-400 border-purple-500/20', count: products.filter(p => p.isNewArrival).length },
-            { id: 'recommended', label: 'Recomendados', icon: Heart, color: 'text-rose-400 border-rose-500/20', count: products.filter(p => p.inRecommendedFeed).length }
+            { id: 'recommended', label: 'Recomendados', icon: Heart, color: 'text-rose-400 border-rose-500/20', count: products.filter(p => p.inRecommendedFeed).length },
+            { id: 'onDemand', label: 'Bajo Pedido', icon: Tag, color: 'text-emerald-400 border-emerald-500/20', count: products.filter(p => p.onDemand).length }
           ].map(({ id, label, icon: Icon, color, count }) => {
             const isSelected = activeFilter === id
             return (
@@ -533,6 +739,24 @@ export function ProductsPage() {
                   <>
                     <Wand2 className="h-3.5 w-3.5 text-pclink-cyan" />
                     <span>Autobuscar fotos</span>
+                  </>
+                )}
+              </button>
+
+              <button 
+                disabled={bulkActionLoading || selectedIds.size === 0} 
+                onClick={handleBulkGenerateDescriptions} 
+                className="flex items-center gap-1 rounded-lg border border-pclink-cyan/40 bg-pclink-cyan/10 px-3 py-1.5 text-xs font-bold text-white hover:bg-pclink-cyan/20 disabled:opacity-50"
+              >
+                {bulkActionLoading ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-pclink-cyan" />
+                    <span>Generando ({batchProgress}/{selectedIds.size})...</span>
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="h-3.5 w-3.5 text-pclink-cyan" />
+                    <span>Autogenerar descripciones</span>
                   </>
                 )}
               </button>
@@ -612,6 +836,11 @@ export function ProductsPage() {
                         <div>
                           <div className="flex items-center gap-2">
                             <p className="font-bold text-white line-clamp-1">{p.name}</p>
+                            {p.onDemand && (
+                              <span className="inline-flex rounded-full bg-pclink-cyan/15 px-2 py-0.5 text-[9px] font-semibold text-pclink-cyan-light border border-pclink-cyan/20 shrink-0">
+                                Bajo Pedido
+                              </span>
+                            )}
                             {/* Badges visuales de Secciones */}
                             <div className="flex items-center gap-1 shrink-0">
                               {p.showInFlashDeals && <Flame className="h-3.5 w-3.5 text-orange-400 shrink-0" />}
@@ -676,6 +905,75 @@ export function ProductsPage() {
         product={activeProduct} 
         onClose={() => setSelectedProductId(null)} 
       />
+
+      {/* GEMINI CONFIG MODAL */}
+      <AnimatePresence>
+        {isGeminiModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setIsGeminiModalOpen(false)}
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-pclink-border bg-pclink-bg/95 p-6 shadow-2xl backdrop-blur-xl space-y-4"
+            >
+              <h3 className="text-base font-bold text-white leading-normal">Configurar API Key de Gemini</h3>
+              <p className="text-xs text-pclink-muted leading-relaxed">
+                Ingresá tu clave de API de Google AI Studio para habilitar la autogeneración de descripciones de productos con IA.
+              </p>
+
+              <form onSubmit={handleSaveGeminiKey} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-pclink-cyan uppercase tracking-wider mb-1">API Key</label>
+                  <input
+                    type="password"
+                    value={geminiApiKey}
+                    onChange={e => setGeminiApiKey(e.target.value)}
+                    placeholder="AIzaSy..."
+                    className="w-full rounded-xl border border-pclink-border bg-pclink-bg/50 px-4 py-2.5 text-sm text-white placeholder:text-pclink-subtle focus:outline-none focus:border-pclink-cyan"
+                    required
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsGeminiModalOpen(false)}
+                    className="rounded-xl border border-pclink-border px-4 py-2 text-xs font-bold text-pclink-muted hover:text-white cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <motion.button
+                    type="submit"
+                    disabled={savingGeminiKey}
+                    className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-pclink-cyan to-pclink-cyan-deep px-5 py-2 text-xs font-bold text-pclink-bg disabled:opacity-50 cursor-pointer"
+                    whileTap={{ scale: !savingGeminiKey ? 0.99 : 1 }}
+                  >
+                    {savingGeminiKey ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Guardando...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4" />
+                        Guardar Clave
+                      </>
+                    )}
+                  </motion.button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

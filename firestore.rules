@@ -39,9 +39,9 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // Reglas para Usuarios (Solo el dueño puede leer/escribir su documento y subcolecciones)
+    // Reglas para Usuarios (Solo el dueño puede leer/escribir su documento y subcolecciones, o administradores)
     match /users/{userId}/{document=**} {
-      allow read, write: if isAuthed() && request.auth.uid == userId;
+      allow read, write: if (isAuthed() && request.auth.uid == userId) || isAdmin();
     }
 
     // Reglas para Órdenes

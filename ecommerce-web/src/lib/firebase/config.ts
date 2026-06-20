@@ -6,7 +6,7 @@ import { getFunctions } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyA6rBjlZ62CULHi8CqADZqE-VO8Nm5faJA",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "pclink-f6e0d.firebaseapp.com",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "pclinkcomputacion.com.ar",
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "pclink-f6e0d",
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "pclink-f6e0d.firebasestorage.app",
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "716411272758",

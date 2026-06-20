@@ -81,30 +81,32 @@ export default function ProductCard({ product, isLarge, isSmall }: ProductCardPr
         </div>
 
         {/* Image */}
-        {product.images && product.images.length > 0 && !imageError ? (
-          <img
-            src={product.images[0]}
-            alt={product.name}
-            onError={() => setImageError(true)}
-            className={cn(
-              "w-full h-full object-contain group-hover:scale-105 transition-transform duration-700 mix-blend-multiply",
-              isSmall ? "p-4" : (isLarge ? "lg:p-12 p-8" : "p-8")
-            )}
-          />
-        ) : (
-          <div className={cn(
-            "w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-background via-surface/30 to-background text-muted-foreground/30 select-none",
-            isSmall ? "p-4" : "p-8"
-          )}>
-            <Cpu className={cn("text-accent/20 stroke-[1.2]", isSmall ? "w-10 h-10 mb-1.5" : "w-16 h-16 mb-3")} />
-            <span className={cn(
-              "uppercase font-bold tracking-widest text-muted-foreground/40 font-mono text-center",
-              isSmall ? "text-[8px]" : "text-[10px]"
+        <Link href={`/products/${product.id}`} className="w-full h-full flex items-center justify-center cursor-pointer">
+          {product.images && product.images.length > 0 && !imageError ? (
+            <img
+              src={product.images[0]}
+              alt={product.name}
+              onError={() => setImageError(true)}
+              className={cn(
+                "w-full h-full object-contain group-hover:scale-105 transition-transform duration-700 mix-blend-multiply",
+                isSmall ? "p-4" : (isLarge ? "lg:p-12 p-8" : "p-8")
+              )}
+            />
+          ) : (
+            <div className={cn(
+              "w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-background via-surface/30 to-background text-muted-foreground/30 select-none",
+              isSmall ? "p-4" : "p-8"
             )}>
-              Imagen no disponible
-            </span>
-          </div>
-        )}
+              <Cpu className={cn("text-accent/20 stroke-[1.2]", isSmall ? "w-10 h-10 mb-1.5" : "w-16 h-16 mb-3")} />
+              <span className={cn(
+                "uppercase font-bold tracking-widest text-muted-foreground/40 font-mono text-center",
+                isSmall ? "text-[8px]" : "text-[10px]"
+              )}>
+                Imagen no disponible
+              </span>
+            </div>
+          )}
+        </Link>
       </div>
 
       <div className={cn(

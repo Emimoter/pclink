@@ -415,3 +415,819 @@ exports.syncGrupoNucleoCron = onSchedule("every 24 hours", async (event) => {
     }
 });
 
+exports.generateProductDescription = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Debes iniciar sesión para generar descripciones.");
+    }
+
+    const { productId, override = false } = request.data;
+    if (!productId) {
+        throw new HttpsError("invalid-argument", "El ID del producto es requerido.");
+    }
+
+    try {
+        const configDoc = await admin.firestore().collection("settings").doc("gemini_config").get();
+        let apiKey = configDoc.exists ? configDoc.data().apiKey : null;
+
+        if (!apiKey) {
+            apiKey = process.env.GEMINI_API_KEY;
+        }
+
+        if (!apiKey) {
+            throw new HttpsError("failed-precondition", "La API Key de Gemini no está configurada en la base de datos.");
+        }
+
+        const productRef = admin.firestore().collection("products").doc(productId);
+        const productSnap = await productRef.get();
+        if (!productSnap.exists) {
+            throw new HttpsError("not-found", "Producto no encontrado.");
+        }
+
+        const product = productSnap.data();
+        
+        if (product.description && !override && product.description !== `Producto importado de Grupo Núcleo. Cód: ${productId}.`) {
+            return { success: true, description: product.description, updated: false };
+        }
+
+        const prompt = `Eres un redactor técnico experto en e-commerce de tecnología. Genera la ficha técnica para el siguiente producto basándote en su información y en tus conocimientos de hardware y tecnología.
+
+Información disponible del producto:
+Nombre: ${product.name}
+Marca: ${product.brand || "Genérica"}
+Modelo: ${product.model || ""}
+Categoría: ${product.category || ""}
+
+REGLAS DE FORMATO Y CONTENIDO (SÍGUELAS ESTRICTAMENTE):
+1. Genera ÚNICAMENTE una lista con viñetas de especificaciones técnicas detalladas.
+2. Cada línea debe usar estrictamente el formato: - Característica o Componente: Valor detallado. Ejemplo:
+   - Marca: ASUS
+   - Modelo: Prime A520M-K
+   - Zócalo (Socket): AM4
+3. Está TOTALMENTE PROHIBIDO incluir textos introductorios o de cierre (NO agregues frases como "Aquí tienes la descripción...", "Ficha técnica:", etc.). Comienza directamente con la primera viñeta y termina con la última viñeta.
+4. Está TOTALMENTE PROHIBIDO incluir frases comerciales, publicitarias o de marketing (NO uses palabras subjetivas como "excelente", "potente", "diseñado para llevar tu juego al siguiente nivel", "increíble", "ideal para ti", etc.). Todo debe ser 100% objetivo y factual.
+5. Si no conoces con total certeza alguna especificación detallada basada en el nombre/modelo del producto, NO la inventes. Deduce solo detalles técnicos estándares y seguros que correspondan directamente a este modelo y categoría de hardware de forma certera. Omite cualquier dato dudoso.
+`;
+
+        const modelsToTry = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
+        let response;
+        let lastError;
+
+        for (const model of modelsToTry) {
+            let retries = 2;
+            while (retries >= 0) {
+                try {
+                    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                    response = await fetch(geminiUrl, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            contents: [
+                                {
+                                    parts: [
+                                        { text: prompt }
+                                    ]
+                                }
+                            ],
+                            generationConfig: {
+                                temperature: 0.7,
+                                maxOutputTokens: 2048
+                            }
+                        })
+                    });
+
+                    if (response.ok) {
+                        lastError = null;
+                        retries = -1;
+                        break;
+                    } else {
+                        const errText = await response.text();
+                        lastError = new Error(`API ${model} falló (Status ${response.status}): ${errText}`);
+                        if ((response.status === 503 || response.status === 429) && retries > 0) {
+                            console.warn(`Error temporal ${response.status} en modelo ${model}. Reintentando en 2s...`);
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                            retries--;
+                        } else {
+                            retries = -1;
+                        }
+                    }
+                } catch (err) {
+                    lastError = err;
+                    if (retries > 0) {
+                        console.warn(`Error de red en modelo ${model}. Reintentando en 2s...`, err);
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        retries--;
+                    } else {
+                        retries = -1;
+                    }
+                }
+            }
+            if (!lastError) {
+                break;
+            }
+        }
+
+        if (lastError || !response || !response.ok) {
+            throw lastError || new Error("No se pudo obtener respuesta de ningún modelo de Gemini.");
+        }
+
+        const resData = await response.json();
+        const generatedText = resData.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!generatedText) {
+            throw new Error("No se pudo generar texto de descripción.");
+        }
+
+        const finalDesc = generatedText.trim();
+
+        await productRef.update({
+            description: finalDesc,
+            updatedAt: Date.now()
+        });
+
+        return { success: true, description: finalDesc, updated: true };
+
+    } catch (error) {
+        console.error("Error in generateProductDescription:", error);
+        throw new HttpsError("internal", error.message || "Error al generar la descripción del producto.");
+    }
+});
+
+exports.generateBatchProductDescriptions = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+    }
+
+    const { productIds, override = false } = request.data;
+    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+        throw new HttpsError("invalid-argument", "Los IDs de los productos son requeridos.");
+    }
+
+    try {
+        const configDoc = await admin.firestore().collection("settings").doc("gemini_config").get();
+        let apiKey = configDoc.exists ? configDoc.data().apiKey : null;
+        if (!apiKey) {
+            apiKey = process.env.GEMINI_API_KEY;
+        }
+
+        if (!apiKey) {
+            throw new HttpsError("failed-precondition", "La API Key de Gemini no está configurada.");
+        }
+
+        const processSingleProduct = async (productId) => {
+            try {
+                const productRef = admin.firestore().collection("products").doc(productId);
+                const docSnap = await productRef.get();
+                if (!docSnap.exists) {
+                    return { id: productId, status: "error", error: "Product not found" };
+                }
+
+                const product = docSnap.data();
+                if (product.description && !override && product.description !== `Producto importado de Grupo Núcleo. Cód: ${productId}.`) {
+                    return { id: productId, status: "skipped" };
+                }
+
+                const prompt = `Eres un redactor técnico experto en e-commerce de tecnología. Genera la ficha técnica para el siguiente producto basándote en su información y en tus conocimientos de hardware y tecnología.
+
+Información disponible del producto:
+Nombre: ${product.name}
+Marca: ${product.brand || "Genérica"}
+Modelo: ${product.model || ""}
+Categoría: ${product.category || ""}
+
+REGLAS DE FORMATO Y CONTENIDO (SÍGUELAS ESTRICTAMENTE):
+1. Genera ÚNICAMENTE una lista con viñetas de especificaciones técnicas detalladas.
+2. Cada línea debe usar estrictamente el formato: - Característica o Componente: Valor detallado. Ejemplo:
+   - Marca: ASUS
+   - Modelo: Prime A520M-K
+   - Zócalo (Socket): AM4
+3. Está TOTALMENTE PROHIBIDO incluir textos introductorios o de cierre (NO agregues frases como "Aquí tienes la descripción...", "Ficha técnica:", etc.). Comienza directamente con la primera viñeta y termina con la última viñeta.
+4. Está TOTALMENTE PROHIBIDO incluir frases comerciales, publicitarias o de marketing (NO uses palabras subjetivas como "excelente", "potente", "diseñado para llevar tu juego al siguiente nivel", "increíble", "ideal para ti", etc.). Todo debe ser 100% objetivo y factual.
+5. Si no conoces con total certeza alguna especificación detallada basada en el nombre/modelo del producto, NO la inventes. Deduce solo detalles técnicos estándares y seguros que correspondan directamente a este modelo y categoría de hardware de forma certera. Omite cualquier dato dudoso.
+`;
+
+                const modelsToTry = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
+                let response;
+                let lastError;
+
+                for (const model of modelsToTry) {
+                    let retries = 2;
+                    while (retries >= 0) {
+                        try {
+                            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                            response = await fetch(geminiUrl, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    contents: [{ parts: [{ text: prompt }] }],
+                                    generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+                                })
+                            });
+
+                            if (response.ok) {
+                                lastError = null;
+                                retries = -1;
+                                break;
+                            } else {
+                                const errText = await response.text();
+                                lastError = new Error(`API ${model} falló (Status ${response.status}): ${errText}`);
+                                if ((response.status === 503 || response.status === 429) && retries > 0) {
+                                    console.warn(`Error temporal ${response.status} en modelo ${model}. Reintentando en 2s...`);
+                                    await new Promise(resolve => setTimeout(resolve, 2000));
+                                    retries--;
+                                } else {
+                                    retries = -1;
+                                }
+                            }
+                        } catch (err) {
+                            lastError = err;
+                            if (retries > 0) {
+                                console.warn(`Error de red en modelo ${model}. Reintentando en 2s...`, err);
+                                await new Promise(resolve => setTimeout(resolve, 2000));
+                                retries--;
+                            } else {
+                                retries = -1;
+                            }
+                        }
+                    }
+                    if (!lastError) {
+                        break;
+                    }
+                }
+
+                if (lastError || !response || !response.ok) {
+                    throw lastError || new Error("No se pudo obtener respuesta de ningún modelo de Gemini.");
+                }
+
+                const resData = await response.json();
+                const generatedText = resData.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (generatedText) {
+                    const finalDesc = generatedText.trim();
+                    await productRef.update({
+                        description: finalDesc,
+                        updatedAt: Date.now()
+                    });
+                    return { id: productId, status: "updated" };
+                } else {
+                    return { id: productId, status: "error", error: "No text generated" };
+                }
+            } catch (err) {
+                console.error(`Error generating for product ${productId}:`, err);
+                return { id: productId, status: "error", error: err.message };
+            }
+        };
+
+        const results = await Promise.all(productIds.map(id => processSingleProduct(id)));
+
+        return { success: true, results };
+    } catch (error) {
+        console.error("Error in generateBatchProductDescriptions:", error);
+        throw new HttpsError("internal", error.message || "Error al procesar el lote.");
+    }
+});
+
+// Helper to query DuckDuckGo for product context using HTML search
+async function searchInternetForProduct(query) {
+    if (!query || query.trim() === "") return [];
+    try {
+        const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+            }
+        });
+        if (!response.ok) {
+            console.error(`DuckDuckGo search failed for query "${query}": Status ${response.status}`);
+            return [];
+        }
+        const html = await response.text();
+        
+        const snippets = [];
+        const titles = [];
+        
+        const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
+        const titleRegex = /<a[^>]*class="result__a"[^>]*>([\s\S]*?)<\/a>/gi;
+        
+        let match;
+        while ((match = snippetRegex.exec(html)) !== null) {
+            let snippet = match[1]
+                .replace(/<[^>]*>/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            snippets.push(snippet);
+        }
+        
+        while ((match = titleRegex.exec(html)) !== null) {
+            let title = match[1]
+                .replace(/<[^>]*>/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            titles.push(title);
+        }
+        
+        const results = [];
+        for (let i = 0; i < Math.min(titles.length, snippets.length, 3); i++) {
+            results.push(`Título: "${titles[i]}" | Resumen: "${snippets[i]}"`);
+        }
+        return results;
+    } catch (error) {
+        console.error(`Error in searchInternetForProduct for query "${query}":`, error);
+        return [];
+    }
+}
+
+exports.processInvoiceImage = onCall(async (request) => {
+    const { imageBase64, mimeType = "image/jpeg" } = request.data;
+    if (!imageBase64) {
+        throw new HttpsError("invalid-argument", "La imagen en base64 de la factura es requerida.");
+    }
+
+    try {
+        const db = admin.firestore();
+
+        // 1. Obtener la API Key de Gemini
+        const configDoc = await db.collection("settings").doc("gemini_config").get();
+        let apiKey = configDoc.exists ? configDoc.data().apiKey : null;
+        if (!apiKey) {
+            apiKey = process.env.GEMINI_API_KEY;
+        }
+
+        if (!apiKey) {
+            throw new HttpsError("failed-precondition", "La API Key de Gemini no está configurada.");
+        }
+
+        // 2. Obtener el catálogo completo de Firestore para matchear
+        const productsSnapshot = await db.collection("products").get();
+        const catalogList = [];
+        const barcodeToProductMap = new Map();
+        
+        productsSnapshot.forEach(doc => {
+            const data = doc.data();
+            const product = {
+                id: doc.id,
+                name: data.name || "",
+                brand: data.brand || "",
+                model: data.model || "",
+                barcode: data.barcode || ""
+            };
+            catalogList.push(product);
+            
+            // Si el producto tiene un código de barra, lo registramos en el mapa
+            if (product.barcode && product.barcode.trim() !== "") {
+                barcodeToProductMap.set(product.barcode.trim(), product);
+            }
+        });
+
+        // 3. Etapa 1: Llamar a Gemini para extraer los ítems impresos de la factura
+        const extractPrompt = `Analiza la imagen de esta factura de proveedor e identifica todas las filas de productos en la tabla.
+Extrae la información tal como está impresa en la factura. No intentes buscar anotaciones en lapicera en los márgenes.
+
+Para cada producto de la factura, debes extraer los siguientes datos:
+1. "barcode": El número de código de barras impreso en la factura (usualmente de 12 o 13 dígitos) o código de barras/GTIN del producto en esa fila. Si no tiene, busca el código o SKU de proveedor (por ejemplo: CABX0910316). Si no hay ninguno, devuelve null.
+2. "description": La descripción del producto impresa en la factura (por ejemplo "CABLE USB TIP").
+3. "quantity": La cantidad de unidades que ingresan (por ejemplo, de "3,00 x" la cantidad es 3).
+4. "cost_price": El precio unitario de costo (el valor unitario antes de impuestos u otros cargos, por ejemplo de "3,00 x 2.058,7537", el costo es 2058.75).
+
+Devuelve un arreglo JSON válido donde cada elemento siga exactamente este esquema JSON:
+{
+  "barcode": "string (o null)",
+  "description": "string",
+  "quantity": number,
+  "cost_price": number
+}
+
+REGLA CRÍTICA: Devuelve ÚNICAMENTE el código JSON. No incluyas explicaciones, no agregues bloques de código markdown (\`\`\`json ... \`\`\`). Tu respuesta debe ser parseable directamente con JSON.parse().`;
+
+        const modelsToTry = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
+        let response;
+        let lastError;
+
+        for (const model of modelsToTry) {
+            let retries = 2;
+            while (retries >= 0) {
+                try {
+                    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                    response = await fetch(geminiUrl, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            contents: [
+                                {
+                                    parts: [
+                                        { text: extractPrompt },
+                                        {
+                                            inlineData: {
+                                                mimeType: mimeType,
+                                                data: imageBase64
+                                            }
+                                        }
+                                    ]
+                                }
+                            ],
+                            generationConfig: {
+                                temperature: 0.1,
+                                maxOutputTokens: 8192,
+                                responseMimeType: "application/json"
+                            }
+                        })
+                    });
+
+                    if (response.ok) {
+                        lastError = null;
+                        retries = -1;
+                        break;
+                    } else {
+                        const errText = await response.text();
+                        lastError = new Error(`API ${model} falló en Extracción (Status ${response.status}): ${errText}`);
+                        if ((response.status === 503 || response.status === 429) && retries > 0) {
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                            retries--;
+                        } else {
+                            retries = -1;
+                        }
+                    }
+                } catch (err) {
+                    lastError = err;
+                    if (retries > 0) {
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        retries--;
+                    } else {
+                        retries = -1;
+                    }
+                }
+            }
+            if (!lastError) {
+                break;
+            }
+        }
+
+        if (lastError || !response || !response.ok) {
+            throw lastError || new Error("No se pudo obtener respuesta de ningún modelo de Gemini para la extracción.");
+        }
+
+        const resData = await response.json();
+        const generatedText = resData.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!generatedText) {
+            throw new Error("No se pudo extraer información de la factura.");
+        }
+
+        let jsonText = generatedText.trim();
+        if (jsonText.startsWith("```json")) {
+            jsonText = jsonText.substring(7);
+        } else if (jsonText.startsWith("```")) {
+            jsonText = jsonText.substring(3);
+        }
+        if (jsonText.endsWith("```")) {
+            jsonText = jsonText.substring(0, jsonText.length - 3);
+        }
+        jsonText = jsonText.trim();
+
+        const extractedItems = JSON.parse(jsonText);
+
+        // 4. Intentar emparejar por código de barra localmente, o buscar en internet
+        const unmatchedItems = [];
+        const finalItems = [];
+
+        for (const item of extractedItems) {
+            let matchedProduct = null;
+            
+            // Intento 1: Match exacto de código de barra
+            if (item.barcode && item.barcode.trim() !== "") {
+                const cleanedBarcode = item.barcode.trim();
+                matchedProduct = barcodeToProductMap.get(cleanedBarcode);
+            }
+
+            if (matchedProduct) {
+                // Si matcheó directamente por código de barra, lo agregamos al resultado final
+                finalItems.push({
+                    barcode: item.barcode,
+                    description: item.description,
+                    quantity: item.quantity,
+                    cost_price: item.cost_price,
+                    handwritten_id: matchedProduct.id
+                });
+            } else {
+                // Si no matcheó, lo agregamos a la lista de pendientes para búsqueda y matching cognitivo
+                unmatchedItems.push({
+                    ...item,
+                    web_search_results: [],
+                    handwritten_id: null
+                });
+            }
+        }
+
+        // 5. Enriquecer ítems no emparejados con búsqueda en internet en paralelo
+        if (unmatchedItems.length > 0) {
+            console.log(`Realizando búsqueda web para ${unmatchedItems.length} ítems no emparejados...`);
+            const searchPromises = unmatchedItems.map(async (item) => {
+                // Formular consulta: preferiblemente código de barra + descripción para precisión
+                let query = "";
+                if (item.barcode && item.barcode.trim() !== "") {
+                    query = `${item.barcode} ${item.description}`;
+                } else {
+                    query = item.description;
+                }
+                
+                // Ejecutar búsqueda
+                const searchResults = await searchInternetForProduct(query);
+                item.web_search_results = searchResults;
+            });
+
+            await Promise.all(searchPromises);
+
+            // 6. Etapa 2: Llamada cognitiva a Gemini para matchear con base de datos usando contexto de internet
+            const catalogStr = catalogList.map(p => 
+                `- ID: "${p.id}" | Nombre: "${p.name}" | Marca: "${p.brand}" | Modelo: "${p.model}" | Código Barras: "${p.barcode}"`
+            ).join("\n");
+
+            const itemsToMatchStr = unmatchedItems.map((item, index) => {
+                return `Ítem Factura ${index}:
+- Descripción impresa: "${item.description}"
+- Código/SKU impreso: "${item.barcode || 'Ninguno'}"
+- Información encontrada en Internet:
+  ${item.web_search_results.length > 0 ? item.web_search_results.map(r => `  * ${r}`).join("\n") : "  * Ninguna"}
+`;
+            }).join("\n---\n");
+
+            const matchPrompt = `Eres un asistente de catálogo para PClink Computación. Tu tarea es encontrar el producto equivalente de nuestra base de datos (catálogo local) para cada uno de los ítems de la factura de proveedor utilizando su descripción, código impreso y el contexto de los resultados de búsqueda web.
+
+Aquí tienes el catálogo local de productos de nuestro sistema (Firestore):
+${catalogStr}
+
+Aquí tienes los ítems de la factura que debes emparejar con nuestro catálogo local:
+${itemsToMatchStr}
+
+Para cada uno de los ítems de la factura que te listé arriba, debes encontrar si existe un producto idéntico o muy similar en nuestro catálogo local:
+- Si encuentras un producto coincidente en el catálogo local, devuelve su "ID" correspondiente (por ejemplo, "990", "2727", etc.).
+- Si consideras que es un producto totalmente nuevo que NO existe en nuestro catálogo local, o la información es insuficiente para emparejarlo con certeza, devuelve null.
+
+Devuelve tu respuesta únicamente en un arreglo JSON de objetos, respetando el índice del ítem enviado, con el siguiente esquema JSON exacto:
+[
+  {
+    "index": number,
+    "matched_id": "string (o null)"
+  }
+]
+
+REGLA CRÍTICA: Devuelve ÚNICAMENTE el código JSON. No incluyas explicaciones, no agregues bloques de código markdown. Tu respuesta debe ser parseable directamente con JSON.parse().`;
+
+            let matchResponse;
+            let matchLastError;
+
+            for (const model of modelsToTry) {
+                let retries = 2;
+                while (retries >= 0) {
+                    try {
+                        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                        matchResponse = await fetch(geminiUrl, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json"
+                            },
+                            body: JSON.stringify({
+                                contents: [
+                                    {
+                                        parts: [
+                                            { text: matchPrompt }
+                                        ]
+                                    }
+                                ],
+                                generationConfig: {
+                                    temperature: 0.1,
+                                    maxOutputTokens: 4096,
+                                    responseMimeType: "application/json"
+                                }
+                            })
+                        });
+
+                        if (matchResponse.ok) {
+                            matchLastError = null;
+                            retries = -1;
+                            break;
+                        } else {
+                            const errText = await matchResponse.text();
+                            matchLastError = new Error(`API ${model} falló en Matching (Status ${matchResponse.status}): ${errText}`);
+                            if ((matchResponse.status === 503 || matchResponse.status === 429) && retries > 0) {
+                                await new Promise(resolve => setTimeout(resolve, 2000));
+                                retries--;
+                            } else {
+                                retries = -1;
+                            }
+                        }
+                    } catch (err) {
+                        matchLastError = err;
+                        if (retries > 0) {
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                            retries--;
+                        } else {
+                            retries = -1;
+                        }
+                    }
+                }
+                if (!matchLastError) {
+                    break;
+                }
+            }
+
+            if (matchLastError || !matchResponse || !matchResponse.ok) {
+                console.error("Fallo la etapa 2 de matching:", matchLastError);
+                for (const item of unmatchedItems) {
+                    finalItems.push({
+                        barcode: item.barcode,
+                        description: item.description,
+                        quantity: item.quantity,
+                        cost_price: item.cost_price,
+                        handwritten_id: null
+                    });
+                }
+            } else {
+                const matchResData = await matchResponse.json();
+                const matchText = matchResData.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (matchText) {
+                    let matchJsonText = matchText.trim();
+                    if (matchJsonText.startsWith("```json")) {
+                        matchJsonText = matchJsonText.substring(7);
+                    } else if (matchJsonText.startsWith("```")) {
+                        matchJsonText = matchJsonText.substring(3);
+                    }
+                    if (matchJsonText.endsWith("```")) {
+                        matchJsonText = matchJsonText.substring(0, matchJsonText.length - 3);
+                    }
+                    matchJsonText = matchJsonText.trim();
+
+                    try {
+                        const matchResultsList = JSON.parse(matchJsonText);
+                        const matchMap = new Map();
+                        for (const r of matchResultsList) {
+                            matchMap.set(r.index, r.matched_id);
+                        }
+
+                        // Asignar los IDs resultantes
+                        unmatchedItems.forEach((item, index) => {
+                            finalItems.push({
+                                barcode: item.barcode,
+                                description: item.description,
+                                quantity: item.quantity,
+                                cost_price: item.cost_price,
+                                handwritten_id: matchMap.get(index) || null
+                            });
+                        });
+                    } catch (parseErr) {
+                        console.error("Error parseando JSON de match cognitivo:", parseErr, matchJsonText);
+                        for (const item of unmatchedItems) {
+                            finalItems.push({
+                                barcode: item.barcode,
+                                description: item.description,
+                                quantity: item.quantity,
+                                cost_price: item.cost_price,
+                                handwritten_id: null
+                            });
+                        }
+                    }
+                } else {
+                    console.error("No se generó texto de matching en etapa 2");
+                    for (const item of unmatchedItems) {
+                        finalItems.push({
+                            barcode: item.barcode,
+                            description: item.description,
+                            quantity: item.quantity,
+                            cost_price: item.cost_price,
+                            handwritten_id: null
+                        });
+                    }
+                }
+            }
+        }
+
+        return { success: true, items: finalItems };
+
+    } catch (error) {
+        console.error("Error in processInvoiceImage:", error);
+        throw new HttpsError("internal", error.message || "Error al procesar la imagen de la factura.");
+    }
+});
+
+exports.importInvoiceBatch = onCall(async (request) => {
+    const { batch } = request.data;
+    if (!batch || !batch.items) {
+        throw new HttpsError("invalid-argument", "El lote es requerido.");
+    }
+
+    try {
+        const db = admin.firestore();
+        const firestoreBatch = db.batch();
+        const productsCol = db.collection("products");
+        const batchesCol = db.collection("invoice_batches");
+
+        // 1. Procesar cada ítem
+        for (const item of batch.items) {
+            // El artículo puede venir de handwrittenId o tempHandwrittenId
+            const articleId = item.handwrittenId || item.tempHandwrittenId;
+            if (!articleId || articleId.trim() === "") continue;
+
+            const productDocRef = productsCol.doc(articleId);
+            const productSnapshot = await productDocRef.get();
+
+            const calculatedPrice = item.calculatedPrice || Math.round(item.costPrice * (1 + item.marginPercent / 100));
+
+            if (productSnapshot.exists) {
+                // Sumar al stock y actualizar precio
+                const currentStock = productSnapshot.data().stock || 0;
+                const newStock = currentStock + parseInt(item.quantity || 0);
+                
+                const updates = {
+                    price: calculatedPrice,
+                    stock: newStock,
+                    updatedAt: Date.now()
+                };
+
+                if (item.barcode && item.barcode.trim() !== "") {
+                    updates.barcode = item.barcode;
+                }
+
+                firestoreBatch.update(productDocRef, updates);
+            } else {
+                // Crear borrador
+                const newProductMap = {
+                    name: item.description,
+                    brand: "PClink Store",
+                    model: "",
+                    category: "GAMING",
+                    price: calculatedPrice,
+                    stock: parseInt(item.quantity || 0),
+                    description: "Producto ingresado mediante PClink Stock Manager.",
+                    releasedAt: Date.now(),
+                    updatedAt: Date.now(),
+                    images: [],
+                    specs: [],
+                    tags: ["NEW"]
+                };
+
+                if (item.barcode && item.barcode.trim() !== "") {
+                    newProductMap.barcode = item.barcode;
+                }
+
+                firestoreBatch.set(productDocRef, newProductMap);
+            }
+        }
+
+        // 2. Guardar el registro de la factura en el historial
+        const batchDocRef = batchesCol.doc();
+        const batchMap = {
+            invoiceNumber: batch.invoiceNumber || `Factura-${Date.now()}`,
+            date: batch.date || Date.now(),
+            processedBy: batch.processedBy || "admin@pclink.com",
+            itemCount: batch.items.length,
+            items: batch.items.map(item => ({
+                barcode: item.barcode || null,
+                description: item.description || "",
+                quantity: item.quantity || 1,
+                costPrice: item.costPrice || 0,
+                handwrittenId: item.handwrittenId || item.tempHandwrittenId,
+                calculatedPrice: item.calculatedPrice || Math.round(item.costPrice * (1 + item.marginPercent / 100))
+            }))
+        };
+        firestoreBatch.set(batchDocRef, batchMap);
+
+        await firestoreBatch.commit();
+        return { success: true };
+    } catch (error) {
+        console.error("Error in importInvoiceBatch:", error);
+        throw new HttpsError("internal", error.message || "Error al importar el lote en Firestore.");
+    }
+});
+
+exports.getRecentBatches = onCall(async (request) => {
+    try {
+        const db = admin.firestore();
+        const snapshot = await db.collection("invoice_batches")
+            .orderBy("date", "desc")
+            .limit(20)
+            .get();
+
+        const batches = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                invoiceNumber: data.invoiceNumber || "",
+                date: data.date || 0,
+                processedBy: data.processedBy || "",
+                itemCount: data.itemCount || 0,
+                items: data.items || []
+            };
+        });
+
+        return { success: true, batches };
+    } catch (error) {
+        console.error("Error in getRecentBatches:", error);
+        throw new HttpsError("internal", error.message || "Error al obtener historial.");
+    }
+});
+
+
+

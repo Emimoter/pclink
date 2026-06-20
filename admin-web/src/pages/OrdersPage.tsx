@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore'
+import { collection, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { getDb } from '../lib/firebase'
 import {
   Search,
@@ -12,7 +12,8 @@ import {
   Eye,
   Clock,
   Ban,
-  PackageOpen
+  PackageOpen,
+  Trash2
 } from 'lucide-react'
 
 // Configuración de visualización por cada estado de la compra
@@ -115,6 +116,24 @@ export function OrdersPage() {
       }
     } catch (err: any) {
       alert(`Error al actualizar estado: ${err.message}`)
+    }
+  }
+
+  const handleDeleteOrder = async (orderId: string, orderNumber: string) => {
+    if (!window.confirm(`¿Estás seguro de que deseas eliminar el pedido ${orderNumber}? Esta acción no se puede deshacer.`)) {
+      return
+    }
+    try {
+      const db = getDb()
+      const orderRef = doc(db, 'orders', orderId)
+      await deleteDoc(orderRef)
+      
+      // Si el modal detallado está abierto y es la orden editada, cerrarlo
+      if (selectedOrder && selectedOrder.id === orderId) {
+        setSelectedOrder(null)
+      }
+    } catch (err: any) {
+      alert(`Error al eliminar el pedido: ${err.message}`)
     }
   }
 
@@ -297,6 +316,16 @@ export function OrdersPage() {
                           >
                             <Eye className="h-4 w-4" />
                           </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteOrder(order.id, order.number);
+                            }}
+                            className="rounded-lg p-2 text-pclink-muted hover:bg-pclink-elevated hover:text-pclink-error transition-all"
+                            title="Eliminar pedido"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
                       </td>
                     </motion.tr>
@@ -345,6 +374,13 @@ export function OrdersPage() {
                       </span>
                     )
                   })()}
+                  <button
+                    onClick={() => handleDeleteOrder(selectedOrder.id, selectedOrder.number)}
+                    className="rounded-lg p-1.5 text-pclink-muted hover:bg-pclink-border hover:text-pclink-error transition"
+                    title="Eliminar pedido"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </button>
                   <button
                     onClick={() => setSelectedOrder(null)}
                     className="rounded-lg p-1.5 text-pclink-muted hover:bg-pclink-border hover:text-white transition"

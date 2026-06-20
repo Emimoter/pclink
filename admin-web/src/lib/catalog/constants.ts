@@ -18,6 +18,10 @@ export const CATEGORY_IDS = [
   'GAMING',
   'NETWORK',
   'INK_TONER',
+  'PC_ARMADAS',
+  'SILLAS_GAMER',
+  'CARGADORES',
+  'PARLANTES',
   'OFFERS',
 ] as const
 
@@ -42,6 +46,10 @@ export const CATEGORY_LABELS: Record<CategoryIdValue, string> = {
   GAMING: 'Accesorios Gaming',
   NETWORK: 'Redes / Routers',
   INK_TONER: 'Cartuchos y Tóners',
+  PC_ARMADAS: 'PCs Armadas',
+  SILLAS_GAMER: 'Sillas Gamer',
+  CARGADORES: 'Cargadores',
+  PARLANTES: 'Parlantes',
   OFFERS: 'Ofertas'
 }
 

@@ -69,6 +69,18 @@ export async function updateProductCategory(
   })
 }
 
+export async function updateProductName(
+  db: Firestore,
+  productId: string,
+  name: string
+): Promise<void> {
+  const productRef = doc(db, 'products', productId)
+  await updateDoc(productRef, {
+    name,
+    updatedAt: Date.now()
+  })
+}
+
 export async function updateProductDescription(
   db: Firestore,
   productId: string,

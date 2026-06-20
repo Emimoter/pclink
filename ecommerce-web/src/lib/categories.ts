@@ -16,7 +16,9 @@ import {
   Gamepad2, 
   Wifi, 
   Droplet,
-  Zap
+  Zap,
+  Armchair,
+  Volume2
 } from "lucide-react";
 
 export interface Category {
@@ -44,6 +46,10 @@ export const CATEGORIES: Category[] = [
   { id: "GAMING", name: "Accesorios Gaming", icon: Gamepad2 },
   { id: "NETWORK", name: "Redes / Routers", icon: Wifi },
   { id: "INK_TONER", name: "Cartuchos y Tóners", icon: Droplet },
+  { id: "PC_ARMADAS", name: "PCs Armadas", icon: Monitor },
+  { id: "SILLAS_GAMER", name: "Sillas Gamer", icon: Armchair },
+  { id: "CARGADORES", name: "Cargadores", icon: Plug },
+  { id: "PARLANTES", name: "Parlantes", icon: Volume2 },
   { id: "OFFERS", name: "Ofertas", icon: Zap },
 ];
 

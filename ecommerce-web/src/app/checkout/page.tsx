@@ -348,6 +348,18 @@ function CheckoutForm() {
       return;
     }
 
+    // Verify applied coupon belongs to the user
+    if (appliedCoupon) {
+      const savedCoupons = useUserStore.getState().savedCoupons;
+      const couponExists = savedCoupons.some(
+        (c) => c.code.toUpperCase() === appliedCoupon.code.toUpperCase().trim()
+      );
+      if (!couponExists) {
+        setErrorMsg("El cupón aplicado no es válido, no pertenece a tu cuenta o ya fue consumido.");
+        return;
+      }
+    }
+
     setSubmitting(true);
     setErrorMsg("");
 
@@ -593,7 +605,7 @@ function CheckoutForm() {
                   required
                   value={recipient}
                   onChange={(e) => setRecipient(e.target.value)}
-                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
+                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-base md:text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
                   placeholder="Juan Pérez"
                 />
               </div>
@@ -607,7 +619,7 @@ function CheckoutForm() {
                   required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-mono"
+                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-base md:text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-mono"
                   placeholder="2235555555"
                 />
               </div>
@@ -621,7 +633,7 @@ function CheckoutForm() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
+                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-base md:text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
                   placeholder="nombre@ejemplo.com"
                   disabled={!!user}
                 />
@@ -677,7 +689,7 @@ function CheckoutForm() {
                     value={street}
                     onChange={(e) => setStreet(e.target.value)}
                     ref={addressInputRef}
-                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
+                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-base md:text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
                     placeholder="Ej: San Martín 1234"
                   />
                 </div>
@@ -690,7 +702,7 @@ function CheckoutForm() {
                     type="text"
                     value={apartment}
                     onChange={(e) => setApartment(e.target.value)}
-                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
+                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-base md:text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
                     placeholder="Piso 2 Depto B"
                   />
                 </div>
@@ -704,7 +716,7 @@ function CheckoutForm() {
                     required
                     value={addressLabel}
                     onChange={(e) => setAddressLabel(e.target.value)}
-                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
+                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-base md:text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
                     placeholder="Casa / Oficina"
                   />
                 </div>

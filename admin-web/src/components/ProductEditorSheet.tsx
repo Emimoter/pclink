@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Upload, Search, Image as ImageIcon, Loader2, ExternalLink, Tag, Flame, Star, Target, Sparkles, Heart, Wand2 } from 'lucide-react'
 import { getDb, getStorageBucket, getFunctionsInstance } from '../lib/firebase'
-import { uploadProductImage, updateProductCategory, updateProductFlag, updateProductImageUrls, updateProductDescription, deleteProduct, type Product } from '../lib/catalog/products'
+import { uploadProductImage, updateProductCategory, updateProductName, updateProductFlag, updateProductImageUrls, updateProductDescription, deleteProduct, type Product } from '../lib/catalog/products'
 import { CATEGORY_IDS, CATEGORY_LABELS, type CategoryIdValue } from '../lib/catalog/constants'
 import { httpsCallable } from 'firebase/functions'
 
@@ -17,8 +17,15 @@ export function ProductEditorSheet({ product, onClose }: Props) {
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [fetchingSuggestions, setFetchingSuggestions] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [name, setName] = useState(product?.name || '')
+  const [savingName, setSavingName] = useState(false)
   const [description, setDescription] = useState(product?.description || '')
   const [savingDescription, setSavingDescription] = useState(false)
+  const [generatingAIDesc, setGeneratingAIDesc] = useState(false)
+
+  useEffect(() => {
+    setName(product?.name || '')
+  }, [product?.name])
 
   useEffect(() => {
     setDescription(product?.description || '')
@@ -72,6 +79,23 @@ export function ProductEditorSheet({ product, onClose }: Props) {
     }
   }
 
+  const handleSaveName = async () => {
+    if (!name.trim()) {
+      setError('El nombre no puede estar vacío')
+      return
+    }
+    if (name.trim() === product.name) return
+    setSavingName(true)
+    setError(null)
+    try {
+      await updateProductName(getDb(), product.id, name.trim())
+    } catch (err: any) {
+      setError(err.message || 'Error al guardar el nombre')
+    } finally {
+      setSavingName(false)
+    }
+  }
+
   const handleSaveDescription = async () => {
     if (description === product.description) return
     setSavingDescription(true)
@@ -82,6 +106,29 @@ export function ProductEditorSheet({ product, onClose }: Props) {
       setError(err.message || 'Error al guardar la descripción')
     } finally {
       setSavingDescription(false)
+    }
+  }
+
+  const handleGenerateAIDescription = async () => {
+    setGeneratingAIDesc(true)
+    setError(null)
+    try {
+      const genFunc = httpsCallable<{ productId: string, override: boolean }, { success: boolean, description: string }>(
+        getFunctionsInstance(), 
+        'generateProductDescription'
+      )
+      const res = await genFunc({ productId: product.id, override: true })
+      if (res.data?.success && res.data.description) {
+        setDescription(res.data.description)
+        alert('¡Descripción generada con éxito!')
+      } else {
+        setError('No se pudo generar la descripción con IA.')
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error al generar descripción con IA.')
+      alert(`Error al generar descripción: ${err.message || 'Inténtalo de nuevo.'}`)
+    } finally {
+      setGeneratingAIDesc(false)
     }
   }
 
@@ -179,23 +226,59 @@ export function ProductEditorSheet({ product, onClose }: Props) {
                 ))}
               </select>
 
-              <h3 className="mt-4 text-lg font-bold leading-tight">{product.name}</h3>
-              <p className="text-xs text-pclink-muted">{product.brand} · {product.model}</p>
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-pclink-cyan">Nombre del producto</span>
+                  {name !== product.name && (
+                    <button
+                      type="button"
+                      onClick={handleSaveName}
+                      disabled={savingName}
+                      className="flex items-center gap-1 rounded-full bg-pclink-cyan px-3 py-1 text-[10px] font-bold text-pclink-bg transition hover:bg-pclink-cyan-light disabled:opacity-50 cursor-pointer"
+                    >
+                      {savingName ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Guardar'}
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full rounded-xl border border-pclink-border bg-pclink-elevated/50 p-2.5 text-sm font-semibold text-white focus:border-pclink-cyan/50 focus:outline-none"
+                />
+                <p className="text-xs text-pclink-muted">{product.brand} · {product.model}</p>
+              </div>
             </div>
 
             {/* Descripción del Producto */}
             <div className="space-y-3 rounded-2xl border border-pclink-border bg-pclink-elevated/20 p-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-pclink-cyan-light">Descripción</h4>
-                {description !== product.description && (
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={handleSaveDescription}
-                    disabled={savingDescription}
-                    className="flex items-center gap-1 rounded-full bg-pclink-cyan px-3 py-1 text-[10px] font-bold text-pclink-bg transition hover:bg-pclink-cyan-light disabled:opacity-50"
+                    type="button"
+                    onClick={handleGenerateAIDescription}
+                    disabled={generatingAIDesc}
+                    className="flex items-center gap-1 rounded-full bg-pclink-cyan/15 border border-pclink-cyan/35 px-2.5 py-1 text-[9px] font-bold text-pclink-cyan-light transition hover:bg-pclink-cyan/25 disabled:opacity-50 cursor-pointer"
                   >
-                    {savingDescription ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Guardar'}
+                    {generatingAIDesc ? (
+                      <Loader2 className="h-2.5 w-2.5 animate-spin text-pclink-cyan" />
+                    ) : (
+                      <Wand2 className="h-2.5 w-2.5 text-pclink-cyan" />
+                    )}
+                    <span>Autogenerar con IA</span>
                   </button>
-                )}
+                  {description !== product.description && (
+                    <button
+                      type="button"
+                      onClick={handleSaveDescription}
+                      disabled={savingDescription}
+                      className="flex items-center gap-1 rounded-full bg-pclink-cyan px-3 py-1 text-[10px] font-bold text-pclink-bg transition hover:bg-pclink-cyan-light disabled:opacity-50"
+                    >
+                      {savingDescription ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Guardar'}
+                    </button>
+                  )}
+                </div>
               </div>
               <textarea
                 value={description}

@@ -22,6 +22,7 @@ export interface Banner {
   gradientEnd: string
   targetCategory: string | null
   targetProductId: string | null
+  targetPath: string | null
   badge: string | null
   imageUrl: string | null
   active: boolean
@@ -30,60 +31,19 @@ export interface Banner {
 
 const DEFAULT_BANNERS: Omit<Banner, 'id'>[] = [
   {
-    title: 'RTX 4090 al -12%',
-    subtitle: 'Gaming sin límites con la GPU más potente',
-    ctaLabel: 'Ver oferta',
-    accentColor: '#00BCD4',
-    gradientStart: '#06090C',
-    gradientEnd: '#0E2B33',
-    targetCategory: 'GPU',
-    targetProductId: null,
-    badge: 'FLASH SALE',
-    imageUrl: null,
-    active: true,
-    order: 0,
-  },
-  {
-    title: 'Arma tu PC ideal',
-    subtitle: 'Con compatibilidad garantizada',
-    ctaLabel: 'Empezar build',
-    accentColor: '#26C6DA',
-    gradientStart: '#002B36',
-    gradientEnd: '#005662',
-    targetCategory: null,
-    targetProductId: null,
-    badge: 'PC BUILDER',
-    imageUrl: null,
-    active: true,
-    order: 1,
-  },
-  {
-    title: 'Notebooks Gaming -15%',
-    subtitle: 'Hasta 12 cuotas sin interés',
-    ctaLabel: 'Ver notebooks',
-    accentColor: '#4DD0E1',
-    gradientStart: '#111820',
-    gradientEnd: '#263238',
-    targetCategory: 'NOTEBOOK',
-    targetProductId: null,
-    badge: 'TOP DEALS',
-    imageUrl: null,
-    active: true,
-    order: 2,
-  },
-  {
-    title: 'Periféricos Pro',
-    subtitle: 'Logitech G, Razer, HyperX y más',
-    ctaLabel: 'Explorar',
+    title: '',
+    subtitle: '',
+    ctaLabel: '',
     accentColor: '#00BCD4',
     gradientStart: '#0A0F14',
-    gradientEnd: '#1A2530',
-    targetCategory: 'MOUSE',
+    gradientEnd: '#0A0F14',
+    targetCategory: null,
     targetProductId: null,
+    targetPath: null,
     badge: null,
-    imageUrl: null,
+    imageUrl: '/images/welcome_banner.png',
     active: true,
-    order: 3,
+    order: 0,
   },
 ]
 

@@ -322,7 +322,7 @@ function AuthForm() {
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
+                className="w-full bg-background border border-border rounded-xl px-4 py-3 text-base md:text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
                 placeholder="Juan Pérez"
               />
             </div>
@@ -337,7 +337,7 @@ function AuthForm() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
+              className="w-full bg-background border border-border rounded-xl px-4 py-3 text-base md:text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
               placeholder="nombre@ejemplo.com"
             />
           </div>
@@ -351,7 +351,7 @@ function AuthForm() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
+              className="w-full bg-background border border-border rounded-xl px-4 py-3 text-base md:text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
               placeholder="••••••••"
             />
           </div>

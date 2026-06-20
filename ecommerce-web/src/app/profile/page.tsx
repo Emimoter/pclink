@@ -141,6 +141,28 @@ export default function ProfilePage() {
   // Copied code feedback
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
+  const [pointsRatio, setPointsRatio] = useState<number>(100);
+  const [welcomePoints, setWelcomePoints] = useState<number>(800);
+
+  // Fetch loyalty configuration from Firestore
+  useEffect(() => {
+    async function fetchLoyaltyConfig() {
+      try {
+        const configDoc = await getDoc(doc(db, "settings", "loyalty"));
+        if (configDoc.exists()) {
+          const data = configDoc.data();
+          if (typeof data.pointsRatio === "number") setPointsRatio(data.pointsRatio);
+          const survey = typeof data.surveyBonus === "number" ? data.surveyBonus : 500;
+          const email = typeof data.emailBonus === "number" ? data.emailBonus : 300;
+          setWelcomePoints(survey + email);
+        }
+      } catch (error) {
+        console.error("Error loading loyalty settings:", error);
+      }
+    }
+    fetchLoyaltyConfig();
+  }, []);
+
   // Redirect if guest
   useEffect(() => {
     if (!authLoading && !user) {
@@ -336,7 +358,7 @@ export default function ProfilePage() {
     tier = "Plata";
     multiplier = 1.1;
   }
-  const basePoints = Math.floor((totalSpent / 100) * multiplier) + 800;
+  const basePoints = Math.floor((totalSpent / pointsRatio) * multiplier) + welcomePoints;
   const netPoints = Math.max(0, basePoints - pointsSpent);
 
   // Address actions
@@ -504,8 +526,17 @@ export default function ProfilePage() {
         {/* Profile Header Card */}
         <div className="bg-surface border border-border rounded-3xl p-8 mb-10 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden">
           <div className="flex items-center gap-6 z-10">
-            <div className="w-20 h-20 bg-accent/10 rounded-full flex items-center justify-center text-accent text-3xl font-extrabold font-mono shrink-0">
-              {user.displayName ? user.displayName[0].toUpperCase() : user.email?.[0].toUpperCase() || "U"}
+            <div className="w-20 h-20 bg-accent/10 rounded-full flex items-center justify-center text-accent text-3xl font-extrabold font-mono shrink-0 overflow-hidden">
+              {user.photoURL ? (
+                <img 
+                  src={user.photoURL} 
+                  alt={user.displayName || "Usuario"} 
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                user.displayName ? user.displayName[0].toUpperCase() : user.email?.[0].toUpperCase() || "U"
+              )}
             </div>
             <div className="space-y-1">
               <h1 className="text-2xl font-extrabold text-primary tracking-tight">{user.displayName || "Usuario"}</h1>
@@ -751,7 +782,7 @@ export default function ProfilePage() {
                             onChange={(e) => setAddressLabel(e.target.value)}
                             required
                             placeholder="Ej. Casa, Oficina"
-                            className="w-full text-sm bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-accent text-primary"
+                            className="w-full text-base md:text-sm bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-accent text-primary"
                           />
                         </div>
 
@@ -764,7 +795,7 @@ export default function ProfilePage() {
                             onChange={(e) => setRecipientName(e.target.value)}
                             required
                             placeholder="Nombre de quien recibe"
-                            className="w-full text-sm bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-accent text-primary"
+                            className="w-full text-base md:text-sm bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-accent text-primary"
                           />
                         </div>
 
@@ -777,7 +808,7 @@ export default function ProfilePage() {
                             onChange={(e) => setPhone(e.target.value)}
                             required
                             placeholder="Ej. 2235123456"
-                            className="w-full text-sm bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-accent text-primary"
+                            className="w-full text-base md:text-sm bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-accent text-primary"
                           />
                         </div>
 
@@ -791,7 +822,7 @@ export default function ProfilePage() {
                             ref={addressInputRef}
                             required
                             placeholder="Ej: Luro 1234"
-                            className="w-full text-sm bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-accent text-primary"
+                            className="w-full text-base md:text-sm bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-accent text-primary"
                           />
                         </div>
 
@@ -803,7 +834,7 @@ export default function ProfilePage() {
                             value={apartment}
                             onChange={(e) => setApartment(e.target.value)}
                             placeholder="Ej. 4B"
-                            className="w-full text-sm bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-accent text-primary"
+                            className="w-full text-base md:text-sm bg-background border border-border rounded-xl px-4 py-3 focus:outline-none focus:border-accent text-primary"
                           />
                         </div>
 
@@ -977,15 +1008,6 @@ export default function ProfilePage() {
                                 ) : (
                                   <Copy className="w-3.5 h-3.5 text-muted" />
                                 )}
-                              </Button>
-                              <Button
-                                onClick={() => removeSavedCoupon(coupon.code)}
-                                variant="danger"
-                                size="sm"
-                                className="rounded-lg text-[10px] font-bold px-3"
-                                title="Eliminar Cupón"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
                               </Button>
                             </div>
                           </div>

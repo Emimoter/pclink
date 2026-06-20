@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getDb } from '../lib/firebase'
 import { collection, query, orderBy, onSnapshot, addDoc, doc, setDoc, deleteDoc } from 'firebase/firestore'
@@ -21,7 +21,9 @@ import {
   Settings2,
   Trash2,
   CheckCircle,
-  X
+  X,
+  Edit,
+  Save
 } from 'lucide-react'
 
 // Interfaces
@@ -77,58 +79,84 @@ export function LoyaltyPage() {
   const db = getDb()
   
   // Real Firestore States
-  const [members, setMembers] = useState<LoyaltyMember[]>([])
-  const [loading, setLoading] = useState(true)
+  const [users, setUsers] = useState<any[]>([])
+  const [orders, setOrders] = useState<Order[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(true)
+  const [loadingOrders, setLoadingOrders] = useState(true)
+  const loading = loadingUsers || loadingOrders
   const [searchQuery, setSearchQuery] = useState('')
   
   // Custom states for Loyalty configuration
   const [pointsRatio, setPointsRatio] = useState<number>(100) // $100 = 1 point
   const [surveyBonus, setSurveyBonus] = useState<number>(500) // +500 points for survey
   const [emailBonus, setEmailBonus] = useState<number>(300)   // +300 points for email verification
+  const [savingConfig, setSavingConfig] = useState(false)
+
+  // Load config from Firestore
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'settings', 'loyalty'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data()
+        if (typeof data.pointsRatio === 'number') setPointsRatio(data.pointsRatio)
+        if (typeof data.surveyBonus === 'number') setSurveyBonus(data.surveyBonus)
+        if (typeof data.emailBonus === 'number') setEmailBonus(data.emailBonus)
+      } else {
+        // Seed default config in Firestore
+        setDoc(doc(db, 'settings', 'loyalty'), {
+          pointsRatio: 100,
+          surveyBonus: 500,
+          emailBonus: 300
+        }).catch(console.error)
+      }
+    }, (err) => {
+      console.error("Error loading loyalty config:", err)
+    })
+    return unsub
+  }, [db])
+
+  const handleSaveLoyaltyConfig = async () => {
+    setSavingConfig(true)
+    try {
+      await setDoc(doc(db, 'settings', 'loyalty'), {
+        pointsRatio,
+        surveyBonus,
+        emailBonus
+      })
+      triggerToast('Parámetros Guardados', 'Los parámetros se guardaron con éxito en Firestore.')
+    } catch (err) {
+      console.error("Error saving config:", err)
+      triggerToast('Error al guardar', 'No se pudieron guardar los parámetros.')
+    } finally {
+      setSavingConfig(false)
+    }
+  }
   
   // Voucher templates (loaded dynamically from Firestore)
   const [vouchers, setVouchers] = useState<VoucherTemplate[]>([])
 
   // Admin New Voucher Form State
   const [showAddVoucher, setShowAddVoucher] = useState(false)
+  const [editingVoucherId, setEditingVoucherId] = useState<string | null>(null)
   const [newDiscount, setNewDiscount] = useState<number>(10)
   const [newCost, setNewCost] = useState<number>(800)
   const [newColor, setNewColor] = useState<'emerald' | 'cyan' | 'amber' | 'indigo' | 'rose'>('emerald')
   const [newTag, setNewTag] = useState('NUEVO BENEFICIO')
 
   // SELECTED CLIENT FOR SIMULATOR
-  const [selectedEmail, setSelectedEmail] = useState<string>('invitado@pclink.com')
+  const [selectedEmail, setSelectedEmail] = useState<string>('')
   const [simulatedCustomer, setSimulatedCustomer] = useState<LoyaltyMember>({
-    email: 'invitado@pclink.com',
+    email: '',
     name: 'Visitante del Club',
     ordersCount: 0,
     totalSpent: 0,
     basePoints: 0,
-    bonusPoints: 6691, // inspired by adidas 6691 from user screenshots
-    totalPoints: 6691,
-    tier: 'oro'
+    bonusPoints: 0,
+    totalPoints: 0,
+    tier: 'bronce'
   })
 
   // Simulated Client Actions state
-  const [pointsHistory, setPointsHistory] = useState<PointHistoryItem[]>([
-    {
-      id: 'h1',
-      email: 'invitado@pclink.com',
-      type: 'bonus',
-      points: 5000,
-      description: 'Puntos de bienvenida PClink Club',
-      date: Date.now() - 86400000 * 5
-    },
-    {
-      id: 'h2',
-      email: 'invitado@pclink.com',
-      type: 'earn',
-      points: 1691,
-      description: 'Puntos por compra #49122',
-      date: Date.now() - 86400000 * 2
-    }
-  ])
-  
+  const [pointsHistory, setPointsHistory] = useState<PointHistoryItem[]>([])
   const [redeemedVouchers, setRedeemedVouchers] = useState<RedeemedVoucher[]>([])
 
   // Mobile App drawers
@@ -197,78 +225,120 @@ export function LoyaltyPage() {
     return unsubscribe
   }, [db])
 
-  // Load orders from Firestore and aggregate members
+  // Load users from Firestore
+  useEffect(() => {
+    const q = query(collection(db, 'users'))
+    return onSnapshot(q, (snapshot) => {
+      const usersList = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        uid: doc.id
+      }))
+      setUsers(usersList)
+      setLoadingUsers(false)
+    }, (err) => {
+      console.error("Error loading users:", err)
+      setLoadingUsers(false)
+    })
+  }, [db])
+
+  // Load orders from Firestore
   useEffect(() => {
     const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'))
-    
     return onSnapshot(q, (snapshot) => {
-      const ordersList = snapshot.docs.map(doc => ({ 
-        ...doc.data(), 
-        id: doc.id 
+      const ordersList = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
       } as Order))
-      
-      const grouped = ordersList.reduce<Record<string, { name: string; total: number; count: number }>>((acc, order) => {
-        const email = order.userEmail || 'anonimo@pclink.com'
-        if (!acc[email]) {
-          acc[email] = {
-            name: order.userName || email.split('@')[0],
-            total: 0,
-            count: 0
-          }
-        }
-        acc[email].total += order.total || 0
-        acc[email].count += 1
-        return acc
-      }, {})
+      setOrders(ordersList)
+      setLoadingOrders(false)
+    }, (err) => {
+      console.error("Error loading orders:", err)
+      setLoadingOrders(false)
+    })
+  }, [db])
 
-      const statsList: LoyaltyMember[] = Object.entries(grouped).map(([email, info]) => {
-        // Points conversion: $100 spent = 1 point
-        const basePoints = Math.floor(info.total / pointsRatio)
-        const bonusPoints = 500 // welcome bonus
-        const totalPoints = basePoints + bonusPoints
-
-        let tier: 'oro' | 'plata' | 'bronce' = 'bronce'
-        if (info.count >= 10 || info.total >= 500000) {
-          tier = 'oro'
-        } else if (info.count >= 5 || info.total >= 250000) {
-          tier = 'plata'
-        }
-
-        return {
-          email,
-          name: info.name,
-          ordersCount: info.count,
-          totalSpent: info.total,
-          basePoints,
-          bonusPoints,
-          totalPoints,
-          tier
-        }
-      })
-
-      // Add dummy fallback member (adiClub screenshot emulation)
-      const fallbackMember: LoyaltyMember = {
-        email: 'invitado@pclink.com',
-        name: 'Carlos Mendoza',
-        ordersCount: 14,
-        totalSpent: 669100,
-        basePoints: 6691,
-        bonusPoints: 0,
-        totalPoints: 6691,
-        tier: 'oro'
+  // Combine users and orders into LoyaltyMembers
+  const members = useMemo(() => {
+    // 1. Group orders by userEmail
+    const ordersByUserEmail = orders.reduce<Record<string, { total: number; count: number; name: string }>>((acc, order) => {
+      const email = order.userEmail || 'anonimo@pclink.com'
+      if (!acc[email]) {
+        acc[email] = { total: 0, count: 0, name: order.userName || email.split('@')[0] }
       }
+      acc[email].total += order.total || 0
+      acc[email].count += 1
+      return acc
+    }, {})
 
-      const allMembers = [fallbackMember, ...statsList.filter(m => m.email !== 'invitado@pclink.com')]
-      setMembers(allMembers)
-      setLoading(false)
-      
-      // Update simulator details if matching selected customer
-      const currentSim = allMembers.find(m => m.email === selectedEmail)
-      if (currentSim) {
-        setSimulatedCustomer(currentSim)
+    // 2. Create a map of existing users by email
+    const usersMap = new Map<string, any>()
+    users.forEach(u => {
+      if (u.email) {
+        usersMap.set(u.email.toLowerCase(), u)
       }
     })
-  }, [db, pointsRatio])
+
+    // 3. Build the combined list (registered users + anyone who has placed an order)
+    const combinedEmails = new Set<string>()
+    users.forEach(u => {
+      if (u.email) combinedEmails.add(u.email.toLowerCase())
+    })
+    Object.keys(ordersByUserEmail).forEach(email => {
+      combinedEmails.add(email.toLowerCase())
+    })
+
+    const memberList = Array.from(combinedEmails).map(email => {
+      const user = usersMap.get(email)
+      const orderInfo = ordersByUserEmail[email] || { total: 0, count: 0, name: email.split('@')[0] }
+      
+      const name = user?.name || orderInfo.name || email.split('@')[0]
+      
+      // Tier calculation: oro (count >= 10 or total >= 500k), plata (count >= 5 or total >= 250k), bronce
+      let tier: 'oro' | 'plata' | 'bronce' = 'bronce'
+      if (orderInfo.count >= 10 || orderInfo.total >= 500000) {
+        tier = 'oro'
+      } else if (orderInfo.count >= 5 || orderInfo.total >= 250000) {
+        tier = 'plata'
+      }
+
+      const multiplier = tier === 'oro' ? 1.3 : tier === 'plata' ? 1.15 : 1.0
+      
+      // Calculate points (matching e-commerce / Android view logic)
+      const basePoints = Math.floor((orderInfo.total / 100) * multiplier) + 800
+      const pointsSpent = user?.pointsSpent || 0
+      const totalPoints = Math.max(0, basePoints - pointsSpent)
+
+      return {
+        email,
+        name,
+        ordersCount: orderInfo.count,
+        totalSpent: orderInfo.total,
+        basePoints,
+        bonusPoints: 800, // welcome points
+        totalPoints,
+        tier
+      } as LoyaltyMember
+    })
+
+    // 4. Sort by points descending so clients with the most points are at the top
+    return memberList.sort((a, b) => b.totalPoints - a.totalPoints)
+  }, [users, orders])
+
+  // Automatically select the first member once loaded
+  useEffect(() => {
+    if (!selectedEmail && members.length > 0) {
+      setSelectedEmail(members[0].email)
+      setSimulatedCustomer(members[0])
+    }
+  }, [members, selectedEmail])
+
+  // Keep simulator customer details in sync with members list updates
+  useEffect(() => {
+    const currentSim = members.find(m => m.email === selectedEmail)
+    if (currentSim) {
+      setSimulatedCustomer(currentSim)
+    }
+  }, [members, selectedEmail])
 
   // Select simulator customer
   const handleSelectSimulatedMember = (member: LoyaltyMember) => {
@@ -473,27 +543,68 @@ export function LoyaltyPage() {
     setShowRewardsDrawer(true) // Automatically open the rewards drawer so they see the coupon code!
   }
 
-  // Create new voucher template from admin form (persisted in Firestore)
-  const handleCreateVoucher = async (e: React.FormEvent) => {
+  // Create or update a voucher template (persisted in Firestore)
+  const handleSaveVoucher = async (e: React.FormEvent) => {
     e.preventDefault()
-    const id = `v-custom-${Date.now()}`
-    const newVoucher: VoucherTemplate = {
-      id,
-      discountPercent: newDiscount,
-      pointsCost: newCost,
-      title: `${newDiscount}% DESCUENTO VOUCHER`,
-      description: `Canjeable por ${newCost} puntos pcClub. Válido en toda la tienda online.`,
-      color: newColor,
-      tag: newTag.toUpperCase() || 'CUPÓN ESPECIAL'
+    
+    if (editingVoucherId) {
+      // Edit existing voucher
+      const updatedVoucher = {
+        id: editingVoucherId,
+        discountPercent: newDiscount,
+        pointsCost: newCost,
+        title: `${newDiscount}% DESCUENTO VOUCHER`,
+        description: `Canjeable por ${newCost} puntos pcClub. Válido en toda la tienda online.`,
+        color: newColor,
+        tag: newTag.toUpperCase() || 'CUPÓN ESPECIAL'
+      }
+      try {
+        await setDoc(doc(db, 'vouchers', editingVoucherId), updatedVoucher)
+        setShowAddVoucher(false)
+        setEditingVoucherId(null)
+        triggerToast('Beneficio Guardado', `Se actualizó el cupón de ${newDiscount}% Off en Firestore`)
+      } catch (error) {
+        console.error("Error saving voucher: ", error)
+        triggerToast('Error', 'No se pudo actualizar el beneficio en Firestore')
+      }
+    } else {
+      // Create new voucher
+      const id = `v-custom-${Date.now()}`
+      const newVoucher: VoucherTemplate = {
+        id,
+        discountPercent: newDiscount,
+        pointsCost: newCost,
+        title: `${newDiscount}% DESCUENTO VOUCHER`,
+        description: `Canjeable por ${newCost} puntos pcClub. Válido en toda la tienda online.`,
+        color: newColor,
+        tag: newTag.toUpperCase() || 'CUPÓN ESPECIAL'
+      }
+      try {
+        await setDoc(doc(db, 'vouchers', id), newVoucher)
+        setShowAddVoucher(false)
+        triggerToast('Beneficio Creado', `Se agregó el cupón de ${newDiscount}% Off en Firestore`)
+      } catch (error) {
+        console.error("Error creating voucher: ", error)
+        triggerToast('Error', 'No se pudo guardar el beneficio en Firestore')
+      }
     }
-    try {
-      await setDoc(doc(db, 'vouchers', id), newVoucher)
-      setShowAddVoucher(false)
-      triggerToast('Beneficio Creado', `Se agregó el cupón de ${newDiscount}% Off en Firestore`)
-    } catch (error) {
-      console.error("Error creating voucher: ", error)
-      triggerToast('Error', 'No se pudo guardar el beneficio en Firestore')
-    }
+  }
+
+  const handleEditVoucher = (voucher: VoucherTemplate) => {
+    setEditingVoucherId(voucher.id)
+    setNewDiscount(voucher.discountPercent)
+    setNewCost(voucher.pointsCost)
+    setNewColor(voucher.color)
+    setNewTag(voucher.tag)
+    setShowAddVoucher(true)
+    
+    // Smooth scroll to the form
+    setTimeout(() => {
+      const formEl = document.querySelector('form')
+      if (formEl) {
+        formEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 100)
   }
 
   const handleDeleteVoucher = async (id: string) => {
@@ -561,14 +672,26 @@ export function LoyaltyPage() {
           
           {/* Rules Configuration Card */}
           <div className="glass-panel p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="rounded-xl bg-pclink-cyan/10 p-3 text-pclink-cyan border border-pclink-cyan/10">
-                <Settings2 className="h-5 w-5" />
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-pclink-cyan/10 p-3 text-pclink-cyan border border-pclink-cyan/10">
+                  <Settings2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Parámetros del Club</h3>
+                  <p className="text-xs text-pclink-muted">Establecé la relación monetaria de puntos y bonus iniciales</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Parámetros del Club</h3>
-                <p className="text-xs text-pclink-muted">Establecé la relación monetaria de puntos y bonus iniciales</p>
-              </div>
+              
+              <button
+                type="button"
+                onClick={handleSaveLoyaltyConfig}
+                disabled={savingConfig}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-pclink-cyan hover:bg-pclink-cyan-light text-white text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Save className="h-3.5 w-3.5" />
+                {savingConfig ? 'Guardando...' : 'Guardar Parámetros'}
+              </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -710,8 +833,19 @@ export function LoyaltyPage() {
               </div>
               
               <button
-                onClick={() => setShowAddVoucher(!showAddVoucher)}
-                className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl bg-pclink-cyan hover:bg-pclink-cyan-light text-white text-xs font-bold transition-all shadow-md"
+                onClick={() => {
+                  if (showAddVoucher && editingVoucherId === null) {
+                    setShowAddVoucher(false)
+                  } else {
+                    setEditingVoucherId(null)
+                    setNewDiscount(10)
+                    setNewCost(800)
+                    setNewColor('emerald')
+                    setNewTag('NUEVO BENEFICIO')
+                    setShowAddVoucher(true)
+                  }
+                }}
+                className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl bg-pclink-cyan hover:bg-pclink-cyan-light text-white text-xs font-bold transition-all shadow-md cursor-pointer"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Nuevo Cupón
@@ -722,13 +856,15 @@ export function LoyaltyPage() {
             <AnimatePresence>
               {showAddVoucher && (
                 <motion.form
-                  onSubmit={handleCreateVoucher}
+                  onSubmit={handleSaveVoucher}
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
                   className="overflow-hidden border border-pclink-border/80 bg-pclink-elevated/40 rounded-2xl p-4 mb-6 space-y-4"
                 >
-                  <h4 className="text-xs font-black uppercase text-pclink-cyan tracking-wider">Crear Recompensa pcClub</h4>
+                  <h4 className="text-xs font-black uppercase text-pclink-cyan tracking-wider">
+                    {editingVoucherId ? 'Editar Recompensa pcClub' : 'Crear Recompensa pcClub'}
+                  </h4>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -787,16 +923,19 @@ export function LoyaltyPage() {
                   <div className="flex justify-end gap-2 pt-2">
                     <button
                       type="button"
-                      onClick={() => setShowAddVoucher(false)}
-                      className="px-3.5 py-2 rounded-lg border border-pclink-border text-xs text-pclink-muted hover:text-white"
+                      onClick={() => {
+                        setShowAddVoucher(false)
+                        setEditingVoucherId(null)
+                      }}
+                      className="px-3.5 py-2 rounded-lg border border-pclink-border text-xs text-pclink-muted hover:text-white cursor-pointer"
                     >
                       Cancelar
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-2 rounded-lg bg-pclink-cyan hover:bg-pclink-cyan-light text-xs font-bold text-white"
+                      className="px-4 py-2 rounded-lg bg-pclink-cyan hover:bg-pclink-cyan-light text-xs font-bold text-white cursor-pointer"
                     >
-                      Guardar Recompensa
+                      {editingVoucherId ? 'Guardar Cambios' : 'Crear Recompensa'}
                     </button>
                   </div>
                 </motion.form>
@@ -816,13 +955,24 @@ export function LoyaltyPage() {
                       <span className={`text-[9px] font-black tracking-wider uppercase px-2 py-0.5 rounded border ${tagColorsMap[voucher.color]}`}>
                         {voucher.tag}
                       </span>
-                      <button
-                        onClick={() => handleDeleteVoucher(voucher.id)}
-                        className="text-white/50 hover:text-white transition-colors"
-                        title="Eliminar cupón de canje"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleEditVoucher(voucher)}
+                          className="text-white/50 hover:text-white transition-colors cursor-pointer"
+                          title="Editar cupón de canje"
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteVoucher(voucher.id)}
+                          className="text-white/50 hover:text-white transition-colors cursor-pointer"
+                          title="Eliminar cupón de canje"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
 
                     <h4 className="text-xl font-black tracking-tight mt-3 text-white">

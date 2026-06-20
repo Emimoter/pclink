@@ -9,13 +9,15 @@ import { Button } from "@/components/ui/Button";
 import { getCategoryName } from "@/lib/categories";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { getRelevanceScore } from "@/lib/search";
+import HeroBanner from "@/components/home/HeroBanner";
 
 const VISUAL_CATEGORIES = [
   {
     id: "pc",
-    name: "Gabinetes",
-    categoryId: "CASE",
-    image: "https://images.unsplash.com/photo-1624705002806-5d72df19c3ad?auto=format&fit=crop&q=80&w=600",
+    name: "PCs Armadas",
+    categoryId: "PC_ARMADAS",
+    image: "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&q=80&w=600",
   },
   {
     id: "monitores",
@@ -49,9 +51,21 @@ const VISUAL_CATEGORIES = [
   },
   {
     id: "sillas",
+    name: "Sillas Gamer",
+    categoryId: "SILLAS_GAMER",
+    image: "/images/categories/sillas_gamers.png",
+  },
+  {
+    id: "gaming",
     name: "Accesorios Gaming",
     categoryId: "GAMING",
-    image: "/images/categories/sillas_gamers.png",
+    image: "https://images.unsplash.com/photo-1600861195091-690c92f1d2cc?auto=format&fit=crop&q=80&w=400",
+  },
+  {
+    id: "gabinetes",
+    name: "Gabinetes",
+    categoryId: "CASE",
+    image: "https://images.unsplash.com/photo-1624705002806-5d72df19c3ad?auto=format&fit=crop&q=80&w=400",
   },
   {
     id: "perifericos",
@@ -114,6 +128,18 @@ const VISUAL_CATEGORIES = [
     image: "/images/categories/cables_adaptadores_v2.png",
   },
   {
+    id: "cargadores",
+    name: "Cargadores",
+    categoryId: "CARGADORES",
+    image: "https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&q=80&w=400",
+  },
+  {
+    id: "parlantes",
+    name: "Parlantes",
+    categoryId: "PARLANTES",
+    image: "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&q=80&w=400",
+  },
+  {
     id: "toners",
     name: "Cartuchos y Tóners",
     categoryId: "INK_TONER",
@@ -127,6 +153,28 @@ const VISUAL_CATEGORIES = [
   }
 ];
 
+const customSmoothScroll = (targetY: number, duration: number = 800) => {
+  const startPosition = window.scrollY;
+  const distance = targetY - startPosition;
+  let startTime: number | null = null;
+
+  const easeInOutCubic = (t: number) => {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  };
+
+  const animation = (currentTime: number) => {
+    if (startTime === null) startTime = currentTime;
+    const timeElapsed = currentTime - startTime;
+    const run = easeInOutCubic(Math.min(timeElapsed / duration, 1));
+    window.scrollTo(0, startPosition + distance * run);
+    if (timeElapsed < duration) {
+      requestAnimationFrame(animation);
+    }
+  };
+
+  requestAnimationFrame(animation);
+};
+
 function ProductsPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -138,7 +186,7 @@ function ProductsPageContent() {
     category: category || undefined,
   });
 
-  const [sortBy, setSortBy] = useState<string>("");
+  const [sortBy, setSortBy] = useState<string>("price-desc");
   const [visibleCount, setVisibleCount] = useState(12);
 
   // Reset visible count when category or search changes
@@ -149,24 +197,27 @@ function ProductsPageContent() {
     setVisibleCount(12);
   }
 
-  const filteredProducts = products.filter((p) => {
-    const name = p.name ? String(p.name).toLowerCase() : "";
-    const description = p.description ? String(p.description).toLowerCase() : "";
-    const searchTerm = search.toLowerCase();
-    return name.includes(searchTerm) || description.includes(searchTerm);
-  });
+  const filteredProducts = products
+    .map((p) => {
+      const score = search ? getRelevanceScore(p, search) : 1;
+      return { product: p, score };
+    })
+    .filter((item) => item.score > 0);
 
   const sortedProducts = [...filteredProducts].sort((a, b) => {
-    const priceA = typeof a.price === "number" ? a.price : 0;
-    const priceB = typeof b.price === "number" ? b.price : 0;
     if (sortBy === "price-asc") {
+      const priceA = typeof a.product.price === "number" ? a.product.price : 0;
+      const priceB = typeof b.product.price === "number" ? b.product.price : 0;
       return priceA - priceB;
     }
     if (sortBy === "price-desc") {
+      const priceA = typeof a.product.price === "number" ? a.product.price : 0;
+      const priceB = typeof b.product.price === "number" ? b.product.price : 0;
       return priceB - priceA;
     }
-    return 0;
-  });
+    // Relevancia: sort by score descending
+    return b.score - a.score;
+  }).map((item) => item.product);
 
   const handleCategorySelect = (catId: string) => {
     const params = new URLSearchParams(window.location.search);
@@ -181,12 +232,23 @@ function ProductsPageContent() {
     const isHome = pathname === "/";
     const basePath = isHome ? "/" : "/products";
     router.replace(`${basePath}${queryStr ? `?${queryStr}` : ""}`, { scroll: false });
+
+    // Smooth scroll to products catalog with a comfortable offset and custom slow duration
+    setTimeout(() => {
+      const element = document.getElementById("products-catalog");
+      if (element) {
+        const yOffset = -100; // Offset to keep the category headers partially visible
+        const yPosition = element.getBoundingClientRect().top + window.scrollY + yOffset;
+        customSmoothScroll(yPosition, 900); // 900ms duration for a very smooth transition
+      }
+    }, 100);
   };
 
   const clearAllFilters = () => {
     const isHome = pathname === "/";
     const basePath = isHome ? "/" : "/products";
     router.push(basePath);
+    setSortBy("price-desc");
   };
 
   const pcCategory = VISUAL_CATEGORIES.find((c) => c.id === "pc");
@@ -194,6 +256,8 @@ function ProductsPageContent() {
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-7xl flex flex-col gap-12">
+      {!category && !search && <HeroBanner />}
+
       {/* Category Grid Section */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -233,10 +297,10 @@ function ProductsPageContent() {
         </div>
 
         {/* Categories container: pinned main card on the left, scrollable grid on the right */}
-        <div className="flex flex-col lg:flex-row gap-4 items-start justify-center lg:justify-start w-full">
+        <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-start justify-center lg:justify-start w-full max-w-full overflow-hidden">
           {/* Categoría Principal: PC de Escritorio (Pinned) */}
           {pcCategory && (
-            <div className="w-full max-w-[296px] xl:max-w-[376px] lg:w-[296px] xl:w-[376px] h-[180px] lg:h-[296px] shrink-0 mx-auto lg:mx-0 py-2">
+            <div className="w-full lg:max-w-[296px] xl:max-w-[376px] lg:w-[296px] xl:w-[376px] h-[180px] lg:h-[312px] shrink-0 mx-auto lg:mx-0 py-2">
               <motion.div
                 whileHover={{ y: -4 }}
                 whileTap={{ scale: 0.98 }}
@@ -274,10 +338,10 @@ function ProductsPageContent() {
           {/* Categorías Secundarias: Grilla Desplazable sin scrollbar */}
           <div 
             id="small-categories-container"
-            className="w-full lg:flex-1 lg:min-w-0 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth py-2"
+            className="w-full max-w-full lg:flex-1 lg:min-w-0 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth py-2"
             style={{
-              WebkitMaskImage: 'linear-gradient(to right, black calc(100% - 48px), transparent 100%)',
-              maskImage: 'linear-gradient(to right, black calc(100% - 48px), transparent 100%)'
+              WebkitMaskImage: 'linear-gradient(to right, black calc(100% - 20px), transparent 100%)',
+              maskImage: 'linear-gradient(to right, black calc(100% - 20px), transparent 100%)'
             }}
           >
             <div className="grid grid-flow-col grid-rows-2 gap-4 h-[296px] w-max auto-cols-[140px] md:auto-cols-[180px] pr-16">
@@ -373,11 +437,23 @@ function ProductsPageContent() {
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center py-32">
+          <motion.div
+            key="loading"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4 }}
+            className="flex items-center justify-center py-32"
+          >
             <Loader2 className="w-8 h-8 text-accent animate-spin" />
-          </div>
+          </motion.div>
         ) : sortedProducts.length > 0 ? (
-          <div className="space-y-10">
+          <motion.div
+            key="products-grid"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="space-y-10"
+          >
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {sortedProducts.slice(0, visibleCount).map((product) => (
                 <ProductCard key={product.id} product={product} />
@@ -398,15 +474,21 @@ function ProductsPageContent() {
                 </Button>
               </div>
             )}
-          </div>
+          </motion.div>
         ) : (
-          <div className="text-center py-32 bg-surface border border-border rounded-3xl">
+          <motion.div
+            key="no-products"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="text-center py-32 bg-surface border border-border rounded-3xl"
+          >
             <h3 className="text-lg font-black text-primary mb-2 font-sans">No se encontraron productos</h3>
             <p className="text-xs text-muted mb-6 max-w-xs mx-auto leading-relaxed">Intentá buscando en otra categoría o eliminando los filtros de búsqueda.</p>
             <Button variant="outline" onClick={clearAllFilters} className="rounded-xl px-6">
               Ver todos los productos
             </Button>
-          </div>
+          </motion.div>
         )}
       </div>
     </div>

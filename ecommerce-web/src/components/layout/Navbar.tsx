@@ -9,8 +9,10 @@ import { Search, ShoppingCart, User, Menu, X, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCartStore } from "@/store/useCartStore";
 import { useProducts } from "@/hooks/useProducts";
+import { getRelevanceScore } from "@/lib/search";
+import { CATEGORIES } from "@/lib/categories";
 
-function NavbarSearch() {
+function NavbarSearch({ className }: { className?: string }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -22,15 +24,58 @@ function NavbarSearch() {
     setSearchVal(searchParams.get("search") || "");
   }, [searchParams]);
 
-  // Filter suggestions client-side
-  const suggestions = searchVal.trim().length >= 2
-    ? products.filter((p) => {
-        const name = p.name ? String(p.name).toLowerCase() : "";
-        const desc = p.description ? String(p.description).toLowerCase() : "";
+  // Filter category suggestions client-side
+  const categorySuggestions = searchVal.trim().length >= 2
+    ? CATEGORIES.filter((c) => {
         const query = searchVal.toLowerCase();
-        return name.includes(query) || desc.includes(query);
-      }).slice(0, 5)
+        return (
+          c.name.toLowerCase().includes(query) ||
+          c.id.toLowerCase().includes(query)
+        );
+      }).slice(0, 3)
     : [];
+
+  // Filter product suggestions client-side
+  const productSuggestions = searchVal.trim().length >= 2
+    ? products
+        .map((p) => ({ product: p, score: getRelevanceScore(p, searchVal) }))
+        .filter((item) => item.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .map((item) => item.product)
+        .slice(0, 5)
+    : [];
+
+  const hasSuggestions = categorySuggestions.length > 0 || productSuggestions.length > 0;
+
+  const handleCategoryClick = (catId: string) => {
+    const isStore = pathname === "/" || pathname === "/products";
+    const targetPath = isStore ? pathname : "/products";
+    
+    // Set category, clear search
+    const params = new URLSearchParams();
+    params.set("category", catId);
+
+    const newUrl = `${targetPath}?${params.toString()}`;
+    
+    if (!isStore) {
+      router.push(newUrl);
+    } else {
+      router.replace(newUrl);
+    }
+
+    setSearchVal("");
+    setShowSuggestions(false);
+
+    // Smooth scroll to products catalog
+    setTimeout(() => {
+      const element = document.getElementById("products-catalog");
+      if (element) {
+        const yOffset = -100;
+        const yPosition = element.getBoundingClientRect().top + window.scrollY + yOffset;
+        window.scrollTo({ top: yPosition, behavior: "smooth" });
+      }
+    }, 200);
+  };
 
   const handleSearchSubmit = (value: string) => {
     const isStore = pathname === "/" || pathname === "/products";
@@ -70,7 +115,7 @@ function NavbarSearch() {
   return (
     <form 
       onSubmit={onSubmit}
-      className="relative flex-1 max-w-[700px] min-w-[130px] ml-4 md:ml-12 lg:ml-20"
+      className={cn("relative flex-1", className)}
     >
       <input
         type="text"
@@ -82,7 +127,7 @@ function NavbarSearch() {
         }}
         onFocus={() => setShowSuggestions(true)}
         onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
-        className="w-full h-12 md:h-[50px] bg-background border border-border rounded-full pl-12 pr-4 text-sm md:text-base focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-bold shadow-sm placeholder:text-muted/60"
+        className="w-full h-12 md:h-[50px] bg-background border border-border rounded-full pl-12 pr-4 text-base focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-bold shadow-sm placeholder:text-muted/60"
       />
       <button 
         type="submit" 
@@ -93,47 +138,89 @@ function NavbarSearch() {
 
       {/* Suggestions dropdown */}
       <AnimatePresence>
-        {showSuggestions && suggestions.length > 0 && (
+        {showSuggestions && hasSuggestions && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             className="absolute top-full left-0 right-0 mt-2 bg-background/95 backdrop-blur-md border border-border rounded-2xl shadow-xl overflow-hidden z-50 flex flex-col divide-y divide-border"
           >
-            {suggestions.map((product) => (
-              <div
-                key={product.id}
-                onClick={() => {
-                  router.push(`/products/${product.id}`);
-                  setSearchVal("");
-                  setShowSuggestions(false);
-                }}
-                className="flex items-center gap-3 p-3 hover:bg-surface cursor-pointer transition-colors"
-              >
-                {product.images && product.images.length > 0 ? (
-                  <img
-                    src={product.images[0]}
-                    alt={product.name}
-                    className="w-10 h-10 object-contain rounded-lg bg-surface shrink-0"
-                  />
-                ) : (
-                  <div className="w-10 h-10 bg-surface flex items-center justify-center rounded-lg shrink-0">
-                    <Search className="w-4 h-4 text-muted" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0 text-left">
-                  <p className="text-xs md:text-sm font-bold text-primary truncate">
-                    {product.name}
-                  </p>
-                  <p className="text-[10px] text-accent font-bold uppercase tracking-wider font-mono">
-                    {product.category?.replace(/-/g, ' ')}
-                  </p>
-                </div>
-                <div className="text-xs md:text-sm font-black text-primary shrink-0">
-                  ${product.price}
-                </div>
+            {/* Category Suggestions */}
+            {categorySuggestions.length > 0 && (
+              <div className="flex flex-col p-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted px-3 py-1 font-sans text-left">
+                  Categorías
+                </p>
+                {categorySuggestions.map((cat) => {
+                  const IconComponent = cat.icon;
+                  return (
+                    <div
+                      key={cat.id}
+                      onClick={() => handleCategoryClick(cat.id)}
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-surface cursor-pointer rounded-xl transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 bg-accent/10 flex items-center justify-center rounded-lg text-accent shrink-0">
+                        <IconComponent className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs md:text-sm font-bold text-primary truncate">
+                          {cat.name}
+                        </p>
+                        <p className="text-[9px] text-muted font-bold uppercase tracking-wider font-mono">
+                          Ver categoría
+                        </p>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-muted/60" />
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            )}
+
+            {/* Product Suggestions */}
+            {productSuggestions.length > 0 && (
+              <div className="flex flex-col p-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted px-3 py-1 font-sans text-left">
+                  Productos
+                </p>
+                {productSuggestions.map((product) => (
+                  <div
+                    key={product.id}
+                    onClick={() => {
+                      router.push(`/products/${product.id}`);
+                      setSearchVal("");
+                      setShowSuggestions(false);
+                    }}
+                    className="flex items-center gap-3 px-3 py-2 hover:bg-surface cursor-pointer rounded-xl transition-colors text-left"
+                  >
+                    {product.images && product.images.length > 0 ? (
+                      <img
+                        src={product.images[0]}
+                        alt={product.name}
+                        className="w-8 h-8 object-contain rounded-lg bg-surface shrink-0"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 bg-surface flex items-center justify-center rounded-lg shrink-0">
+                        <Search className="w-4 h-4 text-muted" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs md:text-sm font-bold text-primary truncate">
+                        {product.name}
+                      </p>
+                      <p className="text-[9px] text-accent font-bold uppercase tracking-wider font-mono">
+                        {product.category?.replace(/-/g, ' ')}
+                      </p>
+                    </div>
+                    <div className="text-xs md:text-sm font-black text-primary shrink-0 font-mono">
+                      {typeof product.price === "number" && product.price > 0 
+                        ? `$${product.price.toLocaleString("es-AR")}` 
+                        : "Consultar"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -188,8 +275,8 @@ export default function Navbar() {
             </Link>
           </div>
 
-          <Suspense fallback={<div className="flex-1 max-w-[700px] h-12 md:h-[50px] bg-surface border border-border rounded-full animate-pulse ml-4 md:ml-12 lg:ml-20" />}>
-            <NavbarSearch />
+          <Suspense fallback={<div className="hidden md:block flex-1 max-w-[700px] h-12 md:h-[50px] bg-surface border border-border rounded-full animate-pulse ml-4 md:ml-12 lg:ml-20" />}>
+            <NavbarSearch className="hidden md:flex max-w-[700px] ml-4 md:ml-12 lg:ml-20" />
           </Suspense>
         </div>
 
@@ -244,6 +331,13 @@ export default function Navbar() {
         </div>
       </div>
 
+      {/* Mobile Search Row (visible only on mobile) */}
+      <div className="md:hidden px-4 pb-4 pt-1 border-t border-border/10">
+        <Suspense fallback={<div className="w-full h-12 bg-surface border border-border rounded-full animate-pulse" />}>
+          <NavbarSearch className="flex w-full" />
+        </Suspense>
+      </div>
+
       {/* Mobile Menu Overlay */}
       <AnimatePresence>
         {isMobileMenuOpen && (
@@ -252,7 +346,7 @@ export default function Navbar() {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="md:hidden border-b border-border bg-background/95 backdrop-blur-md absolute top-20 left-0 right-0 overflow-hidden z-40 shadow-lg"
+            className="md:hidden border-b border-border bg-background/95 backdrop-blur-md absolute top-full left-0 right-0 overflow-hidden z-40 shadow-lg"
           >
             <nav className="flex flex-col p-6 gap-3">
               {navLinks.map((link) => {

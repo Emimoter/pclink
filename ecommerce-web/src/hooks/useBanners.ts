@@ -12,6 +12,7 @@ export interface Banner {
   gradientEnd?: string;
   targetCategory?: string;
   targetProductId?: string;
+  targetPath?: string;
   badge?: string;
   imageUrl?: string;
   active: boolean;

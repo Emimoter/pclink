@@ -22,3 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "PClink"
 include(":app")
+include(":stock-manager")

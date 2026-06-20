@@ -45,6 +45,16 @@ export default function CartDrawer() {
   const handleApplyCoupon = (code: string) => {
     setCouponError("");
     setCouponSuccess("");
+
+    // Verify coupon belongs to user
+    const formattedCode = code.toUpperCase().trim();
+    const couponExists = savedCoupons.some((c) => c.code.toUpperCase() === formattedCode);
+    if (!couponExists) {
+      setCouponError("Este cupón no pertenece a tu cuenta o ya fue utilizado.");
+      setTimeout(() => setCouponError(""), 3000);
+      return;
+    }
+
     const res = applyCoupon(code);
     if (res.success) {
       setCouponSuccess(res.message);
@@ -221,7 +231,7 @@ export default function CartDrawer() {
                             placeholder="Código de cupón"
                             value={couponInput}
                             onChange={(e) => setCouponInput(e.target.value)}
-                            className="flex-1 bg-surface border border-border rounded-xl px-4 py-2.5 text-xs text-primary focus:outline-none focus:border-accent font-mono uppercase"
+                            className="flex-1 bg-surface border border-border rounded-xl px-4 py-2.5 text-base sm:text-xs text-primary focus:outline-none focus:border-accent font-mono uppercase"
                           />
                           <Button
                             onClick={() => handleApplyCoupon(couponInput)}
