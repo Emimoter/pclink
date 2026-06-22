@@ -4,11 +4,12 @@ import { useState } from "react";
 import { useProduct } from "@/hooks/useProduct";
 import { useProducts } from "@/hooks/useProducts";
 import { useCartStore } from "@/store/useCartStore";
-import { Loader2, ArrowLeft, ShoppingCart, MessageCircle, Plus, Minus, Check, Cpu } from "lucide-react";
+import { Loader2, ArrowLeft, ShoppingCart, MessageCircle, Plus, Minus, Check, Cpu, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import ProductCard from "@/components/product/ProductCard";
+import { cn } from "@/lib/utils";
 
 interface ProductDetailClientProps {
   id: string;
@@ -120,7 +121,7 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
           {/* Main Image */}
           <div className={`${
             product.images && product.images.length > 1 ? "md:col-span-10" : "md:col-span-12"
-          } order-1 md:order-2 aspect-square bg-surface border border-border rounded-3xl overflow-hidden flex items-center justify-center p-8 relative`}>
+          } order-1 md:order-2 aspect-square bg-surface border border-border rounded-3xl overflow-hidden flex items-center justify-center p-8 relative group`}>
             {product.isOffer && discountPercentage && (
               <span className="absolute top-6 left-6 bg-primary text-white text-[10px] uppercase font-bold tracking-wider px-3 py-1.5 rounded-lg z-10">
                 Oferta -{discountPercentage}%
@@ -130,7 +131,11 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
               <img
                 src={product.images[selectedImage]}
                 alt={product.name}
-                onError={() => setFailedImages(prev => ({ ...prev, [product.images[selectedImage]]: true }))}
+                onError={() => {
+                  if (product.images?.[selectedImage]) {
+                    setFailedImages(prev => ({ ...prev, [product.images[selectedImage]]: true }));
+                  }
+                }}
                 className="w-full h-full object-contain max-h-[500px] hover:scale-105 transition-transform duration-500 mix-blend-multiply"
               />
             ) : (
@@ -140,6 +145,39 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
                   Imagen no disponible
                 </span>
               </div>
+            )}
+
+            {/* Carousel Navigation Arrows */}
+            {product.images && product.images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setSelectedImage(prev => (prev === 0 ? product.images.length - 1 : prev - 1))}
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-surface/95 hover:bg-surface text-primary p-2.5 rounded-full shadow-md z-10 transition-all hover:scale-105 active:scale-95 border border-border opacity-100 md:opacity-0 md:group-hover:opacity-100 duration-300"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedImage(prev => (prev === product.images.length - 1 ? 0 : prev + 1))}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-surface/95 hover:bg-surface text-primary p-2.5 rounded-full shadow-md z-10 transition-all hover:scale-105 active:scale-95 border border-border opacity-100 md:opacity-0 md:group-hover:opacity-100 duration-300"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+                
+                {/* Indicator Dots overlaid inside image area */}
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-1.5 z-10 pointer-events-none">
+                  {product.images.map((_, idx) => (
+                    <span
+                      key={idx}
+                      className={cn(
+                        "w-2 h-2 rounded-full transition-all duration-300",
+                        idx === selectedImage ? "bg-accent w-4" : "bg-primary/20"
+                      )}
+                    />
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </div>

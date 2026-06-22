@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Upload, Search, Image as ImageIcon, Loader2, ExternalLink, Tag, Flame, Star, Target, Sparkles, Heart, Wand2 } from 'lucide-react'
+import { X, Upload, Search, Loader2, ExternalLink, Tag, Flame, Star, Target, Sparkles, Heart, Wand2, Check } from 'lucide-react'
 import { getDb, getStorageBucket, getFunctionsInstance } from '../lib/firebase'
-import { uploadProductImage, updateProductCategory, updateProductName, updateProductFlag, updateProductImageUrls, updateProductDescription, deleteProduct, type Product } from '../lib/catalog/products'
+import { uploadProductImageForSlot, removeProductImage, updateProductCategory, updateProductName, updateProductFlag, updateProductImageUrls, updateProductDescription, deleteProduct, type Product } from '../lib/catalog/products'
 import { CATEGORY_IDS, CATEGORY_LABELS, type CategoryIdValue } from '../lib/catalog/constants'
 import { httpsCallable } from 'firebase/functions'
 
@@ -12,9 +12,10 @@ interface Props {
 }
 
 export function ProductEditorSheet({ product, onClose }: Props) {
-  const [uploading, setUploading] = useState(false)
+  const [uploadingSlot, setUploadingSlot] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [suggestions, setSuggestions] = useState<string[]>([])
+  const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([])
   const [fetchingSuggestions, setFetchingSuggestions] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [name, setName] = useState(product?.name || '')
@@ -46,18 +47,28 @@ export function ProductEditorSheet({ product, onClose }: Props) {
     }
   }
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadForSlot = async (slotIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    setUploading(true)
+    setUploadingSlot(slotIndex)
     setError(null)
     try {
-      await uploadProductImage(getStorageBucket(), getDb(), product.id, file)
+      await uploadProductImageForSlot(getStorageBucket(), getDb(), product.id, product.images || [], file, slotIndex)
     } catch (err: any) {
       setError(err.message || 'Error al subir la imagen')
     } finally {
-      setUploading(false)
+      setUploadingSlot(null)
+    }
+  }
+
+  const handleRemoveImage = async (index: number) => {
+    if (!confirm('¿Estás seguro que querés eliminar esta foto?')) return
+    setError(null)
+    try {
+      await removeProductImage(getDb(), product.id, product.images || [], index)
+    } catch (err: any) {
+      setError(err.message || 'Error al eliminar la imagen')
     }
   }
 
@@ -154,14 +165,35 @@ export function ProductEditorSheet({ product, onClose }: Props) {
     }
   }
 
-  const handleSelectSuggestion = async (url: string) => {
+  const handleToggleSuggestion = (url: string) => {
+    setSelectedSuggestions(prev => {
+      if (prev.includes(url)) {
+        return prev.filter(u => u !== url)
+      } else {
+        if (prev.length >= 3) {
+          alert('Podés seleccionar hasta 3 fotos.')
+          return prev
+        }
+        return [...prev, url]
+      }
+    })
+  }
+
+  const handleSaveSelectedSuggestions = async () => {
+    if (selectedSuggestions.length === 0) return
     setError(null)
     try {
-      await updateProductImageUrls(getDb(), product.id, [url])
-      setSuggestions([]) // Limpiar al guardar con éxito
+      await updateProductImageUrls(getDb(), product.id, selectedSuggestions)
+      setSuggestions([])
+      setSelectedSuggestions([])
     } catch (err: any) {
-      setError(err.message || 'Error al guardar la imagen seleccionada.')
+      setError(err.message || 'Error al guardar las imágenes seleccionadas.')
     }
+  }
+
+  const handleClearSuggestions = () => {
+    setSuggestions([])
+    setSelectedSuggestions([])
   }
 
   const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(`${product.brand} ${product.name} ${product.model} png`)}&tbm=isch`
@@ -192,21 +224,55 @@ export function ProductEditorSheet({ product, onClose }: Props) {
           </div>
 
           <div className="space-y-6 pb-6">
-            {/* Preview de Imagen */}
-            <div className="group relative aspect-video overflow-hidden rounded-2xl border border-pclink-border bg-pclink-elevated/30">
-              {product.images?.[0] ? (
-                <img src={product.images[0]} alt={product.name} className="h-full w-full object-contain p-4" />
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center text-pclink-subtle">
-                  <ImageIcon className="mb-2 h-10 w-10 opacity-20" />
-                  <p className="text-xs">Sin imagen asignada</p>
-                </div>
-              )}
-              {uploading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
-                  <Loader2 className="h-8 w-8 animate-spin text-pclink-cyan" />
-                </div>
-              )}
+            {/* Gestión de Fotos (Hasta 3) */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-pclink-cyan">Fotos del producto (Hasta 3)</p>
+              <div className="grid grid-cols-3 gap-3">
+                {[0, 1, 2].map((index) => {
+                  const imageUrl = product.images?.[index];
+                  const isUploadingThis = uploadingSlot === index;
+                  return (
+                    <div
+                      key={index}
+                      className="group relative aspect-square rounded-2xl border border-pclink-border bg-pclink-elevated/20 flex flex-col items-center justify-center overflow-hidden transition-all duration-300 hover:border-pclink-border/80"
+                    >
+                      {imageUrl ? (
+                        <>
+                          <img src={imageUrl} alt={`Foto ${index + 1}`} className="h-full w-full object-contain p-2" />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(index)}
+                            className="absolute top-1.5 right-1.5 rounded-full bg-pclink-error/85 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-pclink-error hover:scale-110 shadow-md"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                          <div className="absolute bottom-1 left-1.5 rounded bg-black/60 px-1 py-0.5 text-[7px] font-bold text-white uppercase tracking-wider">
+                            FOTO {index + 1}
+                          </div>
+                        </>
+                      ) : (
+                        <label className="flex h-full w-full cursor-pointer flex-col items-center justify-center text-pclink-subtle hover:bg-pclink-elevated/40 transition-colors p-2 text-center">
+                          {isUploadingThis ? (
+                            <Loader2 className="h-5 w-5 animate-spin text-pclink-cyan" />
+                          ) : (
+                            <>
+                              <Upload className="h-5 w-5 opacity-40 mb-1" />
+                              <span className="text-[8px] font-bold uppercase tracking-wide">Subir {index + 1}</span>
+                            </>
+                          )}
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept="image/*"
+                            disabled={uploadingSlot !== null}
+                            onChange={(e) => handleUploadForSlot(index, e)}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Información básica */}
@@ -338,7 +404,7 @@ export function ProductEditorSheet({ product, onClose }: Props) {
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-pclink-cyan-light">Sugerencias con IA</h4>
                 {suggestions.length > 0 && (
                   <button 
-                    onClick={() => setSuggestions([])}
+                    onClick={handleClearSuggestions}
                     className="text-[9px] font-bold text-pclink-muted hover:text-white transition-colors"
                   >
                     Limpiar
@@ -367,42 +433,62 @@ export function ProductEditorSheet({ product, onClose }: Props) {
                 </button>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-[9px] text-pclink-muted">Hacé click en la foto que más te guste para asignarla:</p>
+                  <p className="text-[9px] text-pclink-muted">Hacé click en hasta 3 fotos para seleccionarlas:</p>
                   <div className="grid grid-cols-3 gap-2">
-                    {suggestions.map((url, i) => (
-                      <motion.button
-                        key={url}
-                        type="button"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => handleSelectSuggestion(url)}
-                        className="group relative aspect-square overflow-hidden rounded-xl border border-pclink-border/40 bg-pclink-bg/60 p-1 hover:border-pclink-cyan transition-all flex items-center justify-center shadow-lg"
-                      >
-                        <img 
-                          src={url} 
-                          alt={`Sugerencia ${i+1}`} 
-                          className="h-full w-full object-contain p-0.5 rounded-lg group-hover:scale-105 transition-transform" 
-                          onError={(e) => {
-                            (e.target as HTMLElement).style.display = 'none';
-                          }}
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[8px] font-bold text-white uppercase">
-                          Elegir
-                        </div>
-                      </motion.button>
-                    ))}
+                    {suggestions.map((url, i) => {
+                      const isSelected = selectedSuggestions.includes(url);
+                      const selectIndex = selectedSuggestions.indexOf(url);
+                      return (
+                        <motion.button
+                          key={url}
+                          type="button"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleToggleSuggestion(url)}
+                          className={`group relative aspect-square overflow-hidden rounded-xl border p-1 transition-all flex items-center justify-center shadow-lg ${
+                            isSelected 
+                              ? "border-pclink-cyan bg-pclink-cyan/15 ring-2 ring-pclink-cyan/35" 
+                              : "border-pclink-border/40 bg-pclink-bg/60 hover:border-pclink-cyan/50"
+                          }`}
+                        >
+                          <img 
+                            src={url} 
+                            alt={`Sugerencia ${i+1}`} 
+                            className="h-full w-full object-contain p-0.5 rounded-lg group-hover:scale-105 transition-transform" 
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                          {isSelected ? (
+                            <div className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-pclink-cyan text-[9px] font-bold text-pclink-bg shadow-sm">
+                              {selectIndex + 1}
+                            </div>
+                          ) : (
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[8px] font-bold text-white uppercase">
+                              Seleccionar
+                            </div>
+                          )}
+                        </motion.button>
+                      );
+                    })}
                   </div>
+
+                  {selectedSuggestions.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleSaveSelectedSuggestions}
+                      className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl bg-pclink-cyan px-4 py-2 text-xs font-bold text-pclink-bg transition hover:bg-pclink-cyan-light"
+                    >
+                      <Check className="h-4 w-4" />
+                      Guardar {selectedSuggestions.length} {selectedSuggestions.length === 1 ? 'foto' : 'fotos'}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
 
             {/* Acciones Manuales */}
             <div className="grid gap-2.5">
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-pclink-elevated px-4 py-3 text-sm font-bold transition hover:bg-pclink-border">
-                <Upload className="h-4 w-4" />
-                Subir foto desde PC
-                <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
-              </label>
 
               <a
                 href={googleSearchUrl}

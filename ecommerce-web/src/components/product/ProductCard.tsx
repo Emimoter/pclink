@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Product } from "@/types/product";
 import { useCartStore } from "@/store/useCartStore";
 import { motion } from "framer-motion";
-import { ShoppingCart, Eye, Cpu } from "lucide-react";
+import { ShoppingCart, Eye, Cpu, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -17,7 +17,8 @@ interface ProductCardProps {
 
 export default function ProductCard({ product, isLarge, isSmall }: ProductCardProps) {
   const addItem = useCartStore((state) => state.addItem);
-  const [imageError, setImageError] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
   const price = typeof product.price === "number" ? product.price : 0;
   const oldPrice = typeof product.oldPrice === "number" ? product.oldPrice : null;
@@ -80,33 +81,80 @@ export default function ProductCard({ product, isLarge, isSmall }: ProductCardPr
           </Link>
         </div>
 
-        {/* Image */}
-        <Link href={`/products/${product.id}`} className="w-full h-full flex items-center justify-center cursor-pointer">
-          {product.images && product.images.length > 0 && !imageError ? (
-            <img
-              src={product.images[0]}
-              alt={product.name}
-              onError={() => setImageError(true)}
-              className={cn(
-                "w-full h-full object-contain group-hover:scale-105 transition-transform duration-700 mix-blend-multiply",
-                isSmall ? "p-4" : (isLarge ? "lg:p-12 p-8" : "p-8")
-              )}
-            />
-          ) : (
-            <div className={cn(
-              "w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-background via-surface/30 to-background text-muted-foreground/30 select-none",
-              isSmall ? "p-4" : "p-8"
-            )}>
-              <Cpu className={cn("text-accent/20 stroke-[1.2]", isSmall ? "w-10 h-10 mb-1.5" : "w-16 h-16 mb-3")} />
-              <span className={cn(
-                "uppercase font-bold tracking-widest text-muted-foreground/40 font-mono text-center",
-                isSmall ? "text-[8px]" : "text-[10px]"
+        {/* Image & Carousel Controls */}
+        <div className="relative w-full h-full flex items-center justify-center">
+          <Link href={`/products/${product.id}`} className="w-full h-full flex items-center justify-center cursor-pointer">
+            {product.images && product.images.length > 0 && !failedImages[product.images[currentImageIndex]] ? (
+              <img
+                src={product.images[currentImageIndex]}
+                alt={product.name}
+                onError={() => {
+                  if (product.images?.[currentImageIndex]) {
+                    setFailedImages(prev => ({ ...prev, [product.images[currentImageIndex]]: true }));
+                  }
+                }}
+                className={cn(
+                  "w-full h-full object-contain transition-transform duration-700 mix-blend-multiply group-hover:scale-105",
+                  isSmall ? "p-4" : (isLarge ? "lg:p-12 p-8" : "p-8")
+                )}
+              />
+            ) : (
+              <div className={cn(
+                "w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-background via-surface/30 to-background text-muted-foreground/30 select-none",
+                isSmall ? "p-4" : "p-8"
               )}>
-                Imagen no disponible
-              </span>
-            </div>
+                <Cpu className={cn("text-accent/20 stroke-[1.2]", isSmall ? "w-10 h-10 mb-1.5" : "w-16 h-16 mb-3")} />
+                <span className={cn(
+                  "uppercase font-bold tracking-widest text-muted-foreground/40 font-mono text-center",
+                  isSmall ? "text-[8px]" : "text-[10px]"
+                )}>
+                  Imagen no disponible
+                </span>
+              </div>
+            )}
+          </Link>
+
+          {/* Carousel Arrows */}
+          {product.images && product.images.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  setCurrentImageIndex((prev) => (prev === 0 ? product.images.length - 1 : prev - 1));
+                }}
+                className="absolute left-2.5 top-1/2 transform -translate-y-1/2 bg-surface/90 hover:bg-surface border border-border text-primary p-1.5 rounded-full shadow-md z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 hover:scale-105 active:scale-95"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  setCurrentImageIndex((prev) => (prev === product.images.length - 1 ? 0 : prev + 1));
+                }}
+                className="absolute right-2.5 top-1/2 transform -translate-y-1/2 bg-surface/90 hover:bg-surface border border-border text-primary p-1.5 rounded-full shadow-md z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 hover:scale-105 active:scale-95"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Indicator Dots */}
+              <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex gap-1 z-10 pointer-events-none">
+                {product.images.map((_, idx) => (
+                  <span
+                    key={idx}
+                    className={cn(
+                      "w-1.5 h-1.5 rounded-full transition-all duration-300",
+                      idx === currentImageIndex ? "bg-accent w-3" : "bg-primary/15"
+                    )}
+                  />
+                ))}
+              </div>
+            </>
           )}
-        </Link>
+        </div>
       </div>
 
       <div className={cn(

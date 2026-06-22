@@ -123,3 +123,46 @@ export async function deleteProduct(db: Firestore, productId: string): Promise<v
   await deleteDoc(productRef)
 }
 
+export async function uploadProductImageForSlot(
+  storage: FirebaseStorage,
+  db: Firestore,
+  productId: string,
+  existingImages: string[],
+  file: File,
+  slotIndex: number
+): Promise<string> {
+  const storageRef = ref(storage, `products/${productId}/${Date.now()}_${file.name}`)
+  const snapshot = await uploadBytes(storageRef, file)
+  const url = await getDownloadURL(snapshot.ref)
+  
+  const currentImages = [...(existingImages || [])]
+  currentImages[slotIndex] = url
+  const finalImages = currentImages.filter(u => !!u).slice(0, 3)
+  
+  const productRef = doc(db, 'products', productId)
+  await updateDoc(productRef, {
+    images: finalImages,
+    updatedAt: Date.now()
+  })
+  
+  return url
+}
+
+export async function removeProductImage(
+  db: Firestore,
+  productId: string,
+  existingImages: string[],
+  index: number
+): Promise<void> {
+  const currentImages = [...(existingImages || [])]
+  currentImages.splice(index, 1)
+  const finalImages = currentImages.filter(u => !!u).slice(0, 3)
+  
+  const productRef = doc(db, 'products', productId)
+  await updateDoc(productRef, {
+    images: finalImages,
+    updatedAt: Date.now()
+  })
+}
+
+

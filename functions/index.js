@@ -15,7 +15,7 @@ exports.createPreference = onCall({ secrets: [mpAccessToken] }, async (request) 
     const userId = request.auth ? request.auth.uid : "guest";
     const email = request.auth ? request.auth.token.email : (request.data.email || "guest@pclink.com");
 
-    const tokenValue = mpAccessToken.value();
+    const tokenValue = (mpAccessToken.value() || "").trim();
     if (!tokenValue) {
         throw new HttpsError("failed-precondition", "MERCADOPAGO_ACCESS_TOKEN no está configurado en Firebase Secrets.");
     }
@@ -154,7 +154,7 @@ exports.mpWebhook = onRequest({ secrets: [mpAccessToken] }, async (req, res) => 
         const dataId = req.body?.data?.id || req.query?.["data.id"];
         
         if (type === "payment" && dataId) {
-            const tokenValue = mpAccessToken.value();
+            const tokenValue = (mpAccessToken.value() || "").trim();
             const client = new MercadoPagoConfig({ accessToken: tokenValue, options: { timeout: 5000 } });
             const paymentClient = new Payment(client);
             
@@ -192,7 +192,7 @@ exports.sendOTP = onCall({ secrets: [resendApiKey] }, async (request) => {
         throw new HttpsError("invalid-argument", "El usuario no tiene un correo electrónico asociado.");
     }
 
-    const apiKey = resendApiKey.value();
+    const apiKey = (resendApiKey.value() || "").trim();
     if (!apiKey) {
         throw new HttpsError("failed-precondition", "RESEND_API_KEY no está configurado en Firebase Secrets.");
     }
