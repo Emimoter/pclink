@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PClink Web — E-Commerce de Hardware & Tecnología
 
-## Getting Started
+![PClink Web Header](https://img.shields.io/badge/Next.js-16_App_Router-black?style=for-the-badge&logo=nextdotjs)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=for-the-badge&logo=tailwind-css)
+![Framer Motion](https://img.shields.io/badge/Framer_Motion-12-0055FF?style=for-the-badge&logo=framer)
+![Zustand](https://img.shields.io/badge/Zustand-State_Management-764ABC?style=for-the-badge)
 
-First, run the development server:
+> Plataforma e-commerce web moderna para componentes de PC y hardware de alta gama. Diseñada bajo un **Design System limpio ("White Theme Redesign")**, enfocado en legibilidad, microinteracciones fluidas y rendimiento óptimo.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## 💻 PClink Ecosystem
+
+Este repositorio forma parte del ecosistema **PClink**:
+- 🌐 **PClink Web:** E-Commerce web construido con Next.js 16 App Router + Tailwind v4 + Framer Motion.
+- 📱 **PClink Android:** App móvil nativa construida con Kotlin + Jetpack Compose + Material 3 + Room.
+
+---
+
+## ✨ Características Principales
+
+- **Catálogo Inteligente & Filtros:** Exploración de componentes por categorías (GPUs, CPUs, RAM, Almacenamiento, etc.) con filtrado dinámico por specs, marcas y rango de precios.
+- **Carrito & Checkout:** Gestión de estado global de compras optimizada mediante Zustand, persistencia y cálculo automático de montos.
+- **PC Builder:** Herramienta interactiva para armar computadoras personalizadas con comprobación de compatibilidad de componentes.
+- **Design System Custom (White Theme):**
+  - Paleta equilibrada en tonos zinc/steel con acento Cyan Eléctrico (`#06B6D4`).
+  - Animaciones y transiciones suaves con física de resortes (*Spring Physics*) mediante Framer Motion.
+  - Tipografía optimizada con `Geist Sans` y `Geist Mono`.
+
+---
+
+## 🏗️ Stack Tecnológico
+
+| Capa | Tecnología |
+|---|---|
+| **Framework Web** | Next.js 16 (App Router) |
+| **Lenguaje** | TypeScript 5 |
+| **Estilos & UI** | Tailwind CSS v4 + Lucide Icons |
+| **Animaciones** | Framer Motion 12 |
+| **Estado Global** | Zustand |
+| **Backend / DB** | Firebase / Firestore |
+
+---
+
+## 🚀 Instalación y Desarrollo Local
+
+1. **Clonar el repositorio:**
+   ```bash
+   git clone https://github.com/Emimoter/Pclink-App.git
+   cd Pclink-App/ecommerce-web
+   ```
+
+2. **Instalar dependencias:**
+   ```bash
+   npm install
+   ```
+
+3. **Iniciar el servidor de desarrollo:**
+   ```bash
+   npm run dev
+   ```
+   Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
+
+4. **Compilar para producción:**
+   ```bash
+   npm run build
+   ```
+
+---
+
+## 📂 Estructura del Proyecto
+
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+ecommerce-web/
+├── src/
+│   ├── app/                # Rutas y páginas de Next.js (App Router)
+│   ├── components/         # Componentes UI reutilizables y secciones
+│   ├── lib/                # Utilidades, configuración de Firebase y helpers
+│   └── store/              # Estado global (Zustand)
+├── public/                 # Assets estáticos e imágenes
+├── DESIGN.md               # Especificación completa del Design System
+└── package.json            # Dependencias y scripts
+```
