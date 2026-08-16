@@ -224,34 +224,108 @@ export function ImportCatalogPage() {
 
       if (importMode === 'full') {
         const stockMap = buildStockMap(stockRows, stockMapping)
+        const existingMap = new Map(firestoreProducts.map(p => [p.id, p]))
         const payloads = rows.map((row, i) => {
           const name = row[mapping.name] || ''
           const brand = mapping.brand ? row[mapping.brand] : ''
           const model = mapping.model ? row[mapping.model] : ''
           const resolvedCategory = guessCategory(name, brand, model)
           
-          return rowToProductPayload(row, mapping, resolvedCategory, i, stockMap)
+          const payload = rowToProductPayload(row, mapping, resolvedCategory, i, stockMap)
+          
+          // Enriquecer el payload comparando con Firestore
+          const existing = existingMap.get(payload.docId)
+          if (existing) {
+            const newPrice = payload.data.price as number
+            if (existing.price !== newPrice) {
+              payload.data.previousPrice = existing.price
+              payload.data.priceChangedAt = Date.now()
+            } else if (existing.previousPrice !== undefined) {
+              payload.data.previousPrice = existing.previousPrice
+              payload.data.priceChangedAt = existing.priceChangedAt || null
+            }
+
+            const newStock = payload.data.stock as number
+            if (existing.stock !== newStock) {
+              payload.data.previousStock = existing.stock
+              payload.data.stockChangedAt = Date.now()
+            } else if (existing.previousStock !== undefined) {
+              payload.data.previousStock = existing.previousStock
+              payload.data.stockChangedAt = existing.stockChangedAt || null
+            }
+          } else {
+            payload.data.isNewArrival = true
+            payload.data.importedAt = Date.now()
+          }
+
+          return payload
         })
 
         await commitProductsToFirestore(db, payloads, (done, total) => {
           setCsvProgress(`${done} / ${total}`)
         })
       } else if (importMode === 'articles') {
+        const existingMap = new Map(firestoreProducts.map(p => [p.id, p]))
         const payloads = rows.map((row, i) => {
           const name = row[mapping.name] || ''
           const brand = mapping.brand ? row[mapping.brand] : ''
           const model = mapping.model ? row[mapping.model] : ''
           const resolvedCategory = guessCategory(name, brand, model)
           
-          return rowToProductPayload(row, mapping, resolvedCategory, i)
+          const payload = rowToProductPayload(row, mapping, resolvedCategory, i)
+          
+          // Enriquecer el payload comparando con Firestore
+          const existing = existingMap.get(payload.docId)
+          if (existing) {
+            const newPrice = payload.data.price as number
+            if (existing.price !== newPrice) {
+              payload.data.previousPrice = existing.price
+              payload.data.priceChangedAt = Date.now()
+            } else if (existing.previousPrice !== undefined) {
+              payload.data.previousPrice = existing.previousPrice
+              payload.data.priceChangedAt = existing.priceChangedAt || null
+            }
+
+            const newStock = payload.data.stock as number
+            if (existing.stock !== newStock) {
+              payload.data.previousStock = existing.stock
+              payload.data.stockChangedAt = Date.now()
+            } else if (existing.previousStock !== undefined) {
+              payload.data.previousStock = existing.previousStock
+              payload.data.stockChangedAt = existing.stockChangedAt || null
+            }
+          } else {
+            payload.data.isNewArrival = true
+            payload.data.importedAt = Date.now()
+          }
+
+          return payload
         })
 
         await commitProductsToFirestore(db, payloads, (done, total) => {
           setCsvProgress(`${done} / ${total}`)
         })
       } else if (importMode === 'stock') {
+        const existingMap = new Map(firestoreProducts.map(p => [p.id, p]))
         const payloads = stockRows
-          .map((row) => stockRowToUpdatePayload(row, stockMapping))
+          .map((row) => {
+            const payload = stockRowToUpdatePayload(row, stockMapping)
+            if (!payload) return null
+            
+            const existing = existingMap.get(payload.docId)
+            if (existing) {
+              const data = payload.data as any
+              const newStock = data.stock as number
+              if (existing.stock !== newStock) {
+                data.previousStock = existing.stock
+                data.stockChangedAt = Date.now()
+              } else if (existing.previousStock !== undefined) {
+                data.previousStock = existing.previousStock
+                data.stockChangedAt = existing.stockChangedAt || null
+              }
+            }
+            return payload
+          })
           .filter(Boolean) as Array<{ docId: string; data: Record<string, unknown> }>
 
         await commitProductsToFirestore(db, payloads, (done, total) => {
@@ -365,6 +439,69 @@ export function ImportCatalogPage() {
     }
     return []
   }, [importMode, rows, mapping, stockRows, stockMapping])
+
+  const importChangesSummary = useMemo(() => {
+    if (importMode === 'none') return null
+    const existingMap = new Map(firestoreProducts.map(p => [p.id, p]))
+    
+    let newProductsCount = 0
+    let priceChangesCount = 0
+    let priceUpsCount = 0
+    let priceDownsCount = 0
+    let stockChangesCount = 0
+
+    if (importMode === 'full' || importMode === 'articles') {
+      const stockMap = importMode === 'full' ? buildStockMap(stockRows, stockMapping) : null
+      
+      for (const row of rows) {
+        const idRaw = cell(row, mapping.id)
+        if (!idRaw) continue
+        
+        const existing = existingMap.get(idRaw)
+        if (existing) {
+          const newPrice = parsePrice(cell(row, mapping.price))
+          if (existing.price !== newPrice) {
+            priceChangesCount++
+            if (newPrice > existing.price) priceUpsCount++
+            else priceDownsCount++
+          }
+          
+          let newStock = 0
+          if (stockMap) {
+            newStock = stockMap.get(idRaw) ?? 0
+          } else if (mapping.stock) {
+            newStock = parseStock(cell(row, mapping.stock))
+          }
+          if (existing.stock !== newStock) {
+            stockChangesCount++
+          }
+        } else {
+          newProductsCount++
+        }
+      }
+    } else if (importMode === 'stock') {
+      for (const row of stockRows) {
+        const idRaw = cell(row, stockMapping.id)
+        if (!idRaw) continue
+        
+        const existing = existingMap.get(idRaw)
+        if (existing) {
+          const newStock = parseStock(cell(row, stockMapping.stock))
+          if (existing.stock !== newStock) {
+            stockChangesCount++
+          }
+        }
+      }
+    }
+
+    return {
+      newProductsCount,
+      priceChangesCount,
+      priceUpsCount,
+      priceDownsCount,
+      stockChangesCount
+    }
+  }, [importMode, firestoreProducts, rows, stockRows, mapping, stockMapping])
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -613,6 +750,45 @@ export function ImportCatalogPage() {
                   <p className="text-[10px] text-pclink-muted leading-relaxed">
                     Ambos campos son **obligatorios** para poder cruzar los datos o actualizar los stocks en Firestore de manera individual.
                   </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* RESUMEN DE CAMBIOS DETECTADOS */}
+        {importChangesSummary && (importChangesSummary.newProductsCount > 0 || importChangesSummary.priceChangesCount > 0 || importChangesSummary.stockChangesCount > 0) && (
+          <div className="rounded-xl border border-pclink-cyan/20 bg-pclink-surface/60 p-5 space-y-3">
+            <h4 className="text-xs font-bold text-pclink-cyan-light uppercase tracking-wider">
+              Resumen de cambios detectados en el archivo
+            </h4>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {importChangesSummary.newProductsCount > 0 && (
+                <div className="rounded-lg bg-pclink-cyan/5 border border-pclink-cyan/15 p-3 flex flex-col justify-center">
+                  <span className="text-[10px] text-pclink-muted uppercase font-semibold">Productos Nuevos</span>
+                  <span className="text-2xl font-bold text-pclink-cyan-light font-mono mt-0.5">
+                    +{importChangesSummary.newProductsCount}
+                  </span>
+                </div>
+              )}
+              {importChangesSummary.priceChangesCount > 0 && (
+                <div className="rounded-lg bg-pclink-warning/5 border border-pclink-warning/15 p-3 flex flex-col justify-center">
+                  <span className="text-[10px] text-pclink-muted uppercase font-semibold">Cambios de Precio</span>
+                  <span className="text-2xl font-bold text-pclink-warning font-mono mt-0.5">
+                    {importChangesSummary.priceChangesCount}
+                  </span>
+                  <div className="flex gap-2 text-[9px] text-pclink-muted mt-1">
+                    <span className="text-pclink-error">▲ {importChangesSummary.priceUpsCount} subieron</span>
+                    <span className="text-pclink-success">▼ {importChangesSummary.priceDownsCount} bajaron</span>
+                  </div>
+                </div>
+              )}
+              {importChangesSummary.stockChangesCount > 0 && (
+                <div className="rounded-lg bg-pclink-muted/5 border border-pclink-border/40 p-3 flex flex-col justify-center">
+                  <span className="text-[10px] text-pclink-muted uppercase font-semibold">Cambios de Stock</span>
+                  <span className="text-2xl font-bold text-white font-mono mt-0.5">
+                    {importChangesSummary.stockChangesCount}
+                  </span>
                 </div>
               )}
             </div>

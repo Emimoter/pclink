@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Upload, Search, Loader2, ExternalLink, Tag, Flame, Star, Target, Sparkles, Heart, Wand2, Check } from 'lucide-react'
+import { X, Upload, Search, Loader2, ExternalLink, Tag, Flame, Star, Target, Sparkles, Heart, Wand2, Check, Download } from 'lucide-react'
 import { getDb, getStorageBucket, getFunctionsInstance } from '../lib/firebase'
 import { uploadProductImageForSlot, removeProductImage, updateProductCategory, updateProductName, updateProductFlag, updateProductImageUrls, updateProductDescription, deleteProduct, type Product } from '../lib/catalog/products'
 import { CATEGORY_IDS, CATEGORY_LABELS, type CategoryIdValue } from '../lib/catalog/constants'
@@ -23,6 +23,7 @@ export function ProductEditorSheet({ product, onClose }: Props) {
   const [description, setDescription] = useState(product?.description || '')
   const [savingDescription, setSavingDescription] = useState(false)
   const [generatingAIDesc, setGeneratingAIDesc] = useState(false)
+  const [downloading, setDownloading] = useState(false)
 
   useEffect(() => {
     setName(product?.name || '')
@@ -33,6 +34,62 @@ export function ProductEditorSheet({ product, onClose }: Props) {
   }, [product?.description])
 
   if (!product) return null
+
+  const handleDownloadImages = async () => {
+    if (!product.images || product.images.length === 0 || !product.images[0]) {
+      alert('Este producto no tiene imágenes para descargar.')
+      return
+    }
+
+    setDownloading(true)
+    let downloadedCount = 0
+
+    try {
+      const imageUrls = product.images
+      for (let i = 0; i < imageUrls.length; i++) {
+        const url = imageUrls[i]
+        if (!url) continue
+        
+        try {
+          const proxyUrl = `https://us-central1-pclink-f6e0d.cloudfunctions.net/proxyImage?url=${encodeURIComponent(url)}`
+          const response = await fetch(proxyUrl)
+          const blob = await response.blob()
+          const blobUrl = window.URL.createObjectURL(blob)
+          
+          const link = document.createElement('a')
+          link.href = blobUrl
+          
+          // Reemplazar caracteres no permitidos en nombres de archivo
+          const cleanName = product.name.replace(/[\/\\?%*:|"<>]/g, '-').trim()
+          const ext = url.split('.').pop()?.split('?')[0] || 'jpg'
+          const filename = imageUrls.length > 1 
+            ? `${product.id}_${cleanName}_${i + 1}.${ext}`
+            : `${product.id}_${cleanName}.${ext}`
+          
+          link.download = filename
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          window.URL.revokeObjectURL(blobUrl)
+          downloadedCount++
+        } catch (err) {
+          console.error(`Error downloading image directly:`, err)
+          // Fallback a abrir la imagen
+          const link = document.createElement('a')
+          link.href = url
+          link.target = '_blank'
+          link.rel = 'noopener noreferrer'
+          link.click()
+          downloadedCount++
+        }
+        await new Promise(resolve => setTimeout(resolve, 250))
+      }
+    } catch (err: any) {
+      alert(`Error al descargar imágenes: ${err.message}`)
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   const handleDeleteProduct = async () => {
     if (!confirm('¿Estás seguro que querés eliminar este producto? Esta acción no se puede deshacer.')) return
@@ -513,6 +570,20 @@ export function ProductEditorSheet({ product, onClose }: Props) {
                   <X className="h-4 w-4" />
                 )}
                 Eliminar Producto
+              </button>
+
+              <button
+                type="button"
+                disabled={downloading}
+                onClick={handleDownloadImages}
+                className="mt-2 flex items-center justify-center gap-2 rounded-xl border border-pclink-cyan/30 bg-pclink-cyan/10 px-4 py-3 text-sm font-bold text-white transition hover:bg-pclink-cyan/20 disabled:opacity-50"
+              >
+                {downloading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-pclink-cyan" />
+                ) : (
+                  <Download className="h-4 w-4 text-pclink-cyan" />
+                )}
+                Descargar Imágenes
               </button>
             </div>
 

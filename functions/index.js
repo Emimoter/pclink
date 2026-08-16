@@ -147,6 +147,32 @@ exports.searchProductImages = onCall(async (request) => {
     }
 });
 
+exports.proxyImage = onRequest({ cors: true }, async (req, res) => {
+    const imageUrl = req.query.url;
+    if (!imageUrl) {
+        res.status(400).send("Falta el parámetro 'url'.");
+        return;
+    }
+
+    try {
+        const response = await fetch(imageUrl);
+        if (!response.ok) {
+            res.status(response.status).send(`Error al obtener la imagen: ${response.statusText}`);
+            return;
+        }
+
+        const contentType = response.headers.get("content-type") || "image/jpeg";
+        res.setHeader("Content-Type", contentType);
+
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        res.send(buffer);
+    } catch (error) {
+        console.error("Error proxying image:", error);
+        res.status(500).send(`Error en el proxy: ${error.message}`);
+    }
+});
+
 exports.mpWebhook = onRequest({ secrets: [mpAccessToken] }, async (req, res) => {
     try {
         // En algunas notificaciones el body viene como query params, pero generalmente es body

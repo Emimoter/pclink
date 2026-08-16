@@ -73,6 +73,7 @@ export function GrupoNucleoPage() {
   // Filtros y ordenamiento del catálogo
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('')
   const [onlyWithStock, setOnlyWithStock] = useState(false)
+  const [onlyWithPriceChanges, setOnlyWithPriceChanges] = useState(false)
   const [sortBy, setSortBy] = useState<'category' | 'price_asc' | 'price_desc' | 'name_asc'>('category')
 
   // Overrides para el modal de importación individual
@@ -133,7 +134,7 @@ export function GrupoNucleoPage() {
   // Reiniciar el límite de visualización al realizar búsquedas, cambiar de origen o filtrar/ordenar
   useEffect(() => {
     setDisplayLimit(20)
-  }, [searchQuery, loadMethod, onlyWithStock, selectedCategoryFilter, sortBy])
+  }, [searchQuery, loadMethod, onlyWithStock, onlyWithPriceChanges, selectedCategoryFilter, sortBy])
 
   // Load synced products from PClink database
   const loadSyncedProducts = async () => {
@@ -320,28 +321,36 @@ export function GrupoNucleoPage() {
       const costInARS = selectedItem.currency === 'USD' ? (selectedItem.price * itemDollarRate) : selectedItem.price
       const taxMultiplier = 1 + (itemIva / 100)
       const costWithTax = costInARS * taxMultiplier
-      const finalPrice = Math.round(costWithTax * (1 + itemMargin / 100))
+      
+      const syncedProd = syncedProducts.find(p => p.externalId === selectedItem.id)
+      const marginToUse = syncedProd ? (syncedProd.margin ?? itemMargin) : itemMargin
+      const finalPrice = Math.round(costWithTax * (1 + marginToUse / 100))
 
       // Auto guess category using name, brand, model
       const guessedCat = guessCategory(selectedItem.name, selectedItem.brand, selectedItem.model)
 
       // Create new doc in products collection
       const productRef = doc(db, 'products', selectedItem.id)
-      await setDoc(productRef, {
+      const updateData: Record<string, any> = {
         name: selectedItem.name,
         brand: selectedItem.brand || 'Genérico',
         model: selectedItem.model || '',
         price: finalPrice,
         stock: selectedItem.stock,
-        images: selectedItem.images.length > 0 ? selectedItem.images : [''],
         category: guessedCat,
-        description: `Producto importado de Grupo Núcleo. Cód: ${selectedItem.id}.`,
         externalSource: 'grupo_nucleo',
         externalId: selectedItem.id,
-        margin: itemMargin,
+        margin: marginToUse,
         onDemand: true, // Flag as supplier sourced / on demand
         updatedAt: Date.now()
-      })
+      }
+
+      if (!syncedProd) {
+        updateData.description = `Producto importado de Grupo Núcleo. Cód: ${selectedItem.id}.`
+        updateData.images = selectedItem.images.length > 0 ? selectedItem.images : ['']
+      }
+
+      await setDoc(productRef, updateData, { merge: true })
 
       alert(`¡Producto ${selectedItem.name} importado con éxito!`)
       setSelectedItem(null)
@@ -373,26 +382,34 @@ export function GrupoNucleoPage() {
           const taxRate = item.tax !== undefined && item.tax !== null ? item.tax : globalIva
           const taxMultiplier = 1 + (taxRate / 100)
           const costWithTax = costInARS * taxMultiplier
-          const finalPrice = Math.round(costWithTax * (1 + globalMargin / 100))
+          
+          const syncedProd = syncedProducts.find(p => p.externalId === item.id)
+          const marginToUse = syncedProd ? (syncedProd.margin ?? globalMargin) : globalMargin
+          const finalPrice = Math.round(costWithTax * (1 + marginToUse / 100))
           
           const guessedCat = guessCategory(item.name, item.brand, item.model)
           
           const productRef = doc(db, 'products', item.id)
-          batch.set(productRef, {
+          const updateData: Record<string, any> = {
             name: item.name,
             brand: item.brand || 'Genérico',
             model: item.model || '',
             price: finalPrice,
             stock: item.stock,
-            images: item.images.length > 0 ? item.images : [''],
             category: guessedCat,
-            description: `Producto importado de Grupo Núcleo. Cód: ${item.id}.`,
             externalSource: 'grupo_nucleo',
             externalId: item.id,
-            margin: globalMargin,
+            margin: marginToUse,
             onDemand: true,
             updatedAt: Date.now()
-          })
+          }
+
+          if (!syncedProd) {
+            updateData.description = `Producto importado de Grupo Núcleo. Cód: ${item.id}.`
+            updateData.images = item.images.length > 0 ? item.images : ['']
+          }
+
+          batch.set(productRef, updateData, { merge: true })
         })
         
         await batch.commit()
@@ -404,6 +421,81 @@ export function GrupoNucleoPage() {
       loadSyncedProducts()
     } catch (err: any) {
       alert(`Error al importar en lote: ${err.message}`)
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  // Actualizar en grupo todos los productos con cambios de precio detectados
+  const handleBulkUpdatePriceChanges = async () => {
+    if (priceChangesCount === 0) return
+    
+    const confirmUpdate = window.confirm(
+      `¿Estás seguro de que querés actualizar el precio de los ${priceChangesCount} productos vinculados que tienen cambios detectados?`
+    )
+    if (!confirmUpdate) return
+
+    setImporting(true)
+    try {
+      const db = getDb()
+      
+      // Filtrar los productos del catálogo que están sincronizados y que tienen diferencia de precio
+      const itemsToUpdate = catalog.filter(item => {
+        const syncedProd = syncedProducts.find(p => p.externalId === item.id)
+        if (!syncedProd) return false
+        
+        const costInARS = item.currency === 'USD' ? (item.price * globalDollarRate) : item.price
+        const taxRate = item.tax !== undefined && item.tax !== null ? item.tax : globalIva
+        const costWithTax = costInARS * (1 + taxRate / 100)
+        const marginToUse = syncedProd.margin ?? globalMargin
+        const calculatedPrice = Math.round(costWithTax * (1 + marginToUse / 100))
+        
+        return calculatedPrice !== syncedProd.price
+      })
+
+      if (itemsToUpdate.length === 0) {
+        alert('No se encontraron productos con cambios de precio pendientes.')
+        return
+      }
+
+      const chunkSize = 400
+      let successCount = 0
+      
+      for (let i = 0; i < itemsToUpdate.length; i += chunkSize) {
+        const chunk = itemsToUpdate.slice(i, i + chunkSize)
+        const batch = writeBatch(db)
+        
+        chunk.forEach(item => {
+          const costInARS = item.currency === 'USD' ? (item.price * globalDollarRate) : item.price
+          const taxRate = item.tax !== undefined && item.tax !== null ? item.tax : globalIva
+          const costWithTax = costInARS * (1 + taxRate / 100)
+          
+          const syncedProd = syncedProducts.find(p => p.externalId === item.id)!
+          const marginToUse = syncedProd.margin ?? globalMargin
+          const finalPrice = Math.round(costWithTax * (1 + marginToUse / 100))
+          
+          const productRef = doc(db, 'products', item.id)
+          const updateData: Record<string, any> = {
+            name: item.name,
+            price: finalPrice,
+            stock: item.stock,
+            externalSource: 'grupo_nucleo',
+            externalId: item.id,
+            margin: marginToUse,
+            updatedAt: Date.now()
+          }
+
+          batch.set(productRef, updateData, { merge: true })
+        })
+        
+        await batch.commit()
+        successCount += chunk.length
+      }
+      
+      alert(`¡Se actualizaron ${successCount} precios en grupo con éxito!`)
+      loadSyncedProducts()
+    } catch (err: any) {
+      alert(`Error al actualizar precios en grupo: ${err.message}`)
     } finally {
       setImporting(false)
     }
@@ -604,6 +696,26 @@ export function GrupoNucleoPage() {
     return Array.from(cats).sort()
   }, [catalog])
 
+  // Count how many synced products have price changes compared to the incoming catalog costs
+  const priceChangesCount = useMemo(() => {
+    let count = 0
+    catalog.forEach(item => {
+      const syncedProd = syncedProducts.find(p => p.externalId === item.id)
+      if (syncedProd) {
+        const costInARS = item.currency === 'USD' ? (item.price * globalDollarRate) : item.price
+        const taxRate = item.tax !== undefined && item.tax !== null ? item.tax : globalIva
+        const costWithTax = costInARS * (1 + taxRate / 100)
+        const marginToUse = syncedProd.margin ?? globalMargin
+        const calculatedPrice = Math.round(costWithTax * (1 + marginToUse / 100))
+        
+        if (calculatedPrice !== syncedProd.price) {
+          count++
+        }
+      }
+    })
+    return count
+  }, [catalog, syncedProducts, globalDollarRate, globalIva, globalMargin])
+
   // Filtering and sorting GN catalog client side
   const processedCatalog = useMemo(() => {
     const filtered = catalog.filter(item => {
@@ -619,6 +731,20 @@ export function GrupoNucleoPage() {
 
       // Filtro de categoría del distribuidor
       if (selectedCategoryFilter && item.category !== selectedCategoryFilter) return false
+
+      // Filtro de sólo con cambios de precio
+      if (onlyWithPriceChanges) {
+        const syncedProd = syncedProducts.find(p => p.externalId === item.id)
+        if (!syncedProd) return false
+        
+        const costInARS = item.currency === 'USD' ? (item.price * globalDollarRate) : item.price
+        const taxRate = item.tax !== undefined && item.tax !== null ? item.tax : globalIva
+        const costWithTax = costInARS * (1 + taxRate / 100)
+        const marginToUse = syncedProd.margin ?? globalMargin
+        const calculatedPrice = Math.round(costWithTax * (1 + marginToUse / 100))
+        
+        if (calculatedPrice === syncedProd.price) return false
+      }
 
       return true
     })
@@ -642,17 +768,12 @@ export function GrupoNucleoPage() {
     })
 
     return filtered
-  }, [catalog, searchQuery, onlyWithStock, selectedCategoryFilter, sortBy])
+  }, [catalog, searchQuery, onlyWithStock, onlyWithPriceChanges, selectedCategoryFilter, sortBy, syncedProducts, globalDollarRate, globalIva, globalMargin])
 
   // Límite de visualización de a 20 productos para no ralentizar el DOM
   const visibleCatalog = useMemo(() => {
     return processedCatalog.slice(0, displayLimit)
   }, [processedCatalog, displayLimit])
-
-  // Helper: check if a GN Item ID is already imported in Firestore
-  const isAlreadySynced = (gnId: string) => {
-    return syncedProducts.some(p => p.externalId === gnId)
-  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -997,6 +1118,51 @@ export function GrupoNucleoPage() {
                   />
                   <span>Sólo con Stock en MDP</span>
                 </label>
+
+                {/* Filtro de Cambios de Precio */}
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-pclink-muted hover:text-white mt-5 select-none">
+                  <input
+                    type="checkbox"
+                    checked={onlyWithPriceChanges}
+                    onChange={e => setOnlyWithPriceChanges(e.target.checked)}
+                    className="rounded border-pclink-border bg-pclink-bg/50 checked:bg-pclink-cyan accent-pclink-cyan h-4 w-4 cursor-pointer"
+                  />
+                  <span>Sólo con Cambios de Precio</span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {priceChangesCount > 0 && (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-pclink-warning/40 bg-pclink-warning/10 p-4 text-xs text-pclink-warning font-semibold select-none">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>Se detectaron <strong>{priceChangesCount}</strong> productos vinculados con cambios de precios del proveedor.</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button 
+                  onClick={() => setOnlyWithPriceChanges(true)} 
+                  className="rounded-lg bg-pclink-warning/20 px-3 py-1.5 text-[10px] font-bold text-pclink-warning hover:bg-pclink-warning/30 transition cursor-pointer"
+                >
+                  Ver cambios
+                </button>
+                <button 
+                  onClick={handleBulkUpdatePriceChanges}
+                  disabled={importing}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-pclink-cyan/20 border border-pclink-cyan/35 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-pclink-cyan/30 transition cursor-pointer disabled:opacity-50"
+                >
+                  {importing ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Actualizando...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Actualizar en Grupo
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           )}
@@ -1049,13 +1215,19 @@ export function GrupoNucleoPage() {
                     </thead>
                     <tbody>
                       {visibleCatalog.map(item => {
-                        const synced = isAlreadySynced(item.id)
+                        const syncedProd = syncedProducts.find(p => p.externalId === item.id)
+                        const synced = !!syncedProd
                         const isSelected = selectedIds.has(item.id)
                         
                         // Suggested Price calculation in real-time
                         const costInARS = item.currency === 'USD' ? (item.price * globalDollarRate) : item.price
                         const taxRate = item.tax !== undefined && item.tax !== null ? item.tax : globalIva
-                        const salePrice = Math.round(costInARS * (1 + taxRate / 100) * (1 + globalMargin / 100))
+                        const costWithTax = costInARS * (1 + taxRate / 100)
+                        
+                        // Use synced margin if product is already imported, otherwise use globalMargin
+                        const marginToUse = syncedProd ? (syncedProd.margin ?? globalMargin) : globalMargin
+                        const salePrice = Math.round(costWithTax * (1 + marginToUse / 100))
+                        const hasPriceChange = syncedProd && syncedProd.price !== salePrice
 
                         return (
                           <tr key={item.id} className={`border-b border-pclink-border/40 hover:bg-pclink-cyan/5 last:border-0 ${isSelected ? 'bg-pclink-cyan/5' : ''}`}>
@@ -1078,13 +1250,22 @@ export function GrupoNucleoPage() {
                                 </div>
                                 <div>
                                   <p className="font-bold text-white line-clamp-1">{item.name}</p>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-[10px] text-pclink-cyan-light font-mono">ID: {item.id}</span>
-                                    {item.brand && <span className="text-[9px] bg-pclink-elevated px-1.5 py-0.2 rounded text-pclink-muted font-semibold">{item.brand}</span>}
-                                    {item.model && <span className="text-[9px] bg-pclink-elevated px-1.5 py-0.2 rounded text-pclink-muted">{item.model}</span>}
+                                  <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                                    <span className="text-[10px] text-pclink-cyan-light font-mono shrink-0">ID: {item.id}</span>
+                                    {item.brand && <span className="text-[9px] bg-pclink-elevated px-1.5 py-0.2 rounded text-pclink-muted font-semibold shrink-0">{item.brand}</span>}
+                                    {item.model && <span className="text-[9px] bg-pclink-elevated px-1.5 py-0.2 rounded text-pclink-muted shrink-0">{item.model}</span>}
                                     {item.category && (
-                                      <span className="text-[9px] bg-pclink-cyan/15 px-1.5 py-0.2 rounded text-pclink-cyan-light border border-pclink-cyan/25 font-semibold">
+                                      <span className="text-[9px] bg-pclink-cyan/15 px-1.5 py-0.2 rounded text-pclink-cyan-light border border-pclink-cyan/25 font-semibold shrink-0">
                                         {item.category}
+                                      </span>
+                                    )}
+                                    {syncedProd && (
+                                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold shrink-0 select-none ${
+                                        hasPriceChange 
+                                          ? 'bg-pclink-warning/15 text-pclink-warning border border-pclink-warning/25' 
+                                          : 'bg-pclink-success/15 text-pclink-success border border-pclink-success/25'
+                                      }`}>
+                                        {hasPriceChange ? 'Costo Modificado' : 'Sincronizado'}
                                       </span>
                                     )}
                                   </div>
@@ -1093,10 +1274,22 @@ export function GrupoNucleoPage() {
                             </td>
                             <td className="px-6 py-4 font-mono text-white">
                               {item.currency === 'USD' ? `u$s ${item.price.toLocaleString('en-US')}` : `$${item.price.toLocaleString('es-AR')}`}
-                              <span className="block text-[10px] text-pclink-muted">IVA: {item.tax}%</span>
+                              <span className="block text-[10px] text-pclink-muted font-sans">IVA: {item.tax}%</span>
                             </td>
                             <td className="px-6 py-4 font-mono text-pclink-cyan-light font-bold">
-                              ${salePrice.toLocaleString('es-AR')}
+                              <div className="flex flex-col">
+                                <span>${salePrice.toLocaleString('es-AR')}</span>
+                                {hasPriceChange && (
+                                  <div className="flex items-center gap-1.5 text-[10px] mt-0.5 select-none font-sans font-normal">
+                                    <span className="line-through text-pclink-muted">
+                                      ${syncedProd.price.toLocaleString('es-AR')}
+                                    </span>
+                                    <span className={`font-bold flex items-center ${salePrice > syncedProd.price ? 'text-pclink-error' : 'text-pclink-success'}`}>
+                                      {salePrice > syncedProd.price ? '▲' : '▼'} {Math.round(Math.abs((salePrice - syncedProd.price) / syncedProd.price) * 100)}%
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td className="px-6 py-4 text-center">
                               <span className={`font-semibold ${item.stock > 0 ? 'text-white' : 'text-pclink-error'}`}>
@@ -1105,9 +1298,22 @@ export function GrupoNucleoPage() {
                             </td>
                             <td className="px-6 py-4 text-right">
                               {synced ? (
-                                <span className="inline-flex rounded-full bg-pclink-success/15 px-3 py-1 text-[10px] font-bold text-pclink-success border border-pclink-success/20">
-                                  Ya Importado
-                                </span>
+                                hasPriceChange ? (
+                                  <motion.button
+                                    type="button"
+                                    onClick={() => setSelectedItem(item)}
+                                    className="inline-flex items-center gap-1 rounded-xl bg-pclink-warning/10 border border-pclink-warning/35 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-pclink-warning/25 cursor-pointer"
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                  >
+                                    <RefreshCw className="h-3.5 w-3.5 text-pclink-warning" />
+                                    Actualizar
+                                  </motion.button>
+                                ) : (
+                                  <span className="inline-flex rounded-full bg-pclink-success/15 px-3.5 py-1.5 text-[10px] font-bold text-pclink-success border border-pclink-success/20 select-none">
+                                    Sincronizado
+                                  </span>
+                                )
                               ) : (
                                 <motion.button
                                   type="button"

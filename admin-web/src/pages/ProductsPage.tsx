@@ -1,20 +1,26 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Search, Image as ImageIcon, AlertCircle, Flame, Star, Target, Sparkles, Heart, Wand2, Loader2, Trash2, Tag, Settings, Save } from 'lucide-react'
+import { Plus, Search, Image as ImageIcon, AlertCircle, Flame, Star, Target, Sparkles, Heart, Wand2, Loader2, Trash2, Tag, Settings, Save, TrendingUp, Clock, Download } from 'lucide-react'
 import { getDb, getFunctionsInstance } from '../lib/firebase'
 import { subscribeToProducts, updateProductImageUrls, deleteProduct, updateProductFlag, updateProductCategory, type Product } from '../lib/catalog/products'
 import { CATEGORY_IDS, CATEGORY_LABELS, type CategoryIdValue } from '../lib/catalog/constants'
 import { ProductEditorSheet } from '../components/ProductEditorSheet'
 import { httpsCallable } from 'firebase/functions'
-import { collection, getDocs, query, where, doc, getDoc, setDoc } from 'firebase/firestore'
+import { collection, getDocs, query, where, doc, getDoc, setDoc, writeBatch } from 'firebase/firestore'
 import { guessCategory } from '../lib/catalog/smartCategories'
+
+const isWithin24Hours = (timestamp?: number) => {
+  if (!timestamp) return false
+  const diff = Date.now() - timestamp
+  return diff >= 0 && diff <= 24 * 60 * 60 * 1000
+}
 
 export function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
-  const [activeFilter, setActiveFilter] = useState<'all' | 'flash' | 'featured' | 'bestSeller' | 'newArrival' | 'recommended' | 'onDemand'>('all')
+  const [activeFilter, setActiveFilter] = useState<'all' | 'flash' | 'featured' | 'bestSeller' | 'newArrival' | 'recommended' | 'onDemand' | 'noImage' | 'priceChanged' | 'todayChanges'>('all')
   const [selectedCategory, setSelectedCategory] = useState<CategoryIdValue | 'ALL'>('ALL')
 
   const [processingBatch, setProcessingBatch] = useState(false)
@@ -93,6 +99,9 @@ export function ProductsPage() {
       case 'newArrival': return !!p.isNewArrival
       case 'recommended': return !!p.inRecommendedFeed
       case 'onDemand': return !!p.onDemand
+      case 'noImage': return !p.images || p.images.length === 0 || !p.images[0]
+      case 'priceChanged': return p.previousPrice != null && p.previousPrice !== p.price
+      case 'todayChanges': return isWithin24Hours(p.updatedAt) || (!!p.isNewArrival && isWithin24Hours(p.importedAt)) || (p.previousPrice != null && p.previousPrice !== p.price && isWithin24Hours(p.priceChangedAt))
       default: return true
     }
   })
@@ -290,6 +299,69 @@ export function ProductsPage() {
     }
   }
 
+  const handleBulkDownloadImages = async () => {
+    if (selectedIds.size === 0) return
+
+    const selectedProducts = products.filter(p => selectedIds.has(p.id) && p.images && p.images.length > 0)
+    
+    if (selectedProducts.length === 0) {
+      alert('Ninguno de los productos seleccionados tiene imágenes para descargar.')
+      return
+    }
+
+    setBulkActionLoading(true)
+    let downloadedCount = 0
+
+    try {
+      for (const product of selectedProducts) {
+        const imageUrls = product.images || []
+        for (let i = 0; i < imageUrls.length; i++) {
+          const url = imageUrls[i]
+          if (!url) continue
+          
+          try {
+            const proxyUrl = `https://us-central1-pclink-f6e0d.cloudfunctions.net/proxyImage?url=${encodeURIComponent(url)}`
+            const response = await fetch(proxyUrl)
+            const blob = await response.blob()
+            const blobUrl = window.URL.createObjectURL(blob)
+            
+            const link = document.createElement('a')
+            link.href = blobUrl
+            
+            // Reemplazar caracteres no permitidos en nombres de archivo
+            const cleanName = product.name.replace(/[\/\\?%*:|"<>]/g, '-').trim()
+            const ext = url.split('.').pop()?.split('?')[0] || 'jpg'
+            const filename = imageUrls.length > 1 
+              ? `${product.id}_${cleanName}_${i + 1}.${ext}`
+              : `${product.id}_${cleanName}.${ext}`
+            
+            link.download = filename
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            window.URL.revokeObjectURL(blobUrl)
+            downloadedCount++
+          } catch (err) {
+            console.error(`Error downloading image for ${product.name} directly, falling back to open:`, err)
+            // Si hay problemas de CORS, al menos abrimos la imagen en otra pestaña
+            const link = document.createElement('a')
+            link.href = url
+            link.target = '_blank'
+            link.rel = 'noopener noreferrer'
+            link.click()
+            downloadedCount++
+          }
+          await new Promise(resolve => setTimeout(resolve, 250))
+        }
+      }
+    } catch (err: any) {
+      alert(`Error al descargar imágenes: ${err.message}`)
+    } finally {
+      setBulkActionLoading(false)
+      setSelectedIds(new Set())
+    }
+  }
+
   const handleDeleteZeroStockProducts = async () => {
     setDeletingZeroStock(true)
     try {
@@ -398,6 +470,70 @@ export function ProductsPage() {
       alert(`Error auto-categorizando productos: ${err.message}`)
     } finally {
       setCategorizing(false)
+    }
+  }
+
+  const handleClearNewArrivals = async () => {
+    const newArrivals = products.filter(p => p.isNewArrival)
+    if (newArrivals.length === 0) {
+      alert('No hay productos marcados como nuevos.')
+      return
+    }
+    if (!confirm(`¿Querés limpiar la marca de "Nuevo" de los ${newArrivals.length} productos?`)) {
+      return
+    }
+
+    setBulkActionLoading(true)
+    try {
+      const db = getDb()
+      const batch = writeBatch(db)
+      for (const p of newArrivals) {
+        batch.update(doc(db, 'products', p.id), {
+          isNewArrival: false,
+          updatedAt: Date.now()
+        })
+      }
+      await batch.commit()
+      alert('¡Listo! Se limpiaron las marcas de nuevo.')
+    } catch (err: any) {
+      alert(`Error al limpiar nuevos: ${err.message}`)
+    } finally {
+      setBulkActionLoading(false)
+    }
+  }
+
+  const handleClearChangesHistory = async () => {
+    const changedProducts = products.filter(
+      p => (p.previousPrice != null && p.previousPrice !== p.price) || 
+           (p.previousStock != null && p.previousStock !== p.stock)
+    )
+    if (changedProducts.length === 0) {
+      alert('No hay productos con cambios de precio o stock registrados.')
+      return
+    }
+    if (!confirm(`¿Querés limpiar el historial de cambios de precio y stock de los ${changedProducts.length} productos?`)) {
+      return
+    }
+
+    setBulkActionLoading(true)
+    try {
+      const db = getDb()
+      const batch = writeBatch(db)
+      for (const p of changedProducts) {
+        batch.update(doc(db, 'products', p.id), {
+          previousPrice: null,
+          priceChangedAt: null,
+          previousStock: null,
+          stockChangedAt: null,
+          updatedAt: Date.now()
+        })
+      }
+      await batch.commit()
+      alert('¡Listo! Se limpió el historial de cambios.')
+    } catch (err: any) {
+      alert(`Error al limpiar cambios: ${err.message}`)
+    } finally {
+      setBulkActionLoading(false)
     }
   }
 
@@ -608,6 +744,32 @@ export function ProductsPage() {
 
                   <button
                     type="button"
+                    disabled={bulkActionLoading}
+                    onClick={() => {
+                      setToolsMenuOpen(false)
+                      handleClearNewArrivals()
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-semibold text-pclink-cyan-light hover:bg-pclink-cyan/15 disabled:opacity-45 disabled:hover:bg-transparent cursor-pointer transition-colors"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Limpiar marcas de "Nuevo"</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={bulkActionLoading}
+                    onClick={() => {
+                      setToolsMenuOpen(false)
+                      handleClearChangesHistory()
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-semibold text-pclink-cyan-light hover:bg-pclink-cyan/15 disabled:opacity-45 disabled:hover:bg-transparent cursor-pointer transition-colors"
+                  >
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    <span>Limpiar historial de cambios</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => {
                       setToolsMenuOpen(false)
                       setIsGeminiModalOpen(true)
@@ -669,7 +831,10 @@ export function ProductsPage() {
             { id: 'bestSeller', label: 'Selección PcLink', icon: Target, color: 'text-cyan-400 border-cyan-500/20', count: products.filter(p => p.isBestSeller).length },
             { id: 'newArrival', label: 'Nuevos', icon: Sparkles, color: 'text-purple-400 border-purple-500/20', count: products.filter(p => p.isNewArrival).length },
             { id: 'recommended', label: 'Recomendados', icon: Heart, color: 'text-rose-400 border-rose-500/20', count: products.filter(p => p.inRecommendedFeed).length },
-            { id: 'onDemand', label: 'Bajo Pedido', icon: Tag, color: 'text-emerald-400 border-emerald-500/20', count: products.filter(p => p.onDemand).length }
+            { id: 'onDemand', label: 'Bajo Pedido', icon: Tag, color: 'text-emerald-400 border-emerald-500/20', count: products.filter(p => p.onDemand).length },
+            { id: 'noImage', label: 'Sin Imagen', icon: ImageIcon, color: 'text-pclink-error border-pclink-error/20', count: products.filter(p => !p.images || p.images.length === 0 || !p.images[0]).length },
+            { id: 'priceChanged', label: 'Cambios de Precio', icon: TrendingUp, color: 'text-pclink-warning border-pclink-warning/20', count: products.filter(p => p.previousPrice != null && p.previousPrice !== p.price).length },
+            { id: 'todayChanges', label: 'Cambios de Hoy', icon: Clock, color: 'text-pclink-cyan border-pclink-cyan/20', count: products.filter(p => isWithin24Hours(p.updatedAt) || (!!p.isNewArrival && isWithin24Hours(p.importedAt)) || (p.previousPrice != null && p.previousPrice !== p.price && isWithin24Hours(p.priceChangedAt))).length }
           ].map(({ id, label, icon: Icon, color, count }) => {
             const isSelected = activeFilter === id
             return (
@@ -739,6 +904,24 @@ export function ProductsPage() {
                   <>
                     <Wand2 className="h-3.5 w-3.5 text-pclink-cyan" />
                     <span>Autobuscar fotos</span>
+                  </>
+                )}
+              </button>
+
+              <button 
+                disabled={bulkActionLoading || selectedIds.size === 0} 
+                onClick={handleBulkDownloadImages} 
+                className="flex items-center gap-1 rounded-lg border border-pclink-cyan/40 bg-pclink-cyan/10 px-3 py-1.5 text-xs font-bold text-white hover:bg-pclink-cyan/20 disabled:opacity-50"
+              >
+                {bulkActionLoading ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-pclink-cyan" />
+                    <span>Descargando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-3.5 w-3.5 text-pclink-cyan" />
+                    <span>Descargar fotos</span>
                   </>
                 )}
               </button>
@@ -850,7 +1033,33 @@ export function ProductsPage() {
                               {p.inRecommendedFeed && <Heart className="h-3.5 w-3.5 text-rose-400 shrink-0" />}
                             </div>
                           </div>
-                          <p className="text-[10px] text-pclink-cyan-light/80 font-mono">{p.id}</p>
+                          <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                            <p className="text-[10px] text-pclink-cyan-light/80 font-mono shrink-0">{p.id}</p>
+                            {/* Badges de cambios realizados hoy */}
+                            {p.isNewArrival && (
+                              <span className="inline-flex rounded-full bg-purple-500/10 px-1.5 py-0.2 text-[8px] font-extrabold text-purple-400 border border-purple-500/20 uppercase tracking-wider shrink-0 select-none">
+                                Nuevo ingreso
+                              </span>
+                            )}
+                            {p.previousPrice != null && p.previousPrice !== p.price && (
+                              <span className="inline-flex rounded-full bg-pclink-warning/10 px-1.5 py-0.2 text-[8px] font-extrabold text-pclink-warning border border-pclink-warning/20 uppercase tracking-wider shrink-0 select-none">
+                                Precio modificado
+                              </span>
+                            )}
+                            {p.previousStock != null && p.previousStock !== p.stock && (
+                              <span className="inline-flex rounded-full bg-pclink-cyan/10 px-1.5 py-0.2 text-[8px] font-extrabold text-pclink-cyan-light border border-pclink-cyan/20 uppercase tracking-wider shrink-0 select-none">
+                                Stock modificado
+                              </span>
+                            )}
+                            {!p.isNewArrival && 
+                             !(p.previousPrice != null && p.previousPrice !== p.price) && 
+                             !(p.previousStock != null && p.previousStock !== p.stock) && 
+                             isWithin24Hours(p.updatedAt) && (
+                              <span className="inline-flex rounded-full bg-pclink-muted/10 px-1.5 py-0.2 text-[8px] font-extrabold text-pclink-muted border border-pclink-border uppercase tracking-wider shrink-0 select-none">
+                                Actualizado
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -866,13 +1075,32 @@ export function ProductsPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-white font-mono">
-                      ${p.price.toLocaleString('es-AR')}
+                    <td className="px-6 py-4 font-mono">
+                      <div className="flex flex-col">
+                        <span className="text-white">${p.price.toLocaleString('es-AR')}</span>
+                        {p.previousPrice != null && p.previousPrice !== p.price && (
+                          <div className="flex items-center gap-1.5 text-[10px] mt-0.5 select-none">
+                            <span className="line-through text-pclink-muted">
+                              ${p.previousPrice.toLocaleString('es-AR')}
+                            </span>
+                            <span className={`font-bold flex items-center ${p.price > p.previousPrice ? 'text-pclink-error' : 'text-pclink-success'}`}>
+                              {p.price > p.previousPrice ? '▲' : '▼'} {Math.round(Math.abs((p.price - p.previousPrice) / p.previousPrice) * 100)}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className={`font-semibold ${p.stock > 5 ? 'text-pclink-muted' : 'text-pclink-warning'}`}>
-                        {p.stock}
-                      </span>
+                      <div className="flex flex-col items-center justify-center font-mono">
+                        <span className={`font-semibold ${p.stock > 5 ? 'text-white font-bold' : 'text-pclink-warning font-bold'}`}>
+                          {p.stock}
+                        </span>
+                        {p.previousStock != null && p.previousStock !== p.stock && (
+                          <span className="text-[10px] text-pclink-muted line-through select-none leading-none mt-0.5">
+                            {p.previousStock}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button className="text-pclink-cyan font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity">

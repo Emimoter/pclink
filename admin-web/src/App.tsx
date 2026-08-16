@@ -13,6 +13,7 @@ import { LoyaltyPage } from './pages/LoyaltyPage'
 import { ShippingPage } from './pages/ShippingPage'
 import { PrivacyPage } from './pages/PrivacyPage'
 import { GrupoNucleoPage } from './pages/GrupoNucleoPage'
+import { InvidPage } from './pages/InvidPage'
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="productos" element={<ProductsPage />} />
           <Route path="importar" element={<ImportCatalogPage />} />
           <Route path="grupo-nucleo" element={<GrupoNucleoPage />} />
+          <Route path="invid" element={<InvidPage />} />
           <Route path="sliders" element={<SlidersPage />} />
           <Route path="notificaciones" element={<NotificationsPage />} />
           <Route path="clientes" element={<CustomersPage />} />
