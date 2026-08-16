@@ -291,6 +291,8 @@ export function InvidPage() {
         externalId: selectedItem.id,
         margin: marginToUse,
         onDemand: true,
+        deliveryDays: 4,
+        deliveryInfo: 'Entrega estimada en 4 días hábiles dentro de Mar del Plata',
         updatedAt: Date.now()
       }
 
@@ -349,6 +351,8 @@ export function InvidPage() {
             externalId: item.id,
             margin: marginToUse,
             onDemand: true,
+            deliveryDays: 4,
+            deliveryInfo: 'Entrega estimada en 4 días hábiles dentro de Mar del Plata',
             updatedAt: Date.now()
           }
 

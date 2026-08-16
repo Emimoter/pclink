@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useProduct } from "@/hooks/useProduct";
 import { useProducts } from "@/hooks/useProducts";
 import { useCartStore } from "@/store/useCartStore";
-import { Loader2, ArrowLeft, ShoppingCart, MessageCircle, Plus, Minus, Check, Cpu, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, ArrowLeft, ShoppingCart, MessageCircle, Plus, Minus, Check, Cpu, ChevronLeft, ChevronRight, Truck, Clock } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
@@ -220,7 +220,7 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
               <span className="font-semibold text-muted">Disponibilidad</span>
               {product.stock > 0 ? (
                 <span className="text-green-600 font-bold bg-green-50 px-3 py-1 rounded-full border border-green-200">
-                  {product.stock} unidades en stock
+                  {product.stock} unidades disponibles
                 </span>
               ) : (
                 <span className="text-red-600 font-bold bg-red-50 px-3 py-1 rounded-full border border-red-200">
@@ -228,6 +228,19 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
                 </span>
               )}
             </div>
+
+            {/* Delivery time notice for Invid / 4-day products */}
+            {(product.externalSource === 'invid' || product.deliveryDays === 4 || product.onDemand) && (
+              <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 text-xs space-y-1.5">
+                <div className="flex items-center gap-2 font-bold text-cyan-800 dark:text-cyan-400 text-sm">
+                  <Truck className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
+                  <span>Entrega en 4 días hábiles (Mar del Plata)</span>
+                </div>
+                <p className="text-muted-foreground leading-relaxed pl-6">
+                  Este artículo se solicita directamente al distribuidor oficial y tiene un plazo estimado de preparación y entrega/retiro de <strong>4 días hábiles</strong> dentro de Mar del Plata.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Action buttons */}

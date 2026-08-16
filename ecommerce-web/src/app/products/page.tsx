@@ -1,16 +1,17 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useProducts } from "@/hooks/useProducts";
 import ProductCard from "@/components/product/ProductCard";
-import { Loader2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, X, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { getCategoryName } from "@/lib/categories";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getRelevanceScore } from "@/lib/search";
 import HeroBanner from "@/components/home/HeroBanner";
+import SidebarFilters from "@/components/product/SidebarFilters";
 
 const VISUAL_CATEGORIES = [
   {
@@ -182,24 +183,74 @@ function ProductsPageContent() {
   const rawCategory = searchParams.get("category");
   const category = rawCategory ? rawCategory.toUpperCase() : null;
   const search = searchParams.get("search") || "";
-  const { products, loading, error } = useProducts({
-    category: category || undefined,
-  });
+  const { products, loading, error } = useProducts();
 
   const [sortBy, setSortBy] = useState<string>("price-desc");
   const [visibleCount, setVisibleCount] = useState(12);
 
+  // Filter States
+  const [searchQuery, setSearchQuery] = useState(search);
+  const [onlyStock, setOnlyStock] = useState(false);
+  const [onlyOffers, setOnlyOffers] = useState(false);
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
+
+  // Sync searchQuery with search param from URL
+  useEffect(() => {
+    setSearchQuery(search);
+  }, [search]);
+
+  // Debounced sync of searchQuery back to URL search param
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      if (searchQuery.trim()) {
+        params.set("search", searchQuery.trim());
+      } else {
+        params.delete("search");
+      }
+      const queryStr = params.toString();
+      const isHome = pathname === "/";
+      const basePath = isHome ? "/" : "/products";
+      router.replace(`${basePath}${queryStr ? `?${queryStr}` : ""}`, { scroll: false });
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, router, pathname]);
+
   // Reset visible count when category or search changes
-  const filterKey = `${category || ""}-${search}`;
+  const filterKey = `${category || ""}-${searchQuery}`;
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
   if (filterKey !== prevFilterKey) {
     setPrevFilterKey(filterKey);
     setVisibleCount(12);
   }
 
+  // Combined product filtering logic
   const filteredProducts = products
+    .filter((p) => {
+      // Category Filter (client-side)
+      if (category && p.category !== category) return false;
+
+      if (onlyStock && p.stock <= 0) return false;
+      if (onlyOffers && !p.isOffer) return false;
+      
+      const price = typeof p.price === "number" ? p.price : 0;
+      if (minPrice && price < parseFloat(minPrice)) return false;
+      if (maxPrice && price > parseFloat(maxPrice)) return false;
+      
+      if (selectedBrands.length > 0) {
+        const nameLower = p.name.toLowerCase();
+        const matchesBrand = selectedBrands.some(brand => nameLower.includes(brand.toLowerCase()));
+        if (!matchesBrand) return false;
+      }
+      
+      return true;
+    })
     .map((p) => {
-      const score = search ? getRelevanceScore(p, search) : 1;
+      const score = searchQuery ? getRelevanceScore(p, searchQuery) : 1;
       return { product: p, score };
     })
     .filter((item) => item.score > 0);
@@ -233,6 +284,13 @@ function ProductsPageContent() {
     const basePath = isHome ? "/" : "/products";
     router.replace(`${basePath}${queryStr ? `?${queryStr}` : ""}`, { scroll: false });
 
+    // Clear sub filters upon category switch to avoid incompatible active options
+    setOnlyStock(false);
+    setOnlyOffers(false);
+    setMinPrice("");
+    setMaxPrice("");
+    setSelectedBrands([]);
+
     // Smooth scroll to products catalog with a comfortable offset and custom slow duration
     setTimeout(() => {
       const element = document.getElementById("products-catalog");
@@ -249,16 +307,28 @@ function ProductsPageContent() {
     const basePath = isHome ? "/" : "/products";
     router.push(basePath);
     setSortBy("price-desc");
+    setOnlyStock(false);
+    setOnlyOffers(false);
+    setMinPrice("");
+    setMaxPrice("");
+    setSelectedBrands([]);
+    setSearchQuery("");
   };
 
   const pcCategory = VISUAL_CATEGORIES.find((c) => c.id === "pc");
   const otherCategories = VISUAL_CATEGORIES.filter((c) => c.id !== "pc");
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-7xl flex flex-col gap-12">
-      {!category && !search && <HeroBanner />}
+    <div className="flex flex-col gap-12 w-full">
+      {/* {!category && !search && (
+        <div className="w-full max-w-7xl mx-auto px-4 mt-6">
+          <HeroBanner />
+        </div>
+      )} */}
 
-      {/* Category Grid Section */}
+      <div className={cn("container mx-auto px-4 pb-12 max-w-7xl flex flex-col gap-12", (!category && !search) ? "pt-0" : "pt-12")}>
+
+        {/* Category Grid Section */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-xl md:text-2xl font-black text-primary tracking-tight font-sans">
@@ -396,7 +466,7 @@ function ProductsPageContent() {
           <div className="space-y-1">
             <h1 className="text-2xl md:text-3xl font-black text-primary tracking-tight font-sans flex items-center gap-3">
               {category ? `Catálogo: ${getCategoryName(category)}` : "Todas las Categorías"}
-              {(category || search) && (
+              {(category || searchQuery || onlyStock || onlyOffers || minPrice || maxPrice || selectedBrands.length > 0) && (
                 <Button
                   variant="secondary"
                   size="sm"
@@ -412,85 +482,190 @@ function ProductsPageContent() {
             </p>
           </div>
 
-          {/* Selector de ordenamiento */}
-          <div className="flex items-center gap-2 self-start md:self-auto">
-            <label htmlFor="sort-products" className="text-xs font-bold uppercase tracking-wider text-muted font-sans whitespace-nowrap">
-              Ordenar por:
-            </label>
-            <select
-              id="sort-products"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="bg-background hover:bg-surface text-primary border border-border rounded-xl px-4 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-accent/25 focus:border-accent cursor-pointer transition-all"
+          <div className="flex items-center gap-3 self-start md:self-auto">
+            {/* Mobile Filters Toggle Button */}
+            <Button
+              variant="outline"
+              onClick={() => setIsMobileFiltersOpen(true)}
+              className="lg:hidden rounded-xl px-4 h-10 text-xs font-bold border border-border bg-background hover:bg-surface active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
             >
-              <option value="">Relevancia</option>
-              <option value="price-asc">Precio: Menor a Mayor</option>
-              <option value="price-desc">Precio: Mayor a Menor</option>
-            </select>
+              <SlidersHorizontal className="w-4 h-4 text-accent" />
+              Filtrar
+            </Button>
+
+            {/* Selector de ordenamiento */}
+            <div className="flex items-center gap-2">
+              <label htmlFor="sort-products" className="text-xs font-bold uppercase tracking-wider text-muted font-sans whitespace-nowrap">
+                Ordenar por:
+              </label>
+              <select
+                id="sort-products"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-background hover:bg-surface text-primary border border-border rounded-xl px-4 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-accent/25 focus:border-accent cursor-pointer transition-all"
+              >
+                <option value="">Relevancia</option>
+                <option value="price-asc">Precio: Menor a Mayor</option>
+                <option value="price-desc">Precio: Mayor a Menor</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        {error && (
-          <div className="p-6 bg-red-50 border border-red-200 text-red-600 rounded-2xl font-bold text-xs uppercase tracking-wide">
-            Hubo un error al cargar los productos. Por favor intenta de nuevo.
+        {/* 2-Column Responsive Layout (Sidebar on Desktop) */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
+          
+          {/* Desktop Left Sidebar (Sticky) */}
+          <div className="hidden lg:block lg:col-span-1 sticky top-24 bg-surface border border-border/70 rounded-3xl p-6 shadow-sm max-h-[calc(100vh-130px)] overflow-y-auto no-scrollbar">
+            <SidebarFilters
+              products={products}
+              selectedCategory={category}
+              onSelectCategory={handleCategorySelect}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onlyStock={onlyStock}
+              onOnlyStockChange={setOnlyStock}
+              onlyOffers={onlyOffers}
+              onOnlyOffersChange={setOnlyOffers}
+              minPrice={minPrice}
+              onMinPriceChange={setMinPrice}
+              maxPrice={maxPrice}
+              onMaxPriceChange={setMaxPrice}
+              selectedBrands={selectedBrands}
+              onSelectedBrandsChange={setSelectedBrands}
+              onClearFilters={clearAllFilters}
+            />
           </div>
-        )}
 
-        {loading ? (
-          <motion.div
-            key="loading"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.4 }}
-            className="flex items-center justify-center py-32"
-          >
-            <Loader2 className="w-8 h-8 text-accent animate-spin" />
-          </motion.div>
-        ) : sortedProducts.length > 0 ? (
-          <motion.div
-            key="products-grid"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            className="space-y-10"
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {sortedProducts.slice(0, visibleCount).map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-
-            {visibleCount < sortedProducts.length && (
-              <div className="flex flex-col items-center gap-3 pt-2">
-                <p className="text-[10px] text-muted font-bold uppercase tracking-widest font-sans">
-                  {Math.min(visibleCount, sortedProducts.length)} de {sortedProducts.length} productos
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => setVisibleCount((prev) => prev + 12)}
-                  className="rounded-xl px-8 py-4 text-xs font-black uppercase tracking-wider hover:bg-surface transition-all"
-                >
-                  Ver más productos
-                </Button>
+          {/* Right Product Grid Area */}
+          <div className="lg:col-span-3 space-y-8 w-full">
+            {error && (
+              <div className="p-6 bg-red-50 border border-red-200 text-red-600 rounded-2xl font-bold text-xs uppercase tracking-wide">
+                Hubo un error al cargar los productos. Por favor intenta de nuevo.
               </div>
             )}
-          </motion.div>
-        ) : (
-          <motion.div
-            key="no-products"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            className="text-center py-32 bg-surface border border-border rounded-3xl"
-          >
-            <h3 className="text-lg font-black text-primary mb-2 font-sans">No se encontraron productos</h3>
-            <p className="text-xs text-muted mb-6 max-w-xs mx-auto leading-relaxed">Intentá buscando en otra categoría o eliminando los filtros de búsqueda.</p>
-            <Button variant="outline" onClick={clearAllFilters} className="rounded-xl px-6">
-              Ver todos los productos
-            </Button>
-          </motion.div>
-        )}
+
+            {loading ? (
+              <motion.div
+                key="loading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.4 }}
+                className="flex items-center justify-center py-32"
+              >
+                <Loader2 className="w-8 h-8 text-accent animate-spin" />
+              </motion.div>
+            ) : sortedProducts.length > 0 ? (
+              <motion.div
+                key="products-grid"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                className="space-y-10"
+              >
+                {/* 3-columns on desktop to fit perfectly in the grid next to sidebar */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                  {sortedProducts.slice(0, visibleCount).map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+
+                {visibleCount < sortedProducts.length && (
+                  <div className="flex flex-col items-center gap-3 pt-2">
+                    <p className="text-[10px] text-muted font-bold uppercase tracking-widest font-sans">
+                      {Math.min(visibleCount, sortedProducts.length)} de {sortedProducts.length} productos
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => setVisibleCount((prev) => prev + 12)}
+                      className="rounded-xl px-8 py-4 text-xs font-black uppercase tracking-wider hover:bg-surface transition-all"
+                    >
+                      Ver más productos
+                    </Button>
+                  </div>
+                )}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="no-products"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                className="text-center py-32 bg-surface border border-border rounded-3xl"
+              >
+                <h3 className="text-lg font-black text-primary mb-2 font-sans">No se encontraron productos</h3>
+                <p className="text-xs text-muted mb-6 max-w-xs mx-auto leading-relaxed">Intentá buscando en otra categoría o eliminando los filtros de búsqueda.</p>
+                <Button variant="outline" onClick={clearAllFilters} className="rounded-xl px-6">
+                  Ver todos los productos
+                </Button>
+              </motion.div>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile Slide-over Drawer for Filters */}
+        <AnimatePresence>
+          {isMobileFiltersOpen && (
+            <>
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.5 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsMobileFiltersOpen(false)}
+                className="fixed inset-0 bg-black z-50 lg:hidden cursor-pointer"
+              />
+
+              {/* Drawer Content Panel */}
+              <motion.div
+                initial={{ x: "-100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "-100%" }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className="fixed inset-y-0 left-0 w-full max-w-xs bg-background border-r border-border z-50 lg:hidden overflow-y-auto no-scrollbar shadow-2xl"
+              >
+                <div className="relative h-full flex flex-col">
+                  {/* Close button top-right in Drawer */}
+                  <div className="absolute top-4 right-4 z-50">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="w-9 h-9 rounded-xl border-border/85 hover:bg-surface active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+                      onClick={() => setIsMobileFiltersOpen(false)}
+                    >
+                      <X className="w-4 h-4 text-muted" />
+                    </Button>
+                  </div>
+
+                  <SidebarFilters
+                    products={products}
+                    selectedCategory={category}
+                    onSelectCategory={(catId) => {
+                      handleCategorySelect(catId);
+                      setIsMobileFiltersOpen(false); // Auto-close drawer on category select
+                    }}
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    onlyStock={onlyStock}
+                    onOnlyStockChange={setOnlyStock}
+                    onlyOffers={onlyOffers}
+                    onOnlyOffersChange={setOnlyOffers}
+                    minPrice={minPrice}
+                    onMinPriceChange={setMinPrice}
+                    maxPrice={maxPrice}
+                    onMaxPriceChange={setMaxPrice}
+                    selectedBrands={selectedBrands}
+                    onSelectedBrandsChange={setSelectedBrands}
+                    onClearFilters={clearAllFilters}
+                    isMobile={true}
+                  />
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </div>
+    </div>
     </div>
   );
 }

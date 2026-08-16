@@ -586,6 +586,15 @@ function CheckoutForm() {
                 <div className="text-xs text-muted font-medium mt-1">Gratis en nuestro local de Mar del Plata.</div>
               </button>
             </div>
+
+            {items.some(i => i.externalSource === 'invid' || i.deliveryDays === 4 || i.onDemand) && (
+              <div className="mt-4 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-4 text-xs text-cyan-950 dark:text-cyan-200 flex items-start gap-3">
+                <Truck className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  <strong>Aviso de Entrega:</strong> Tu pedido incluye productos bajo pedido con un tiempo estimado de entrega o retiro de <strong>4 días hábiles</strong> en Mar del Plata.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Customer info */}

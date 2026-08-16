@@ -52,6 +52,14 @@ export default function ProductCard({ product, isLarge, isSmall }: ProductCardPr
               Oferta -{discountPercentage}%
             </span>
           )}
+          {(product.externalSource === 'invid' || product.deliveryDays === 4) && (
+            <span className={cn(
+              "bg-cyan-600 text-white text-[9px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-md font-mono shadow-xs",
+              isSmall && "text-[8px] px-2 py-0.5"
+            )}>
+              🚚 Llega en 4 días
+            </span>
+          )}
           {product.stock === 0 && (
             <span className={cn(
               "bg-red-50 text-red-600 border border-red-200 text-[9px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-md font-mono",
