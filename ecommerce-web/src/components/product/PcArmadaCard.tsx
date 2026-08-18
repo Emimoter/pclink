@@ -70,7 +70,7 @@ function parseSpecsFromProduct(product: Product): ParsedPcSpecs {
       cpu: "AMD Ryzen 5 5600 (6 Núcleos / 12 Hilos hasta 4.4 GHz)",
       gpu: "Gigabyte Radeon RX 9050 GAMING OC 8GB GDDR6",
       ram: "16 GB DDR4 3200 MHz (2x8 Dual Channel)",
-      storage: "SSD M.2 NVMe 1 TB PCIe Ultra Rápido",
+      storage: "SSD M.2 NVMe 512 GB PCIe Ultra Rápido",
       motherboard: "MSI A520M-A PRO (Socket AM4)",
       psu: "600W - 650W 80 Plus Bronze",
       cabinet: "Formula V Line Crystal Z1 Black",
