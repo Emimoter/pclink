@@ -566,7 +566,7 @@ function ProductsPageContent() {
               >
                 {/* Special Horizontal Showcase for PC_ARMADAS, standard grid for components */}
                 {category === "PC_ARMADAS" ? (
-                  <div className="space-y-6">
+                  <div className="flex flex-col space-y-6 w-full">
                     {sortedProducts.slice(0, visibleCount).map((product) => (
                       <PcArmadaCard key={product.id} product={product} />
                     ))}
@@ -575,7 +575,7 @@ function ProductsPageContent() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                     {sortedProducts.slice(0, visibleCount).map((product) =>
                       product.category === "PC_ARMADAS" ? (
-                        <div key={product.id} className="sm:col-span-2 md:col-span-3">
+                        <div key={product.id} className="col-span-1 sm:col-span-2 md:col-span-3 w-full">
                           <PcArmadaCard product={product} />
                         </div>
                       ) : (
