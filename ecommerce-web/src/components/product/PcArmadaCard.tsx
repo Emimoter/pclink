@@ -62,16 +62,16 @@ function parseSpecsFromProduct(product: Product): ParsedPcSpecs {
     };
   }
 
-  if (id.includes("ultra") || name.includes("1080P") || name.includes("RX 7600")) {
+  if (id.includes("ultra") || name.includes("1080P") || name.includes("RX 7600") || name.includes("9050")) {
     return {
       badge: "1080P ULTRA GAMING",
       badgeColor: "bg-amber-500/10 text-amber-600 border-amber-500/20",
       tierSubtitle: "Potencia gráfica dedicada para jugar a todo en calidad Ultra",
       cpu: "AMD Ryzen 5 5600 (6 Núcleos / 12 Hilos hasta 4.4 GHz)",
-      gpu: "AMD Radeon RX 7600 Challenger 8GB GDDR6 OC",
+      gpu: "Gigabyte Radeon RX 9050 GAMING OC 8GB GDDR6",
       ram: "16 GB DDR4 3200 MHz (2x8 Dual Channel)",
       storage: "SSD M.2 NVMe 1 TB PCIe Ultra Rápido",
-      motherboard: "MSI A520M-A PRO / B450M",
+      motherboard: "MSI A520M-A PRO (Socket AM4)",
       psu: "600W - 650W 80 Plus Bronze",
       cabinet: "Formula V Line Crystal Z1 Black",
       games: ["Warzone", "Cyberpunk 2077", "RDR 2", "Forza Horizon 5", "Hogwarts Legacy"],
