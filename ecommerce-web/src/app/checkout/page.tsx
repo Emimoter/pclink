@@ -11,13 +11,15 @@ import { Loader2, CreditCard, Landmark, Truck, User, MapPin, Phone, Mail } from 
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
 
+import { PROVINCES, calculateShippingQuote, isMarDelPlataZip } from "@/lib/shipping";
+
 declare global {
   interface Window {
     google: any;
   }
 }
 
-function isValidMarDelPlataPhone(phone: string): boolean {
+function isValidArgentinePhone(phone: string): boolean {
   if (!phone) return false;
   const digits = phone.replace(/\D/g, "");
   let national = digits;
@@ -40,6 +42,22 @@ function isValidMarDelPlataPhone(phone: string): boolean {
     } else if (national.substring(4, 6) === "15") {
       national = national.substring(0, 4) + national.substring(6);
     }
+  }
+  return national.length === 10;
+}
+
+function isValidMarDelPlataPhone(phone: string): boolean {
+  if (!isValidArgentinePhone(phone)) return false;
+  const digits = phone.replace(/\D/g, "");
+  let national = digits;
+  if (digits.startsWith("0054")) national = digits.substring(4);
+  else if (digits.startsWith("54")) national = digits.substring(2);
+  if (national.startsWith("9") && (national.length === 11 || national.length === 13)) national = national.substring(1);
+  if (national.startsWith("0")) national = national.substring(1);
+  if (national.length === 12) {
+    if (national.startsWith("1115")) national = "11" + national.substring(4);
+    else if (national.substring(3, 5) === "15") national = national.substring(0, 3) + national.substring(5);
+    else if (national.substring(4, 6) === "15") national = national.substring(0, 4) + national.substring(6);
   }
   return national.length === 10 && national.startsWith("223");
 }
@@ -92,7 +110,8 @@ function CheckoutForm() {
   const [zip, setZip] = useState("7600");
   const [addressLabel, setAddressLabel] = useState("Casa");
   
-  const [shippingMethod, setShippingMethod] = useState<"standard" | "immediate" | "pickup">("standard");
+  const [provinceId, setProvinceId] = useState("BA");
+  const [shippingMethod, setShippingMethod] = useState<"standard" | "immediate" | "pickup" | "andreani_home" | "andreani_branch">("standard");
   const [paymentMethod, setPaymentMethod] = useState<"TRANSFER" | "MERCADO_PAGO" | "CASH">("MERCADO_PAGO");
   
   const [submitting, setSubmitting] = useState(false);
@@ -101,6 +120,8 @@ function CheckoutForm() {
   const [resending, setResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
   const [checking, setChecking] = useState(false);
+
+  const isNational = shippingMethod === "andreani_home" || shippingMethod === "andreani_branch";
 
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -118,16 +139,21 @@ function CheckoutForm() {
         west: -57.65,
       };
 
-      const autocomplete = new window.google.maps.places.Autocomplete(addressInputRef.current, {
+      const autocompleteOptions: any = {
         componentRestrictions: { country: "ar" },
         fields: ["address_components", "geometry", "formatted_address"],
         types: ["address"],
-        bounds: new window.google.maps.LatLngBounds(
+      };
+
+      if (!isNational) {
+        autocompleteOptions.bounds = new window.google.maps.LatLngBounds(
           new window.google.maps.LatLng(mdpBounds.south, mdpBounds.west),
           new window.google.maps.LatLng(mdpBounds.north, mdpBounds.east)
-        ),
-        strictBounds: false
-      });
+        );
+        autocompleteOptions.strictBounds = false;
+      }
+
+      const autocomplete = new window.google.maps.places.Autocomplete(addressInputRef.current, autocompleteOptions);
 
       autocomplete.addListener("place_changed", () => {
         const place = autocomplete.getPlace();
@@ -136,6 +162,9 @@ function CheckoutForm() {
         let isMdp = false;
         let streetName = "";
         let streetNumber = "";
+        let detectedCity = "";
+        let detectedState = "";
+        let detectedZip = "";
 
         for (const component of place.address_components) {
           const types = component.types;
@@ -148,6 +177,15 @@ function CheckoutForm() {
           if (types.includes("street_number")) {
             streetNumber = name;
           }
+          if (types.includes("locality") || types.includes("sublocality")) {
+            detectedCity = name;
+          }
+          if (types.includes("administrative_area_level_1")) {
+            detectedState = name;
+          }
+          if (types.includes("postal_code")) {
+            detectedZip = name;
+          }
           if (
             (types.includes("locality") || types.includes("administrative_area_level_2") || types.includes("sublocality")) &&
             (nameLower.includes("mar del plata") || nameLower.includes("general pueyrredón") || nameLower.includes("general pueyrredon"))
@@ -156,12 +194,15 @@ function CheckoutForm() {
           }
         }
 
-        if (!isMdp) {
-          setErrorMsg("Actualmente solo realizamos envíos dentro de Mar del Plata.");
+        if (!isNational && !isMdp) {
+          setErrorMsg("Para envíos dentro de Mar del Plata, por favor seleccioná una dirección local o elegí 'Envío Nacional por Andreani'.");
         } else {
           setErrorMsg("");
           const combined = streetNumber ? `${streetName} ${streetNumber}` : streetName;
           setStreet(combined || place.formatted_address || "");
+          if (detectedCity) setCity(detectedCity);
+          if (detectedState) setState(detectedState);
+          if (detectedZip) setZip(detectedZip);
         }
       });
 
@@ -317,12 +358,20 @@ function CheckoutForm() {
   };
 
   // Calculations from CartStore
+  const shippingQuote = calculateShippingQuote(provinceId, zip);
   const shippingCost = 
-    shippingMethod === "standard" 
-      ? 4500 
-      : shippingMethod === "immediate" 
-      ? 8500 
+    shippingMethod === "pickup"
+      ? 0
+      : shippingMethod === "standard"
+      ? 4500
+      : shippingMethod === "immediate"
+      ? 8500
+      : shippingMethod === "andreani_home"
+      ? (shippingQuote.andreaniOptions ? shippingQuote.andreaniOptions.homeDelivery.cost : 9500)
+      : shippingMethod === "andreani_branch"
+      ? (shippingQuote.andreaniOptions ? shippingQuote.andreaniOptions.branchPickup.cost : 7400)
       : 0;
+
   const discount = subtotal - totalPrice;
   const total = totalPrice + shippingCost;
 
@@ -337,9 +386,20 @@ function CheckoutForm() {
       setErrorMsg("Debes verificar tu correo electrónico para poder comprar.");
       return;
     }
-    if (shippingMethod !== "pickup" && !isValidMarDelPlataPhone(phone)) {
-      setErrorMsg("Por favor, ingresá un teléfono de contacto de Mar del Plata válido (ej: 2235407787).");
-      return;
+
+    // Validate phone based on shipping destination
+    if (shippingMethod !== "pickup") {
+      if (isNational) {
+        if (!isValidArgentinePhone(phone)) {
+          setErrorMsg("Por favor, ingresá un teléfono de contacto válido con código de área (ej: 1155554444 o 3515554444).");
+          return;
+        }
+      } else {
+        if (!isValidMarDelPlataPhone(phone)) {
+          setErrorMsg("Por favor, ingresá un teléfono de contacto de Mar del Plata válido (ej: 2235407787).");
+          return;
+        }
+      }
     }
 
     const { street: parsedStreet, number: parsedNumber } = parseAddressString(street);
@@ -543,55 +603,99 @@ function CheckoutForm() {
         <div className="lg:col-span-7 space-y-10">
           
           {/* Shipping option */}
-          <div className="bg-surface border border-border rounded-3xl p-6 md:p-8">
-            <h3 className="text-lg font-bold text-primary mb-6 flex items-center gap-2">
+          <div className="bg-surface border border-border rounded-3xl p-6 md:p-8 space-y-6">
+            <h3 className="text-lg font-bold text-primary flex items-center gap-2">
               <Truck className="w-5 h-5 text-accent" />
               Método de Entrega
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button
-                type="button"
-                onClick={() => setShippingMethod("standard")}
-                className={`p-5 rounded-2xl border text-left flex flex-col justify-between h-32 transition-all ${
-                  shippingMethod === "standard"
-                    ? "border-accent ring-2 ring-accent/10 bg-accent/[0.02]"
-                    : "border-border hover:border-muted bg-transparent"
-                }`}
-              >
-                <div className="font-bold text-primary">Envío Estándar</div>
-                <div className="text-xs text-muted font-medium mt-1">Mar del Plata y alrededores. Costo: $4.500</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShippingMethod("immediate")}
-                className={`p-5 rounded-2xl border text-left flex flex-col justify-between h-32 transition-all ${
-                  shippingMethod === "immediate"
-                    ? "border-accent ring-2 ring-accent/10 bg-accent/[0.02]"
-                    : "border-border hover:border-muted bg-transparent"
-                }`}
-              >
-                <div className="font-bold text-primary">Envío Inmediato</div>
-                <div className="text-xs text-muted font-medium mt-1">Envío express en el día. Costo: $8.500</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShippingMethod("pickup")}
-                className={`p-5 rounded-2xl border text-left flex flex-col justify-between h-32 transition-all ${
-                  shippingMethod === "pickup"
-                    ? "border-accent ring-2 ring-accent/10 bg-accent/[0.02]"
-                    : "border-border hover:border-muted bg-transparent"
-                }`}
-              >
-                <div className="font-bold text-primary">Retiro en Sucursal</div>
-                <div className="text-xs text-muted font-medium mt-1">Gratis en nuestro local de Mar del Plata.</div>
-              </button>
+
+            {/* Local Mar del Plata options */}
+            <div>
+              <div className="text-xs font-bold text-muted uppercase tracking-wider mb-3">
+                🛵 Opciones Locales (Mar del Plata)
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShippingMethod("standard")}
+                  className={`p-4 rounded-2xl border text-left flex flex-col justify-between h-28 transition-all ${
+                    shippingMethod === "standard"
+                      ? "border-accent ring-2 ring-accent/10 bg-accent/[0.02]"
+                      : "border-border hover:border-muted bg-transparent"
+                  }`}
+                >
+                  <div className="font-bold text-primary text-sm">Envío Local Estándar</div>
+                  <div className="text-xs text-muted font-medium mt-1">24 a 48 hs. Costo: $4.500</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShippingMethod("immediate")}
+                  className={`p-4 rounded-2xl border text-left flex flex-col justify-between h-28 transition-all ${
+                    shippingMethod === "immediate"
+                      ? "border-accent ring-2 ring-accent/10 bg-accent/[0.02]"
+                      : "border-border hover:border-muted bg-transparent"
+                  }`}
+                >
+                  <div className="font-bold text-primary text-sm">Envío Inmediato Express</div>
+                  <div className="text-xs text-muted font-medium mt-1">En el día. Costo: $8.500</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShippingMethod("pickup")}
+                  className={`p-4 rounded-2xl border text-left flex flex-col justify-between h-28 transition-all ${
+                    shippingMethod === "pickup"
+                      ? "border-accent ring-2 ring-accent/10 bg-accent/[0.02]"
+                      : "border-border hover:border-muted bg-transparent"
+                  }`}
+                >
+                  <div className="font-bold text-primary text-sm">Retiro en Local</div>
+                  <div className="text-xs text-emerald-600 dark:text-emerald-400 font-bold mt-1">Gratis en Sucursal Central</div>
+                </button>
+              </div>
+            </div>
+
+            {/* National Andreani options */}
+            <div className="pt-4 border-t border-border/80">
+              <div className="text-xs font-bold text-[#e85d3f] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Truck className="w-3.5 h-3.5" /> Envíos a Todo el País (ANDREANI)
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShippingMethod("andreani_home")}
+                  className={`p-4 rounded-2xl border text-left flex flex-col justify-between h-28 transition-all ${
+                    shippingMethod === "andreani_home"
+                      ? "border-[#e85d3f] ring-2 ring-[#e85d3f]/20 bg-[#e85d3f]/[0.03]"
+                      : "border-border hover:border-muted bg-transparent"
+                  }`}
+                >
+                  <div className="font-bold text-primary text-sm">Andreani a Domicilio</div>
+                  <div className="text-xs text-muted font-medium mt-1">
+                    Llega en 3 a 5 días hábiles a todo el país.
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShippingMethod("andreani_branch")}
+                  className={`p-4 rounded-2xl border text-left flex flex-col justify-between h-28 transition-all ${
+                    shippingMethod === "andreani_branch"
+                      ? "border-[#e85d3f] ring-2 ring-[#e85d3f]/20 bg-[#e85d3f]/[0.03]"
+                      : "border-border hover:border-muted bg-transparent"
+                  }`}
+                >
+                  <div className="font-bold text-primary text-sm">Andreani a Sucursal</div>
+                  <div className="text-xs text-muted font-medium mt-1">
+                    Retiro en sucursal oficial Andreani más cercana.
+                  </div>
+                </button>
+              </div>
             </div>
 
             {items.some(i => i.externalSource === 'invid' || i.deliveryDays === 4 || i.onDemand) && (
-              <div className="mt-4 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-4 text-xs text-cyan-950 dark:text-cyan-200 flex items-start gap-3">
+              <div className="mt-2 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-4 text-xs text-cyan-950 dark:text-cyan-200 flex items-start gap-3">
                 <Truck className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
                 <p className="leading-relaxed">
-                  <strong>Aviso de Entrega:</strong> Tu pedido incluye productos bajo pedido con un tiempo estimado de entrega o retiro de <strong>4 días hábiles</strong> en Mar del Plata.
+                  <strong>Aviso de Entrega:</strong> Tu pedido incluye productos bajo pedido con un tiempo estimado de despacho de <strong>4 días hábiles</strong>.
                 </p>
               </div>
             )}
@@ -621,7 +725,7 @@ function CheckoutForm() {
 
               <div>
                 <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">
-                  Teléfono de contacto
+                  Teléfono de contacto {isNational && <span className="text-accent font-normal">(con código de área)</span>}
                 </label>
                 <input
                   type="tel"
@@ -629,7 +733,7 @@ function CheckoutForm() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="w-full bg-background border border-border rounded-xl px-4 py-3 text-base md:text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-mono"
-                  placeholder="2235555555"
+                  placeholder={isNational ? "1155554444" : "2235555555"}
                 />
               </div>
 
@@ -655,15 +759,75 @@ function CheckoutForm() {
             <div className="bg-surface border border-border rounded-3xl p-6 md:p-8 space-y-5">
               <h3 className="text-lg font-bold text-primary mb-2 flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-accent" />
-                Dirección de Envío
+                Dirección de {isNational ? "Envío Nacional" : "Envío Local"}
               </h3>
 
-              <div className="p-4 bg-accent/5 border border-accent/10 rounded-2xl flex items-center gap-3 text-accent text-sm font-semibold mb-4">
-                <span className="text-lg">🚚</span>
-                <span>Por el momento realizamos envíos únicamente dentro de Mar del Plata y zonas cercanas.</span>
-              </div>
+              {isNational ? (
+                <div className="p-4 bg-[#e85d3f]/10 border border-[#e85d3f]/20 rounded-2xl flex items-center gap-3 text-[#e85d3f] text-sm font-semibold mb-4">
+                  <span className="text-lg">📦</span>
+                  <span>Envío a todo el país gestionado por ANDREANI con número de seguimiento.</span>
+                </div>
+              ) : (
+                <div className="p-4 bg-accent/5 border border-accent/10 rounded-2xl flex items-center gap-3 text-accent text-sm font-semibold mb-4">
+                  <span className="text-lg">🚚</span>
+                  <span>Envío directo en Mar del Plata y alrededores.</span>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-6">
+                {isNational && (
+                  <>
+                    <div className="sm:col-span-6">
+                      <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">
+                        Provincia de Destino
+                      </label>
+                      <select
+                        value={provinceId}
+                        onChange={(e) => {
+                          setProvinceId(e.target.value);
+                          const foundProv = PROVINCES.find((p) => p.id === e.target.value);
+                          if (foundProv) setState(foundProv.name);
+                        }}
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent text-primary font-medium cursor-pointer"
+                      >
+                        {PROVINCES.map((prov) => (
+                          <option key={prov.id} value={prov.id}>
+                            {prov.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="sm:col-span-6">
+                      <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">
+                        Código Postal
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={zip}
+                        onChange={(e) => setZip(e.target.value)}
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-base md:text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
+                        placeholder="Ej: 1425 o 5000"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-12">
+                      <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">
+                        Ciudad / Localidad
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-base md:text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
+                        placeholder="Ej: Córdoba Capital / Rosario / Neuquén"
+                      />
+                    </div>
+                  </>
+                )}
+
                 {user && savedAddresses.length > 0 && (
                   <div className="sm:col-span-12 border-b border-border pb-4 mb-4">
                     <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">
@@ -679,7 +843,7 @@ function CheckoutForm() {
                       >
                         {savedAddresses.map((addr) => (
                           <option key={addr.id} value={addr.id}>
-                            {addr.label} — {addr.street} {addr.number} ({addr.recipient})
+                            {addr.label} — {addr.street} {addr.number} ({addr.city}, {addr.state})
                           </option>
                         ))}
                         <option value="new">Nueva Dirección...</option>
@@ -690,7 +854,7 @@ function CheckoutForm() {
 
                 <div className="sm:col-span-12">
                   <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">
-                    Dirección (Calle y número)
+                    {shippingMethod === "andreani_branch" ? "Sucursal Andreani o Dirección de Entrega" : "Dirección (Calle y número)"}
                   </label>
                   <input
                     type="text"
@@ -699,7 +863,7 @@ function CheckoutForm() {
                     onChange={(e) => setStreet(e.target.value)}
                     ref={addressInputRef}
                     className="w-full bg-background border border-border rounded-xl px-4 py-3 text-base md:text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-all text-primary font-medium"
-                    placeholder="Ej: San Martín 1234"
+                    placeholder={shippingMethod === "andreani_branch" ? "Ej: Sucursal Andreani Centro / Av. Colón 1234" : "Ej: San Martín 1234"}
                   />
                 </div>
 
@@ -729,7 +893,6 @@ function CheckoutForm() {
                     placeholder="Casa / Oficina"
                   />
                 </div>
-
               </div>
             </div>
           )}

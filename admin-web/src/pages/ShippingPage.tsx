@@ -9,6 +9,11 @@ interface ShippingConfig {
   express: number
   pickup: number
   freeThreshold: number
+  andreani?: {
+    banda_1?: { home: number; branch: number }
+    banda_2?: { home: number; branch: number }
+    banda_3?: { home: number; branch: number }
+  }
 }
 
 const DEFAULT_CONFIG: ShippingConfig = {
@@ -16,7 +21,32 @@ const DEFAULT_CONFIG: ShippingConfig = {
   express: 8500,
   pickup: 0,
   freeThreshold: 80000,
+  andreani: {
+    banda_1: { home: 108836, branch: 104134 },
+    banda_2: { home: 133970, branch: 127968 },
+    banda_3: { home: 163086, branch: 156763 },
+  }
 }
+
+type AndreaniBandKey = 'banda_1' | 'banda_2' | 'banda_3'
+
+const ANDREANI_BANDS: { key: AndreaniBandKey; title: string; subtitle: string }[] = [
+  { 
+    key: 'banda_1', 
+    title: 'Banda 1 (Buenos Aires, CABA, Córdoba, Santa Fe, Entre Ríos, La Pampa)', 
+    subtitle: 'Destinos cercanos y región centro del país' 
+  },
+  { 
+    key: 'banda_2', 
+    title: 'Banda 2 (Mendoza, Tucumán, Chaco, Neuquén, Río Negro, Salta, Jujuy, etc.)', 
+    subtitle: 'Cuyo, Litoral, NOA, NEA y Norte de Patagonia' 
+  },
+  { 
+    key: 'banda_3', 
+    title: 'Banda 3 (Chubut, Santa Cruz, Tierra del Fuego)', 
+    subtitle: 'Patagonia Austral y Tierra del Fuego' 
+  },
+]
 
 export function ShippingPage() {
   const db = getDb()
@@ -47,11 +77,7 @@ export function ShippingPage() {
     return unsub
   }, [db])
 
-  const hasChanges =
-    draft.standard !== config.standard ||
-    draft.express !== config.express ||
-    draft.pickup !== config.pickup ||
-    draft.freeThreshold !== config.freeThreshold
+  const hasChanges = JSON.stringify(draft) !== JSON.stringify(config)
 
   const handleSave = async () => {
     setSaving(true)
@@ -208,6 +234,95 @@ export function ShippingPage() {
                 <p className="mt-1.5 text-[11px] text-pclink-subtle">
                   Umbral actual: <span className="font-bold text-violet-400">{formatARS(config.freeThreshold)}</span>
                 </p>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Andreani National Shipping Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass-panel border border-[#e85d3f]/20 bg-[#e85d3f]/5 p-6"
+          >
+            <div className="flex items-start gap-4">
+              <div className="rounded-xl border border-[#e85d3f]/20 bg-pclink-elevated/60 p-3 text-[#e85d3f]">
+                <Truck className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-white">Tarifas Nacionales ANDREANI</h3>
+                <p className="mt-0.5 text-xs text-pclink-muted">
+                  Precios de referencia calculados para envíos fuera de Mar del Plata (a domicilio y sucursal).
+                </p>
+
+                <div className="mt-5 grid grid-cols-1 gap-4">
+                  {ANDREANI_BANDS.map(({ key, title, subtitle }) => {
+                    const currentHome = draft.andreani?.[key]?.home ?? DEFAULT_CONFIG.andreani![key]!.home;
+                    const currentBranch = draft.andreani?.[key]?.branch ?? DEFAULT_CONFIG.andreani![key]!.branch;
+
+                    return (
+                      <div key={key} className="rounded-xl border border-pclink-border/80 bg-pclink-bg/40 p-4 space-y-3">
+                        <div>
+                          <div className="font-bold text-white text-sm text-[#e85d3f]">{title}</div>
+                          <div className="text-[11px] text-pclink-muted">{subtitle}</div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                          <div>
+                            <span className="text-xs text-slate-300 font-medium block mb-1">A Domicilio</span>
+                            <div className="relative">
+                              <span className="absolute left-3 top-2.5 text-xs text-pclink-muted font-bold">$</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="100"
+                                value={currentHome}
+                                onChange={(e) => {
+                                  const val = Math.max(0, Number(e.target.value));
+                                  setDraft({
+                                    ...draft,
+                                    andreani: {
+                                      ...draft.andreani,
+                                      [key]: {
+                                        home: val,
+                                        branch: currentBranch,
+                                      },
+                                    },
+                                  });
+                                }}
+                                className="w-full rounded-xl border border-pclink-border bg-pclink-bg/80 py-2.5 pl-7 pr-3 text-sm font-bold text-white outline-none focus:border-[#e85d3f]"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-xs text-slate-300 font-medium block mb-1">A Sucursal Oficial</span>
+                            <div className="relative">
+                              <span className="absolute left-3 top-2.5 text-xs text-pclink-muted font-bold">$</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="100"
+                                value={currentBranch}
+                                onChange={(e) => {
+                                  const val = Math.max(0, Number(e.target.value));
+                                  setDraft({
+                                    ...draft,
+                                    andreani: {
+                                      ...draft.andreani,
+                                      [key]: {
+                                        home: currentHome,
+                                        branch: val,
+                                      },
+                                    },
+                                  });
+                                }}
+                                className="w-full rounded-xl border border-pclink-border bg-pclink-bg/80 py-2.5 pl-7 pr-3 text-sm font-bold text-white outline-none focus:border-[#e85d3f]"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </motion.div>

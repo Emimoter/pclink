@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Database, Loader2, Save, Search, Import, Tag, AlertCircle, 
   CheckCircle2, RefreshCw, Key, Image as ImageIcon, Settings, Trash2, Edit2,
-  Upload, FileSpreadsheet
+  Upload, FileSpreadsheet, Copy, Check
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { getDb, getFunctionsInstance } from '../lib/firebase'
@@ -95,6 +95,17 @@ export function GrupoNucleoPage() {
 
   // Active sub-tab inside page
   const [activeTab, setActiveTab] = useState<'catalog' | 'synced' | 'config'>('catalog')
+
+  // Copy to clipboard feedback state
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  const handleCopyName = (id: string, name: string) => {
+    navigator.clipboard.writeText(name)
+    setCopiedId(id)
+    setTimeout(() => {
+      setCopiedId(prev => prev === id ? null : prev)
+    }, 2000)
+  }
 
   // Load configured credentials on mount
   useEffect(() => {
@@ -1249,7 +1260,22 @@ export function GrupoNucleoPage() {
                                   )}
                                 </div>
                                 <div>
-                                  <p className="font-bold text-white line-clamp-1">{item.name}</p>
+                                  <div
+                                    onClick={() => handleCopyName(item.id, item.name)}
+                                    title={`Clic para copiar nombre completo:\n${item.name}`}
+                                    className="group flex items-center gap-1.5 cursor-pointer rounded px-1.5 py-0.5 -mx-1.5 hover:bg-pclink-cyan/10 transition-colors"
+                                  >
+                                    <p className="font-bold text-white group-hover:text-pclink-cyan transition-colors line-clamp-1 select-text">{item.name}</p>
+                                    {copiedId === item.id ? (
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded shrink-0 border border-emerald-500/40 animate-pulse">
+                                        <Check className="h-3 w-3" /> ¡Copiado!
+                                      </span>
+                                    ) : (
+                                      <span className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 flex items-center gap-1 text-[10px] text-pclink-cyan-light font-medium bg-pclink-surface/80 px-1.5 py-0.5 rounded border border-pclink-cyan/30">
+                                        <Copy className="h-3 w-3" /> Copiar
+                                      </span>
+                                    )}
+                                  </div>
                                   <div className="flex flex-wrap items-center gap-2 mt-0.5">
                                     <span className="text-[10px] text-pclink-cyan-light font-mono shrink-0">ID: {item.id}</span>
                                     {item.brand && <span className="text-[9px] bg-pclink-elevated px-1.5 py-0.2 rounded text-pclink-muted font-semibold shrink-0">{item.brand}</span>}
@@ -1470,7 +1496,22 @@ export function GrupoNucleoPage() {
                                     )}
                                   </div>
                                   <div>
-                                    <p className="font-bold text-white line-clamp-1">{prod.name}</p>
+                                    <div
+                                      onClick={() => handleCopyName(prod.id, prod.name)}
+                                      title={`Clic para copiar nombre completo:\n${prod.name}`}
+                                      className="group flex items-center gap-1.5 cursor-pointer rounded px-1.5 py-0.5 -mx-1.5 hover:bg-pclink-cyan/10 transition-colors"
+                                    >
+                                      <p className="font-bold text-white group-hover:text-pclink-cyan transition-colors line-clamp-1 select-text">{prod.name}</p>
+                                      {copiedId === prod.id ? (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded shrink-0 border border-emerald-500/40 animate-pulse">
+                                          <Check className="h-3 w-3" /> ¡Copiado!
+                                        </span>
+                                      ) : (
+                                        <span className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 flex items-center gap-1 text-[10px] text-pclink-cyan-light font-medium bg-pclink-surface/80 px-1.5 py-0.5 rounded border border-pclink-cyan/30">
+                                          <Copy className="h-3 w-3" /> Copiar
+                                        </span>
+                                      )}
+                                    </div>
                                     <div className="flex items-center gap-2 mt-0.5">
                                       <span className="text-[10px] text-pclink-cyan-light font-mono">SKU/GN: {prod.externalId}</span>
                                       <span className="text-[9px] bg-pclink-cyan/15 px-1.5 py-0.2 rounded text-pclink-cyan-light border border-pclink-cyan/20">

@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useProducts } from "@/hooks/useProducts";
 import ProductCard from "@/components/product/ProductCard";
+import PcArmadaCard from "@/components/product/PcArmadaCard";
 import { Loader2, X, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { getCategoryName } from "@/lib/categories";
@@ -563,12 +564,26 @@ function ProductsPageContent() {
                 transition={{ duration: 0.8, ease: "easeOut" }}
                 className="space-y-10"
               >
-                {/* 3-columns on desktop to fit perfectly in the grid next to sidebar */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                  {sortedProducts.slice(0, visibleCount).map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
+                {/* Special Horizontal Showcase for PC_ARMADAS, standard grid for components */}
+                {category === "PC_ARMADAS" ? (
+                  <div className="space-y-6">
+                    {sortedProducts.slice(0, visibleCount).map((product) => (
+                      <PcArmadaCard key={product.id} product={product} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                    {sortedProducts.slice(0, visibleCount).map((product) =>
+                      product.category === "PC_ARMADAS" ? (
+                        <div key={product.id} className="sm:col-span-2 md:col-span-3">
+                          <PcArmadaCard product={product} />
+                        </div>
+                      ) : (
+                        <ProductCard key={product.id} product={product} />
+                      )
+                    )}
+                  </div>
+                )}
 
                 {visibleCount < sortedProducts.length && (
                   <div className="flex flex-col items-center gap-3 pt-2">

@@ -9,6 +9,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import ProductCard from "@/components/product/ProductCard";
+import ShippingCalculator from "@/components/product/ShippingCalculator";
 import { cn } from "@/lib/utils";
 
 interface ProductDetailClientProps {
@@ -307,6 +308,9 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
               </Button>
             </a>
           )}
+
+          {/* Shipping Calculator Widget */}
+          <ShippingCalculator />
 
           {/* Description */}
           <div className="mt-8 border-t border-border pt-8">
