@@ -48,7 +48,7 @@ function parseSpecsFromProduct(product: Product): ParsedPcSpecs {
 
   if (id.includes("entry") || name.includes("ENTRY") || name.includes("5600GT")) {
     return {
-      badge: "PC GAMER ENTRY",
+      badge: "PC Gamer Entry",
       badgeColor: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
       tierSubtitle: "Ideal para jugar con fluidez a títulos competitivos y trabajo/estudio",
       cpu: "AMD Ryzen 5 5600GT (6 Núcleos / 12 Hilos hasta 4.6 GHz)",
@@ -64,7 +64,7 @@ function parseSpecsFromProduct(product: Product): ParsedPcSpecs {
 
   if (id.includes("advanced") || name.includes("ADVANCED") || id.includes("ultra-r7-rx7600") || name.includes("9050") || name.includes("1080P")) {
     return {
-      badge: "PC GAMER ADVANCED",
+      badge: "PC Gamer Advanced",
       badgeColor: "bg-amber-500/10 text-amber-600 border-amber-500/20",
       tierSubtitle: "Potencia gráfica dedicada para jugar a todo en calidad Ultra",
       cpu: "AMD Ryzen 5 5600 (6 Núcleos / 12 Hilos hasta 4.4 GHz)",
@@ -80,7 +80,7 @@ function parseSpecsFromProduct(product: Product): ParsedPcSpecs {
 
   if (id.includes("pro") || name.includes("PRO") || id.includes("nextgen") || name.includes("8500G") || name.includes("5060 8GB")) {
     return {
-      badge: "PC GAMER PRO",
+      badge: "PC Gamer Pro",
       badgeColor: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
       tierSubtitle: "Plataforma AM5 de última generación con DLSS 3/4 y trazado de rayos",
       cpu: "AMD Ryzen 5 8500G (6 Núcleos / 12 Hilos hasta 5.0 GHz)",
@@ -96,7 +96,7 @@ function parseSpecsFromProduct(product: Product): ParsedPcSpecs {
 
   // PC Gamer Ultra
   return {
-    badge: "PC GAMER ULTRA",
+    badge: "PC Gamer Ultra",
     badgeColor: "bg-purple-500/10 text-purple-600 border-purple-500/20",
     tierSubtitle: "Máximo rendimiento para juegos pesados en 1440p/4K, streaming y render",
     cpu: "AMD Ryzen 7 8700F / Intel Core Ultra 5 245KF",
@@ -147,7 +147,7 @@ export default function PcArmadaCard({ product }: PcArmadaCardProps) {
             <div className="relative aspect-square w-full max-w-[280px] lg:max-w-none mx-auto bg-background/50 rounded-2xl p-6 flex items-center justify-center border border-border/50 group-hover:border-accent/20 transition-all overflow-hidden">
               {/* Badge top-left */}
               <span className={cn(
-                "absolute top-3 left-3 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border",
+                "absolute top-3 left-3 text-xs font-black tracking-wide px-3 py-1 rounded-xl border shadow-xs backdrop-blur-xs",
                 specs.badgeColor
               )}>
                 {specs.badge}
