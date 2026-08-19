@@ -218,18 +218,27 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
 
           <div className="border-t border-border py-6 space-y-4">
             {/* Stock indicator */}
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-semibold text-muted">Disponibilidad</span>
-              {product.stock > 0 ? (
-                <span className="text-green-600 font-bold bg-green-50 px-3 py-1 rounded-full border border-green-200">
-                  {product.stock} unidades disponibles
+            {product.category === "PC_ARMADAS" ? (
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-semibold text-muted">Disponibilidad</span>
+                <span className="text-emerald-600 font-bold bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+                  Armado a Pedido • Siempre Disponible
                 </span>
-              ) : (
-                <span className="text-red-600 font-bold bg-red-50 px-3 py-1 rounded-full border border-red-200">
-                  Sin stock
-                </span>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-semibold text-muted">Disponibilidad</span>
+                {product.stock > 0 ? (
+                  <span className="text-green-600 font-bold bg-green-50 px-3 py-1 rounded-full border border-green-200">
+                    {product.stock} unidades disponibles
+                  </span>
+                ) : (
+                  <span className="text-red-600 font-bold bg-red-50 px-3 py-1 rounded-full border border-red-200">
+                    Sin stock
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Delivery time notice for Invid / 4-day products */}
             {(product.externalSource === 'invid' || product.deliveryDays === 4 || product.onDemand) && (
@@ -246,7 +255,7 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
           </div>
 
           {/* Action buttons */}
-          {product.stock > 0 && price > 0 ? (
+          {(product.stock > 0 || product.category === "PC_ARMADAS") && price > 0 ? (
             <div className="space-y-4 mt-4">
               {/* Quantity selector */}
               <div className="flex items-center border border-border rounded-xl w-fit bg-surface">
@@ -260,7 +269,7 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
                   {quantity}
                 </span>
                 <button
-                  onClick={() => setQuantity(q => Math.min(product.stock, q + 1))}
+                  onClick={() => setQuantity(q => Math.min(product.category === "PC_ARMADAS" ? 10 : product.stock, q + 1))}
                   className="p-3 text-muted hover:text-primary transition-colors"
                 >
                   <Plus className="w-4 h-4" />
