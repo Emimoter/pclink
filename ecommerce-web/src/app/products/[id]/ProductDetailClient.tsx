@@ -320,7 +320,7 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
           )}
 
           {/* Shipping Calculator Widget */}
-          <ShippingCalculator />
+          <ShippingCalculator isPcArmada={product.category === "PC_ARMADAS"} />
 
           {/* Description for standard products */}
           {product.category !== "PC_ARMADAS" && (

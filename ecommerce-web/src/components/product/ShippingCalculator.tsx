@@ -5,7 +5,11 @@ import { Check, Truck, MapPin, Building2, ChevronDown, Loader2, Zap, ShieldCheck
 import { PROVINCES, calculateShippingQuote, ShippingQuoteResult } from "@/lib/shipping";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function ShippingCalculator() {
+interface ShippingCalculatorProps {
+  isPcArmada?: boolean;
+}
+
+export default function ShippingCalculator({ isPcArmada = false }: ShippingCalculatorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedProvince, setSelectedProvince] = useState("BA");
   const [zipCode, setZipCode] = useState("");
@@ -37,21 +41,25 @@ export default function ShippingCalculator() {
           <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-500 shrink-0">
             <Check className="w-3.5 h-3.5 stroke-[2.5]" />
           </span>
-          <span>Envío en el lapso de 3 a 5 días hábiles</span>
+          <span>{isPcArmada ? "Envío en el lapso de 3 a 5 días hábiles" : "Envíos en el día o 24/48hs en Mar del Plata"}</span>
         </div>
         <div className="flex items-center gap-2.5 text-xs sm:text-sm">
           <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-500 shrink-0">
             <Check className="w-3.5 h-3.5 stroke-[2.5]" />
           </span>
           <span>
-            Envíos a todo el país por <strong>ANDREANI</strong>
+            {isPcArmada ? (
+              <>Envíos a todo el país por <strong>ANDREANI</strong></>
+            ) : (
+              <>Retiro gratis en <strong>Sucursal Central (MDP)</strong></>
+            )}
           </span>
         </div>
         <div className="flex items-center gap-2.5 text-xs sm:text-sm">
           <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-500 shrink-0">
             <Check className="w-3.5 h-3.5 stroke-[2.5]" />
           </span>
-          <span>Garantía oficial escrita de 6 meses</span>
+          <span>{isPcArmada ? "Garantía oficial escrita de 6 meses" : "Garantía oficial escrita de fábrica"}</span>
         </div>
       </div>
 
@@ -63,7 +71,7 @@ export default function ShippingCalculator() {
           className="w-full py-3.5 px-4 bg-[#e85d3f] hover:bg-[#d44d30] text-white font-bold text-sm tracking-wider uppercase rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer"
         >
           <Truck className="w-4 h-4" />
-          Cotizar Envío
+          {isPcArmada ? "Cotizar Envío Andreani & Local" : "Calcular Envío Local (Mar del Plata)"}
         </button>
       )}
 
@@ -80,7 +88,7 @@ export default function ShippingCalculator() {
             <form onSubmit={handleCalculate} className="space-y-3.5 pt-2 border-t border-border/60">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-bold text-muted uppercase tracking-wider">
-                  Calcular costo a tu localidad
+                  {isPcArmada ? "Calcular costo a tu localidad (Nacional / MDP)" : "Calcular envío en Mar del Plata"}
                 </span>
                 <button
                   type="button"
@@ -190,7 +198,7 @@ export default function ShippingCalculator() {
                       <span className="font-bold text-emerald-600 dark:text-emerald-400 uppercase">Gratis</span>
                     </div>
                   </div>
-                ) : result.andreaniOptions ? (
+                ) : isPcArmada && result.andreaniOptions ? (
                   <div className="space-y-2">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-accent mb-1">
                       <Truck className="w-3.5 h-3.5" /> Opciones de Envío Nacional ANDREANI:
@@ -222,7 +230,16 @@ export default function ShippingCalculator() {
                       </span>
                     </div>
                   </div>
-                ) : null}
+                ) : (
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 text-xs text-amber-900 dark:text-amber-300 space-y-1.5">
+                    <div className="font-bold flex items-center gap-1.5">
+                      ⚠️ Envíos Nacionales Exclusivos para PCs Armadas
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-400">
+                      Por el momento, los envíos a todo el país por Andreani aplican únicamente a <strong>PCs Armadas</strong>. Para componentes, accesorios y periféricos, la entrega está disponible en <strong>Mar del Plata (CP 7600)</strong> o con retiro gratuito en sucursal.
+                    </p>
+                  </div>
+                )}
               </motion.div>
             )}
           </motion.div>
