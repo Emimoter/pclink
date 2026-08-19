@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Product } from "@/types/product";
 import { useCartStore } from "@/store/useCartStore";
 import { Button } from "@/components/ui/Button";
-import { Sparkles, ArrowRight, ShieldCheck, Gamepad2, ShoppingCart } from "lucide-react";
+import { Sparkles, ArrowRight, Eye, ShoppingCart } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PcArmadasLineupProps {
@@ -13,28 +13,24 @@ interface PcArmadasLineupProps {
 
 const TIER_ORDER = ["entry", "advanced", "pro", "ultra"];
 
-const TIER_CONFIG: Record<string, { badge: string; color: string; games: string; subtitle: string }> = {
+const TIER_CONFIG: Record<string, { badge: string; games: string; subtitle: string }> = {
   entry: {
     badge: "PC Gamer Entry",
-    color: "from-emerald-500/20 via-emerald-500/5 to-transparent border-emerald-500/30 text-emerald-600",
     games: "CS2 • Valorant • LoL • GTA V",
     subtitle: "Ryzen 5 5600GT • 16GB Dual • SSD 480GB",
   },
   advanced: {
     badge: "PC Gamer Advanced",
-    color: "from-amber-500/20 via-amber-500/5 to-transparent border-amber-500/30 text-amber-600",
     games: "Warzone • Cyberpunk • RDR 2",
     subtitle: "Ryzen 5 5600 • RX 9050 8GB • 512GB NVMe",
   },
   pro: {
     badge: "PC Gamer Pro",
-    color: "from-cyan-500/20 via-cyan-500/5 to-transparent border-cyan-500/30 text-cyan-600",
     games: "Black Myth • RT 1080p • GTA 6 Ready",
     subtitle: "Ryzen 5 8500G • RTX 5060 GDDR7 • 1TB NVMe",
   },
   ultra: {
     badge: "PC Gamer Ultra",
-    color: "from-purple-500/20 via-purple-500/5 to-transparent border-purple-500/30 text-purple-600",
     games: "1440p / 4K Ultra • Streaming • Render",
     subtitle: "Ryzen 7 8700F • RTX 5060 Ti • 32GB DDR5",
   },
@@ -63,10 +59,7 @@ export default function PcArmadasLineup({ products }: PcArmadasLineupProps) {
   if (pcProducts.length === 0) return null;
 
   return (
-    <div className="w-full bg-gradient-to-b from-surface via-surface/60 to-background border border-border/80 rounded-3xl p-6 md:p-8 space-y-6 shadow-sm overflow-hidden relative">
-      {/* Background ambient blur */}
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl -z-10 pointer-events-none" />
-
+    <div className="w-full bg-surface border border-border rounded-3xl p-6 md:p-8 space-y-6 shadow-sm overflow-hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border/60 pb-6">
         <div>
@@ -93,7 +86,7 @@ export default function PcArmadasLineup({ products }: PcArmadasLineupProps) {
       </div>
 
       {/* 4-Column Grid of PC Lineup */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {pcProducts.map((product) => {
           const tier = getTierKey(product);
           const config = TIER_CONFIG[tier] || TIER_CONFIG.ultra;
@@ -103,24 +96,21 @@ export default function PcArmadasLineup({ products }: PcArmadasLineupProps) {
           return (
             <div
               key={product.id}
-              className={cn(
-                "group relative bg-background border rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 hover:shadow-lg hover:-translate-y-1 overflow-hidden",
-                config.color
-              )}
+              className="group relative bg-background border border-border hover:border-slate-400 rounded-3xl p-5 flex flex-col justify-between transition-all duration-300 hover:shadow-[0_15px_30px_rgba(0,0,0,0.06)] hover:-translate-y-1 overflow-hidden"
             >
               <div>
-                {/* Badge top */}
+                {/* Badges top */}
                 <div className="flex items-center justify-between gap-2 mb-3">
-                  <span className="text-[10px] font-black tracking-wide px-2.5 py-1 rounded-lg border bg-surface/90 shadow-xs">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-accent font-mono">
                     {config.badge}
                   </span>
-                  <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                  <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
                     A Pedido
                   </span>
                 </div>
 
                 {/* Product Image */}
-                <Link href={`/products/${product.id}`} className="block aspect-square w-full relative mb-3 bg-surface/40 rounded-xl overflow-hidden p-3 flex items-center justify-center">
+                <Link href={`/products/${product.id}`} className="block aspect-square w-full relative mb-4 bg-surface/50 rounded-2xl overflow-hidden p-4 flex items-center justify-center border border-border/50">
                   {imageSrc ? (
                     <img
                       src={imageSrc}
@@ -131,40 +121,46 @@ export default function PcArmadasLineup({ products }: PcArmadasLineupProps) {
                 </Link>
 
                 {/* Specs Subtitle */}
-                <h3 className="text-xs font-bold text-primary leading-snug line-clamp-2 mb-1">
-                  {config.subtitle}
-                </h3>
-                <p className="text-[10px] text-muted font-medium mb-3">
+                <Link href={`/products/${product.id}`}>
+                  <h3 className="text-xs font-bold text-primary hover:text-accent transition-colors leading-snug line-clamp-2 mb-1.5">
+                    {config.subtitle}
+                  </h3>
+                </Link>
+                <p className="text-[11px] text-muted font-medium mb-3">
                   🎮 {config.games}
                 </p>
               </div>
 
-              {/* Price & Actions */}
-              <div className="pt-3 border-t border-border/60 mt-2 flex items-center justify-between gap-2">
+              {/* Price & Actions (Circular Buttons) */}
+              <div className="pt-4 border-t border-border/60 mt-2 flex items-end justify-between gap-2">
                 <div>
-                  <span className="text-[9px] uppercase font-bold text-muted block leading-none mb-0.5">
+                  <span className="text-[9px] uppercase font-bold text-muted block leading-none mb-1">
                     Transferencia
                   </span>
-                  <span className="text-base font-black text-primary font-mono tracking-tight">
+                  <span className="text-lg font-black text-primary font-mono tracking-tight">
                     ${price.toLocaleString("es-AR")}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   <Link href={`/products/${product.id}`}>
-                    <Button variant="outline" size="sm" className="h-8 px-2.5 text-[10px] font-bold rounded-lg">
-                      Ver
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="w-9 h-9 rounded-full bg-surface hover:bg-background border border-border shadow-xs hover:scale-105 active:scale-95 transition-all"
+                    >
+                      <Eye className="w-4 h-4 text-primary" />
                     </Button>
                   </Link>
                   <Button
-                    size="sm"
-                    className="h-8 w-8 p-0 rounded-lg shrink-0"
+                    size="icon"
+                    className="w-9 h-9 rounded-full bg-primary text-white hover:bg-primary/90 shadow-xs hover:scale-105 active:scale-95 transition-all"
                     onClick={(e) => {
                       e.preventDefault();
                       addItem(product);
                     }}
                   >
-                    <ShoppingCart className="w-3.5 h-3.5" />
+                    <ShoppingCart className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
