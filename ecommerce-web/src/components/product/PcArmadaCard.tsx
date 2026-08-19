@@ -48,7 +48,7 @@ function parseSpecsFromProduct(product: Product): ParsedPcSpecs {
 
   if (id.includes("entry") || name.includes("ENTRY") || name.includes("5600GT")) {
     return {
-      badge: "ENTRY LEVEL ESPORTS",
+      badge: "PC GAMER ENTRY",
       badgeColor: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
       tierSubtitle: "Ideal para jugar con fluidez a títulos competitivos y trabajo/estudio",
       cpu: "AMD Ryzen 5 5600GT (6 Núcleos / 12 Hilos hasta 4.6 GHz)",
@@ -62,9 +62,9 @@ function parseSpecsFromProduct(product: Product): ParsedPcSpecs {
     };
   }
 
-  if (id.includes("ultra") || name.includes("1080P") || name.includes("RX 7600") || name.includes("9050")) {
+  if (id.includes("advanced") || name.includes("ADVANCED") || id.includes("ultra-r7-rx7600") || name.includes("9050") || name.includes("1080P")) {
     return {
-      badge: "1080P ULTRA GAMING",
+      badge: "PC GAMER ADVANCED",
       badgeColor: "bg-amber-500/10 text-amber-600 border-amber-500/20",
       tierSubtitle: "Potencia gráfica dedicada para jugar a todo en calidad Ultra",
       cpu: "AMD Ryzen 5 5600 (6 Núcleos / 12 Hilos hasta 4.4 GHz)",
@@ -78,9 +78,9 @@ function parseSpecsFromProduct(product: Product): ParsedPcSpecs {
     };
   }
 
-  if (id.includes("nextgen") || name.includes("NEXT-GEN") || name.includes("5060")) {
+  if (id.includes("pro") || name.includes("PRO") || id.includes("nextgen") || name.includes("8500G") || name.includes("5060 8GB")) {
     return {
-      badge: "NEXT-GEN AM5 & GDDR7",
+      badge: "PC GAMER PRO",
       badgeColor: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
       tierSubtitle: "Plataforma AM5 de última generación con DLSS 3/4 y trazado de rayos",
       cpu: "AMD Ryzen 5 8500G (6 Núcleos / 12 Hilos hasta 5.0 GHz)",
@@ -94,9 +94,9 @@ function parseSpecsFromProduct(product: Product): ParsedPcSpecs {
     };
   }
 
-  // Performance / Pro
+  // PC Gamer Ultra
   return {
-    badge: "PERFORMANCE PRO & 4K",
+    badge: "PC GAMER ULTRA",
     badgeColor: "bg-purple-500/10 text-purple-600 border-purple-500/20",
     tierSubtitle: "Máximo rendimiento para juegos pesados en 1440p/4K, streaming y render",
     cpu: "AMD Ryzen 7 8700F / Intel Core Ultra 5 245KF",
