@@ -281,7 +281,7 @@ export default function PcArmadaCard({ product }: PcArmadaCardProps) {
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>Envíos en el día MDP & Andreani</span>
+                <span>Envíos a todo el país</span>
               </div>
             </div>
           </div>
