@@ -398,22 +398,6 @@ export default function PcDetailSpecs({ productId, productName, description }: P
   return (
     <div className="space-y-12 mt-12 border-t border-border pt-12">
       
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-accent/10 via-surface to-background border border-accent/20 rounded-3xl p-6 md:p-8 space-y-2">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-accent animate-pulse" />
-          <span className="text-xs font-black uppercase tracking-widest text-accent font-mono">
-            Configuración Certificada PC Link
-          </span>
-        </div>
-        <h2 className="text-2xl md:text-3xl font-black text-primary tracking-tight">
-          Desglose Técnico de Hardware: {tierName}
-        </h2>
-        <p className="text-sm text-muted font-medium max-w-2xl">
-          {tierSubtitle}
-        </p>
-      </div>
-
       {/* Component Breakdown 2-Column Grid */}
       <div>
         <h3 className="text-base font-black text-primary mb-6 uppercase tracking-wider flex items-center gap-2">
