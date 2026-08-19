@@ -184,6 +184,54 @@ export default function ProductCard({ product, isLarge, isSmall }: ProductCardPr
               {product.name}
             </h3>
           </Link>
+
+          {/* Special Mini Spec Stack for PC Armadas in grid view */}
+          {product.category === "PC_ARMADAS" && !isLarge && (
+            <div className="bg-background/80 border border-border/60 rounded-xl p-2.5 space-y-1.5 text-[11px] font-medium text-muted">
+              {product.name.includes("ENTRY") || product.name.includes("5600GT") ? (
+                <>
+                  <div className="flex items-center gap-1.5 text-primary font-bold">
+                    <span>🧠 Ryzen 5 5600GT (6c/12t)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-emerald-600 font-bold">
+                    <span>⚡ 16GB Dual Channel • SSD 480GB</span>
+                  </div>
+                  <div className="text-[10px] text-muted">📦 Gabinete Kit 500W</div>
+                </>
+              ) : product.name.includes("1080P") || product.name.includes("9050") ? (
+                <>
+                  <div className="flex items-center gap-1.5 text-primary font-bold">
+                    <span>🧠 Ryzen 5 5600 + RX 9050 8GB</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-amber-600 font-bold">
+                    <span>⚡ 16GB RAM • SSD 512GB NVMe</span>
+                  </div>
+                  <div className="text-[10px] text-muted">🛡️ Formula V Crystal Z1</div>
+                </>
+              ) : product.name.includes("8500G") || product.name.includes("NEXT-GEN") ? (
+                <>
+                  <div className="flex items-center gap-1.5 text-primary font-bold">
+                    <span>🧠 Ryzen 5 8500G + RTX 5060 GDDR7</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-cyan-600 font-bold">
+                    <span>⚡ 16GB DDR5 RGB • SSD 1TB NVMe</span>
+                  </div>
+                  <div className="text-[10px] text-muted">🛡️ Formula V U2M Acuario White</div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-1.5 text-primary font-bold">
+                    <span>🧠 Ryzen 7 8700F + RTX 5060 Ti</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-purple-600 font-bold">
+                    <span>⚡ 32GB DDR5 RGB • SSD 1TB NVMe</span>
+                  </div>
+                  <div className="text-[10px] text-muted">🛡️ Formula V Crystal Z9 Floe</div>
+                </>
+              )}
+            </div>
+          )}
+
           {isLarge && product.description && (
             <p className="text-muted text-xs leading-relaxed max-w-[45ch] line-clamp-4 mt-2">
               {product.description}
