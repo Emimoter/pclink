@@ -10,6 +10,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import ProductCard from "@/components/product/ProductCard";
 import ShippingCalculator from "@/components/product/ShippingCalculator";
+import PcDetailSpecs from "@/components/product/PcDetailSpecs";
 import { cn } from "@/lib/utils";
 
 interface ProductDetailClientProps {
@@ -312,16 +313,18 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
           {/* Shipping Calculator Widget */}
           <ShippingCalculator />
 
-          {/* Description */}
-          <div className="mt-8 border-t border-border pt-8">
-            <h3 className="text-sm font-bold text-primary mb-4 uppercase tracking-wider">Descripción</h3>
-            <p className="text-muted leading-relaxed whitespace-pre-line font-medium">
-              {product.description || "Este producto no tiene una descripción detallada provista."}
-            </p>
-          </div>
+          {/* Description for standard products */}
+          {product.category !== "PC_ARMADAS" && (
+            <div className="mt-8 border-t border-border pt-8">
+              <h3 className="text-sm font-bold text-primary mb-4 uppercase tracking-wider">Descripción</h3>
+              <p className="text-muted leading-relaxed whitespace-pre-line font-medium">
+                {product.description || "Este producto no tiene una descripción detallada provista."}
+              </p>
+            </div>
+          )}
 
-          {/* Specifications */}
-          {product.specs && Object.keys(product.specs).length > 0 && (
+          {/* Specifications for standard products */}
+          {product.category !== "PC_ARMADAS" && product.specs && Object.keys(product.specs).length > 0 && (
             <div className="mt-8 border-t border-border pt-8">
               <h3 className="text-sm font-bold text-primary mb-4 uppercase tracking-wider">Especificaciones</h3>
               <div className="bg-surface border border-border rounded-2xl overflow-hidden">
@@ -340,6 +343,15 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
           )}
         </div>
       </div>
+
+      {/* Advanced Technical Breakdown for PC Armadas */}
+      {product.category === "PC_ARMADAS" && (
+        <PcDetailSpecs 
+          productId={product.id} 
+          productName={product.name} 
+          description={product.description || ""} 
+        />
+      )}
 
       {/* Related products */}
       {filteredRelated.length > 0 && (
