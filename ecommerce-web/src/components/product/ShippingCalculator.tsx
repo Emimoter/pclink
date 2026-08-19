@@ -51,7 +51,7 @@ export default function ShippingCalculator() {
           <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-500 shrink-0">
             <Check className="w-3.5 h-3.5 stroke-[2.5]" />
           </span>
-          <span>Garantía oficial en todos los productos de 12 meses</span>
+          <span>Garantía oficial escrita de 6 meses</span>
         </div>
       </div>
 

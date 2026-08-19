@@ -509,7 +509,7 @@ export default function PcDetailSpecs({ productId, productName, description }: P
             <div className="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mb-1">
               <ShieldCheck className="w-5 h-5" />
             </div>
-            <h4 className="text-xs font-bold text-primary">12 Meses de Garantía Oficial</h4>
+            <h4 className="text-xs font-bold text-primary">6 Meses de Garantía Oficial</h4>
             <p className="text-[11px] text-muted leading-relaxed">
               Garantía escrita respaldada por PC Link y los importadores oficiales.
             </p>

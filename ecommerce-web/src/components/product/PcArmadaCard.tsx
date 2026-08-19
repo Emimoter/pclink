@@ -277,7 +277,7 @@ export default function PcArmadaCard({ product }: PcArmadaCardProps) {
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>12 Meses de Garantía Escrita</span>
+                <span>6 Meses de Garantía Escrita</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
