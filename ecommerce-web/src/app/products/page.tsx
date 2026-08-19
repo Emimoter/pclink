@@ -5,6 +5,7 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useProducts } from "@/hooks/useProducts";
 import ProductCard from "@/components/product/ProductCard";
 import PcArmadaCard from "@/components/product/PcArmadaCard";
+import PcArmadasLineup from "@/components/product/PcArmadasLineup";
 import { Loader2, X, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { getCategoryName } from "@/lib/categories";
@@ -13,6 +14,42 @@ import { cn } from "@/lib/utils";
 import { getRelevanceScore } from "@/lib/search";
 import HeroBanner from "@/components/home/HeroBanner";
 import SidebarFilters from "@/components/product/SidebarFilters";
+import { Product } from "@/types/product";
+
+const CATEGORY_PRIORITY: Record<string, number> = {
+  PC_ARMADAS: 100,
+  NOTEBOOK: 90,
+  GPU: 85,
+  MONITOR: 80,
+  SILLAS_GAMER: 75,
+  GAMING: 70,
+  CPU: 65,
+  MOTHERBOARD: 60,
+  CASE: 55,
+  COOLING: 50,
+  PSU: 45,
+  RAM: 40,
+  STORAGE: 35,
+  HEADPHONES: 30,
+  KEYBOARD: 25,
+  MOUSE: 20,
+  PARLANTES: 18,
+  CARGADORES: 15,
+  NETWORK: 12,
+  PRINTER: 10,
+  INK_TONER: 5,
+  CABLES: 2,
+};
+
+function getProductCatalogScore(p: Product): number {
+  let score = CATEGORY_PRIORITY[p.category] || 10;
+  if (p.isFeatured) score += 50;
+  if (p.isOffer) score += 20;
+  if (p.stock > 0 || p.category === "PC_ARMADAS") score += 10;
+  const price = typeof p.price === "number" ? p.price : 0;
+  score += Math.min(price / 50000, 30);
+  return score;
+}
 
 const VISUAL_CATEGORIES = [
   {
@@ -186,7 +223,7 @@ function ProductsPageContent() {
   const search = searchParams.get("search") || "";
   const { products, loading, error } = useProducts();
 
-  const [sortBy, setSortBy] = useState<string>("price-desc");
+  const [sortBy, setSortBy] = useState<string>("relevance");
   const [visibleCount, setVisibleCount] = useState(12);
 
   // Filter States
@@ -267,8 +304,12 @@ function ProductsPageContent() {
       const priceB = typeof b.product.price === "number" ? b.product.price : 0;
       return priceB - priceA;
     }
-    // Relevancia: sort by score descending
-    return b.score - a.score;
+    // Relevancia inteligente
+    if (searchQuery && searchQuery.trim().length > 0) {
+      return b.score - a.score;
+    }
+    // Si no hay búsqueda, priorizar productos vistosos y de alto impacto
+    return getProductCatalogScore(b.product) - getProductCatalogScore(a.product);
   }).map((item) => item.product);
 
   const handleCategorySelect = (catId: string) => {
@@ -307,7 +348,7 @@ function ProductsPageContent() {
     const isHome = pathname === "/";
     const basePath = isHome ? "/" : "/products";
     router.push(basePath);
-    setSortBy("price-desc");
+    setSortBy("relevance");
     setOnlyStock(false);
     setOnlyOffers(false);
     setMinPrice("");
@@ -460,6 +501,11 @@ function ProductsPageContent() {
         </div>
       </div>
 
+      {/* Pinned PC Armadas Lineup Showcase on Main Store View */}
+      {!category && !searchQuery && products.length > 0 && (
+        <PcArmadasLineup products={products} />
+      )}
+
       {/* Main Content & Products Catalog */}
       <div id="products-catalog" className="space-y-8">
         {/* Header toolbar */}
@@ -505,9 +551,9 @@ function ProductsPageContent() {
                 onChange={(e) => setSortBy(e.target.value)}
                 className="bg-background hover:bg-surface text-primary border border-border rounded-xl px-4 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-accent/25 focus:border-accent cursor-pointer transition-all"
               >
-                <option value="">Relevancia</option>
-                <option value="price-asc">Precio: Menor a Mayor</option>
+                <option value="relevance">Relevancia (Destacados)</option>
                 <option value="price-desc">Precio: Mayor a Menor</option>
+                <option value="price-asc">Precio: Menor a Mayor</option>
               </select>
             </div>
           </div>
@@ -564,7 +610,7 @@ function ProductsPageContent() {
                 transition={{ duration: 0.8, ease: "easeOut" }}
                 className="space-y-10"
               >
-                {/* Special Horizontal Showcase for PC_ARMADAS, standard grid for components */}
+                {/* Special Horizontal Showcase for PC_ARMADAS, standard symmetric grid for all other views */}
                 {category === "PC_ARMADAS" ? (
                   <div className="flex flex-col space-y-6 w-full">
                     {sortedProducts.slice(0, visibleCount).map((product) => (
@@ -573,15 +619,9 @@ function ProductsPageContent() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                    {sortedProducts.slice(0, visibleCount).map((product) =>
-                      product.category === "PC_ARMADAS" ? (
-                        <div key={product.id} className="col-span-1 sm:col-span-2 md:col-span-3 w-full">
-                          <PcArmadaCard product={product} />
-                        </div>
-                      ) : (
-                        <ProductCard key={product.id} product={product} />
-                      )
-                    )}
+                    {sortedProducts.slice(0, visibleCount).map((product) => (
+                      <ProductCard key={product.id} product={product} />
+                    ))}
                   </div>
                 )}
 
