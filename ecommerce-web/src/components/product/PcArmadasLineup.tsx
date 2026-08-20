@@ -94,12 +94,9 @@ export default function PcArmadasLineup({ products }: PcArmadasLineupProps) {
             >
               <div>
                 {/* Badges top */}
-                <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="mb-3">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-accent font-mono">
                     {config.badge}
-                  </span>
-                  <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
-                    A Pedido
                   </span>
                 </div>
 
