@@ -370,6 +370,11 @@ function ProductsPageContent() {
 
       <div className={cn("container mx-auto px-4 pb-12 max-w-7xl flex flex-col gap-12", (!category && !search) ? "pt-0" : "pt-12")}>
 
+        {/* Pinned PC Armadas Lineup Showcase on Main Store View (Above Categories) */}
+        {!category && !searchQuery && products.length > 0 && (
+          <PcArmadasLineup products={products} />
+        )}
+
         {/* Category Grid Section */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -500,11 +505,6 @@ function ProductsPageContent() {
           </div>
         </div>
       </div>
-
-      {/* Pinned PC Armadas Lineup Showcase on Main Store View */}
-      {!category && !searchQuery && products.length > 0 && (
-        <PcArmadasLineup products={products} />
-      )}
 
       {/* Main Content & Products Catalog */}
       <div id="products-catalog" className="space-y-8">

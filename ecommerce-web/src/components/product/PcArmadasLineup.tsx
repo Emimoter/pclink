@@ -61,19 +61,13 @@ export default function PcArmadasLineup({ products }: PcArmadasLineupProps) {
   return (
     <div className="w-full bg-surface border border-border rounded-3xl p-6 md:p-8 space-y-6 shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border/60 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border/60 pb-5">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Sparkles className="w-4 h-4 text-accent animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-accent font-mono">
-              Armados Exclusivos PC Link
-            </span>
-          </div>
-          <h2 className="text-xl md:text-2xl font-black text-primary tracking-tight">
-            Lineup Oficial de PCs Gamer
+          <h2 className="text-xl md:text-2xl font-black text-primary tracking-tight font-sans">
+            PCs Gamer <span className="text-accent">listas para usar</span>
           </h2>
           <p className="text-xs text-muted font-medium mt-0.5">
-            Ensambladas a pedido con componentes de primera línea, test de estrés y 6 meses de garantía escrita.
+            Testeadas bajo carga continua con Windows 11 instalado y 6 meses de garantía escrita.
           </p>
         </div>
 
