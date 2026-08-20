@@ -126,12 +126,9 @@ export default function PcArmadasLineup({ products }: PcArmadasLineupProps) {
               </div>
 
               {/* Price & Actions (Circular Buttons) */}
-              <div className="pt-4 border-t border-border/60 mt-2 flex items-end justify-between gap-2">
+              <div className="pt-4 border-t border-border/60 mt-2 flex items-center justify-between gap-2">
                 <div>
-                  <span className="text-[9px] uppercase font-bold text-muted block leading-none mb-1">
-                    Transferencia
-                  </span>
-                  <span className="text-lg font-black text-primary font-mono tracking-tight">
+                  <span className="text-xl font-black text-primary font-mono tracking-tight">
                     ${price.toLocaleString("es-AR")}
                   </span>
                 </div>
