@@ -45,7 +45,12 @@ function getTierKey(product: Product): string {
   return "ultra";
 }
 
+// Ocultado temporalmente a pedido. Cambiar a true para volver a habilitar la sección en la tienda.
+const IS_VISIBLE = false;
+
 export default function PcArmadasLineup({ products }: PcArmadasLineupProps) {
+  if (!IS_VISIBLE) return null;
+
   const addItem = useCartStore((state) => state.addItem);
 
   const pcProducts = products
