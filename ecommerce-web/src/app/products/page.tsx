@@ -368,7 +368,7 @@ function ProductsPageContent() {
         </div>
       )} */}
 
-      <div className={cn("container mx-auto px-4 pb-12 max-w-7xl flex flex-col gap-12", (!category && !search) ? "pt-0" : "pt-12")}>
+      <div className={cn("container mx-auto px-4 pb-12 max-w-7xl flex flex-col gap-12", (!category && !search) ? "pt-8" : "pt-12")}>
 
         {/* Pinned PC Armadas Lineup Showcase on Main Store View (Above Categories) */}
         {!category && !searchQuery && products.length > 0 && (

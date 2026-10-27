@@ -49,9 +49,9 @@ function getTierKey(product: Product): string {
 const IS_VISIBLE = false;
 
 export default function PcArmadasLineup({ products }: PcArmadasLineupProps) {
-  if (!IS_VISIBLE) return null;
-
   const addItem = useCartStore((state) => state.addItem);
+
+  if (!IS_VISIBLE) return null;
 
   const pcProducts = products
     .filter((p) => p.category === "PC_ARMADAS")
