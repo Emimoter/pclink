@@ -43,10 +43,12 @@ enum class CategoryId(
     GAMING("Accesorios Gaming", Icons.Outlined.SportsEsports),
     NETWORK("Redes / Routers", Icons.Outlined.Router),
     INK_TONER("Cartuchos y Tóners", Icons.Outlined.InvertColors),
-    PC_ARMADAS("PCs Armadas", Icons.Outlined.Monitor),
+    PC_ARMADAS("PC Gamer", Icons.Outlined.Monitor),
+    PC_OFICINA("PC Oficina", Icons.Outlined.Monitor),
     SILLAS_GAMER("Sillas Gamer", Icons.Outlined.SportsEsports),
     CARGADORES("Cargadores", Icons.Outlined.Power),
     PARLANTES("Parlantes", Icons.Outlined.Headphones),
+    OTROS("Otros", Icons.Outlined.SettingsInputComponent),
     OFFERS("Ofertas", Icons.Outlined.Bolt);
 
     companion object {

@@ -60,11 +60,13 @@ export async function uploadProductImage(
 export async function updateProductCategory(
   db: Firestore,
   productId: string,
-  category: CategoryIdValue
+  category: CategoryIdValue,
+  lockCategory: boolean = true
 ): Promise<void> {
   const productRef = doc(db, 'products', productId)
   await updateDoc(productRef, {
     category,
+    categoryLocked: lockCategory,
     updatedAt: Date.now()
   })
 }

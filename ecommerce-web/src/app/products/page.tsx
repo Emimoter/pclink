@@ -8,7 +8,8 @@ import PcArmadaCard from "@/components/product/PcArmadaCard";
 import PcArmadasLineup from "@/components/product/PcArmadasLineup";
 import { Loader2, X, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { getCategoryName } from "@/lib/categories";
+import { getCategoryName, getFirestoreCategoryKey, isPcCategory } from "@/lib/categories";
+import { isOfferProduct } from "@/lib/productFilters";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getRelevanceScore } from "@/lib/search";
@@ -18,6 +19,7 @@ import { Product } from "@/types/product";
 
 const CATEGORY_PRIORITY: Record<string, number> = {
   PC_ARMADAS: 100,
+  PC_OFICINA: 95,
   NOTEBOOK: 90,
   GPU: 85,
   MONITOR: 80,
@@ -37,26 +39,34 @@ const CATEGORY_PRIORITY: Record<string, number> = {
   CARGADORES: 15,
   NETWORK: 12,
   PRINTER: 10,
+  OTROS: 8,
   INK_TONER: 5,
   CABLES: 2,
 };
 
 function getProductCatalogScore(p: Product): number {
   let score = CATEGORY_PRIORITY[p.category] || 10;
+  if (p.id.startsWith("pc-gamer-")) score += 80;
   if (p.isFeatured) score += 50;
   if (p.isOffer) score += 20;
-  if (p.stock > 0 || p.category === "PC_ARMADAS") score += 10;
+  if (p.stock > 0 || p.id.startsWith("pc-gamer-")) score += 10;
   const price = typeof p.price === "number" ? p.price : 0;
-  score += Math.min(price / 50000, 30);
+  score += Math.min(price / 100000, 40);
   return score;
 }
 
 const VISUAL_CATEGORIES = [
   {
     id: "pc",
-    name: "PCs Armadas",
+    name: "PC Gamer",
     categoryId: "PC_ARMADAS",
     image: "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&q=80&w=600",
+  },
+  {
+    id: "pc_oficina",
+    name: "PC Oficina",
+    categoryId: "PC_OFICINA",
+    image: "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&q=80&w=600",
   },
   {
     id: "monitores",
@@ -185,6 +195,12 @@ const VISUAL_CATEGORIES = [
     image: "/images/categories/toners.png",
   },
   {
+    id: "otros",
+    name: "Otros",
+    categoryId: "OTROS",
+    image: "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&q=80&w=400",
+  },
+  {
     id: "offers",
     name: "Ofertas",
     categoryId: "OFFERS",
@@ -219,7 +235,7 @@ function ProductsPageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const rawCategory = searchParams.get("category");
-  const category = rawCategory ? rawCategory.toUpperCase() : null;
+  const category = rawCategory ? getFirestoreCategoryKey(rawCategory) : null;
   const search = searchParams.get("search") || "";
   const { products, loading, error } = useProducts();
 
@@ -270,7 +286,13 @@ function ProductsPageContent() {
   const filteredProducts = products
     .filter((p) => {
       // Category Filter (client-side)
-      if (category && p.category !== category) return false;
+      if (category) {
+        if (category === "OFFERS") {
+          if (!isOfferProduct(p)) return false;
+        } else if (p.category !== category) {
+          return false;
+        }
+      }
 
       if (onlyStock && p.stock <= 0) return false;
       if (onlyOffers && !p.isOffer) return false;
@@ -357,8 +379,8 @@ function ProductsPageContent() {
     setSearchQuery("");
   };
 
-  const pcCategory = VISUAL_CATEGORIES.find((c) => c.id === "pc");
-  const otherCategories = VISUAL_CATEGORIES.filter((c) => c.id !== "pc");
+  const pinnedPcCategories = VISUAL_CATEGORIES.filter((c) => c.id === "pc" || c.id === "pc_oficina");
+  const otherCategories = VISUAL_CATEGORIES.filter((c) => c.id !== "pc" && c.id !== "pc_oficina");
 
   return (
     <div className="flex flex-col gap-12 w-full">
@@ -415,40 +437,46 @@ function ProductsPageContent() {
 
         {/* Categories container: pinned main card on the left, scrollable grid on the right */}
         <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-start justify-center lg:justify-start w-full max-w-full overflow-hidden">
-          {/* Categoría Principal: PC de Escritorio (Pinned) */}
-          {pcCategory && (
-            <div className="w-full lg:max-w-[296px] xl:max-w-[376px] lg:w-[296px] xl:w-[376px] h-[180px] lg:h-[312px] shrink-0 mx-auto lg:mx-0 py-2">
-              <motion.div
-                whileHover={{ y: -4 }}
-                whileTap={{ scale: 0.98 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                onClick={() => handleCategorySelect(pcCategory.categoryId)}
-                className={cn(
-                  "relative overflow-hidden cursor-pointer group rounded-3xl border transition-all duration-500 h-full w-full select-none shadow-[0_4px_20px_rgba(0,0,0,0.08)]",
-                  category === pcCategory.categoryId
-                    ? "border-accent ring-2 ring-accent/25 shadow-[0_10px_30px_rgba(6,182,212,0.15)]"
-                    : "border-border/60 hover:border-slate-300 hover:shadow-[0_12px_35px_rgba(0,0,0,0.12)]"
-                )}
-              >
-                {pcCategory.image ? (
-                  <img
-                    src={pcCategory.image}
-                    alt={pcCategory.name}
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 select-none"
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-gradient-to-br from-accent/80 via-primary/95 to-background group-hover:scale-105 transition-transform duration-700 flex items-center justify-center" />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent z-10" />
-                <div className="absolute bottom-4 inset-x-4 z-20 flex flex-col items-center justify-end h-full">
-                  <span className="font-black text-white text-center uppercase tracking-widest font-sans leading-none text-xs md:text-sm lg:text-base">
-                    {pcCategory.name}
-                  </span>
-                  {category === pcCategory.categoryId && (
-                    <span className="w-1.5 h-1.5 bg-accent rounded-full mt-2 animate-pulse" />
-                  )}
-                </div>
-              </motion.div>
+          {/* Categorías Principales: PC Gamer & PC Oficina (Pinned) */}
+          {pinnedPcCategories.length > 0 && (
+            <div className="w-full lg:max-w-[296px] xl:max-w-[376px] lg:w-[296px] xl:w-[376px] grid grid-cols-2 lg:grid-cols-1 lg:grid-rows-2 gap-4 h-[150px] lg:h-[312px] shrink-0 mx-auto lg:mx-0 py-2">
+              {pinnedPcCategories.map((pcCat) => {
+                const isSelected = category === pcCat.categoryId;
+                return (
+                  <motion.div
+                    key={pcCat.id}
+                    whileHover={{ y: -4 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                    onClick={() => handleCategorySelect(pcCat.categoryId)}
+                    className={cn(
+                      "relative overflow-hidden cursor-pointer group rounded-3xl border transition-all duration-500 h-full w-full select-none shadow-[0_4px_20px_rgba(0,0,0,0.08)]",
+                      isSelected
+                        ? "border-accent ring-2 ring-accent/25 shadow-[0_10px_30px_rgba(6,182,212,0.15)]"
+                        : "border-border/60 hover:border-slate-300 hover:shadow-[0_12px_35px_rgba(0,0,0,0.12)]"
+                    )}
+                  >
+                    {pcCat.image ? (
+                      <img
+                        src={pcCat.image}
+                        alt={pcCat.name}
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 select-none"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-accent/80 via-primary/95 to-background group-hover:scale-105 transition-transform duration-700 flex items-center justify-center" />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent z-10" />
+                    <div className="absolute bottom-3.5 inset-x-4 z-20 flex flex-col items-center justify-end h-full">
+                      <span className="font-black text-white text-center uppercase tracking-widest font-sans leading-none text-xs md:text-sm">
+                        {pcCat.name}
+                      </span>
+                      {isSelected && (
+                        <span className="w-1.5 h-1.5 bg-accent rounded-full mt-2 animate-pulse" />
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
           )}
 
@@ -610,8 +638,8 @@ function ProductsPageContent() {
                 transition={{ duration: 0.8, ease: "easeOut" }}
                 className="space-y-10"
               >
-                {/* Special Horizontal Showcase for PC_ARMADAS, standard symmetric grid for all other views */}
-                {category === "PC_ARMADAS" ? (
+                {/* Special Horizontal Showcase for PC Gamer & PC Oficina, standard symmetric grid for all other views */}
+                {isPcCategory(category) ? (
                   <div className="flex flex-col space-y-6 w-full">
                     {sortedProducts.slice(0, visibleCount).map((product) => (
                       <PcArmadaCard key={product.id} product={product} />

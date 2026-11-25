@@ -2,136 +2,66 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { Product } from "@/types/product";
 import { useCartStore } from "@/store/useCartStore";
 import { Button } from "@/components/ui/Button";
-import { 
-  Cpu, 
-  Gamepad2, 
-  Layers, 
-  HardDrive, 
-  Zap, 
-  Box, 
-  ShieldCheck, 
-  ShoppingCart, 
-  MessageCircle, 
-  Check, 
+import {
+  Cpu,
+  Gamepad2,
+  Layers,
+  HardDrive,
+  Zap,
+  Box,
+  ShoppingCart,
+  MessageCircle,
+  Check,
   ArrowRight,
-  Flame,
-  Sparkles,
-  CheckCircle2
+  CheckCircle2,
+  Monitor,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { parsePcSpecs } from "@/lib/pcSpecs";
 
 interface PcArmadaCardProps {
   product: Product;
 }
 
-interface ParsedPcSpecs {
-  badge: string;
-  badgeColor: string;
-  tierSubtitle: string;
-  cpu: string;
-  gpu: string;
-  ram: string;
-  storage: string;
-  motherboard: string;
-  psu: string;
-  cabinet: string;
-  games: string[];
-}
-
-function parseSpecsFromProduct(product: Product): ParsedPcSpecs {
-  const id = product.id.toLowerCase();
-  const name = (product.name || "").toUpperCase();
-
-  if (id.includes("entry") || name.includes("ENTRY") || name.includes("5600GT")) {
-    return {
-      badge: "PC Gamer Entry",
-      badgeColor: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-      tierSubtitle: "Ideal para jugar con fluidez a títulos competitivos y trabajo/estudio",
-      cpu: "AMD Ryzen 5 5600GT (6 Núcleos / 12 Hilos hasta 4.6 GHz)",
-      gpu: "Gráficos Radeon Vega 7 Integrados",
-      ram: "16 GB DDR4 3200 MHz (2x8 Dual Channel)",
-      storage: "SSD 480 GB SATA III Ultra Rápido",
-      motherboard: "MSI A520M-A PRO (Socket AM4)",
-      psu: "Fuente 500W con protecciones activas",
-      cabinet: "Gabinete Kit ATX Black",
-      games: ["CS2", "Valorant", "GTA V", "Fortnite", "LoL", "Roblox", "Minecraft"],
-    };
-  }
-
-  if (id.includes("advanced") || name.includes("ADVANCED") || id.includes("ultra-r7-rx7600") || name.includes("9050") || name.includes("1080P")) {
-    return {
-      badge: "PC Gamer Advanced",
-      badgeColor: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-      tierSubtitle: "Potencia gráfica dedicada para jugar a todo en calidad Ultra",
-      cpu: "AMD Ryzen 5 5600 (6 Núcleos / 12 Hilos hasta 4.4 GHz)",
-      gpu: "Gigabyte Radeon RX 9050 GAMING OC 8GB GDDR6",
-      ram: "16 GB DDR4 3200 MHz (2x8 Dual Channel)",
-      storage: "SSD M.2 NVMe 512 GB PCIe Ultra Rápido",
-      motherboard: "MSI A520M-A PRO (Socket AM4)",
-      psu: "600W - 650W 80 Plus Bronze",
-      cabinet: "Formula V Line Crystal Z1 Black",
-      games: ["Warzone", "Cyberpunk 2077", "RDR 2", "Forza Horizon 5", "Hogwarts Legacy"],
-    };
-  }
-
-  if (id.includes("pro") || name.includes("PRO") || id.includes("nextgen") || name.includes("8500G") || name.includes("5060 8GB")) {
-    return {
-      badge: "PC Gamer Pro",
-      badgeColor: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
-      tierSubtitle: "Plataforma AM5 de última generación con DLSS 3/4 y trazado de rayos",
-      cpu: "AMD Ryzen 5 8500G (6 Núcleos / 12 Hilos hasta 5.0 GHz)",
-      gpu: "NVIDIA GeForce RTX 5060 8GB GDDR7",
-      ram: "16 GB DDR5 6000 MHz RGB (Corsair Vengeance / Kingston Fury)",
-      storage: "SSD M.2 NVMe 1 TB PCIe 4.0 Gen4",
-      motherboard: "Biostar / ASRock A620MS DDR5",
-      psu: "Formula V Line 700W 80 Plus Bronze",
-      cabinet: "Formula V Line Crystal U2M Floe White (Acuario)",
-      games: ["Cyberpunk 2077 RT", "Black Myth: Wukong", "GTA 6 Ready", "Warzone 144Hz"],
-    };
-  }
-
-  // PC Gamer Ultra
-  return {
-    badge: "PC Gamer Ultra",
-    badgeColor: "bg-purple-500/10 text-purple-600 border-purple-500/20",
-    tierSubtitle: "Máximo rendimiento para juegos pesados en 1440p/4K, streaming y render",
-    cpu: "AMD Ryzen 7 8700F / Intel Core Ultra 5 245KF",
-    gpu: "NVIDIA GeForce RTX 5060 Ti (Memoria GDDR7)",
-    ram: "32 GB DDR5 5600/6000 MHz RGB (2x16 Dual Channel)",
-    storage: "SSD M.2 NVMe 1 TB PCIe 4.0 Gen4 Alta Velocidad",
-    motherboard: "B650M (AM5) o B860 (Intel) Disipación VRM",
-    psu: "700W - 750W 80 Plus Bronze / Gold Modular",
-    cabinet: "Formula V Line Crystal Z9 Floe Black (Mid-Tower)",
-    games: ["1440p / 4K Ultra", "Streaming 1080p60", "Render Blender / 4K Video", "Ray Tracing Max"],
-  };
-}
-
 export default function PcArmadaCard({ product }: PcArmadaCardProps) {
   const addItem = useCartStore((state) => state.addItem);
   const [added, setAdded] = useState(false);
-  const [failedImage, setFailedImage] = useState(false);
+  const [useFallbackImg, setUseFallbackImg] = useState(false);
+  const [fallbackFailed, setFallbackFailed] = useState(false);
 
+  const specs = parsePcSpecs(product);
   const price = typeof product.price === "number" ? product.price : 0;
-  const oldPrice = typeof product.oldPrice === "number" ? product.oldPrice : null;
-  const imageSrc = (product.images && product.images.length > 0) 
-    ? product.images[0] 
-    : ((product as any).imageUrl || "");
 
-  const specs = parseSpecsFromProduct(product);
+  const primaryImage =
+    product.images && product.images.length > 0 && product.images[0]?.trim()
+      ? product.images[0].trim()
+      : "";
+
+  const activeImageSrc =
+    primaryImage && !useFallbackImg ? primaryImage : specs.fallbackImage;
+
+  const isCustomUploadedPhoto = primaryImage.includes("firebasestorage.googleapis.com");
+  const showIllustrativeNotice = !specs.isOfficialTier && !isCustomUploadedPhoto;
+
+  const isAvailable =
+    price > 0 && (product.stock > 0 || specs.isOfficialTier || !!product.onDemand);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!isAvailable) return;
     addItem(product);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
 
-  const whatsappMessage = `Hola PC Link! Me interesa la ${product.name} ($${price.toLocaleString("es-AR")}). ¿Tienen disponibilidad para coordinar la compra?`;
+  const whatsappMessage =
+    price > 0
+      ? `Hola PC Link! Me interesa la ${product.name} ($${price.toLocaleString("es-AR")}). ¿Tienen disponibilidad para coordinar la compra?`
+      : `Hola PC Link! Me interesa consultar precio y disponibilidad de: ${product.name}.`;
   const whatsappUrl = `https://wa.me/5492235468972?text=${encodeURIComponent(whatsappMessage)}`;
 
   return (
@@ -140,40 +70,64 @@ export default function PcArmadaCard({ product }: PcArmadaCardProps) {
       <div className="absolute top-0 right-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl -z-10 group-hover:bg-accent/10 transition-colors pointer-events-none" />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-        
         {/* Left Column: Case Image (4 cols) */}
         <div className="lg:col-span-4 flex flex-col items-center justify-center">
           <Link href={`/products/${product.id}`} className="block w-full">
-            <div className="relative aspect-square w-full max-w-[280px] lg:max-w-none mx-auto bg-background/50 rounded-2xl p-6 flex items-center justify-center border border-border/50 group-hover:border-accent/20 transition-all overflow-hidden">
+            <div className="relative aspect-square w-full max-w-[280px] lg:max-w-none mx-auto bg-white rounded-2xl p-6 flex items-center justify-center border border-border/50 group-hover:border-accent/20 transition-all overflow-hidden">
               {/* Badge top-left */}
-              <span className={cn(
-                "absolute top-3 left-3 text-xs font-black tracking-wide px-3 py-1 rounded-xl border shadow-xs backdrop-blur-xs",
-                specs.badgeColor
-              )}>
+              <span
+                className={cn(
+                  "absolute top-3 left-3 z-10 text-xs font-black tracking-wide px-3 py-1 rounded-xl border shadow-xs backdrop-blur-xs",
+                  specs.badgeColor
+                )}
+              >
                 {specs.badge}
               </span>
 
-              {imageSrc && !failedImage ? (
+              {!isAvailable && (
+                <span className="absolute top-3 right-3 z-10 bg-red-50 text-red-600 border border-red-200 text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-lg font-mono">
+                  Agotado
+                </span>
+              )}
+
+              {showIllustrativeNotice && (
+                <span className="absolute bottom-2.5 inset-x-3 z-10 text-center bg-slate-900/75 text-white text-[9px] font-semibold tracking-wide px-2.5 py-1 rounded-lg backdrop-blur-xs">
+                  Imagen de gabinete ilustrativa
+                </span>
+              )}
+
+              {activeImageSrc && !fallbackFailed ? (
                 <img
-                  src={imageSrc}
+                  src={activeImageSrc}
                   alt={product.name}
-                  onError={() => setFailedImage(true)}
-                  className="w-full h-full object-contain mix-blend-multiply group-hover:scale-108 transition-transform duration-500"
+                  onError={() => {
+                    if (!useFallbackImg && primaryImage) {
+                      setUseFallbackImg(true);
+                    } else {
+                      setFallbackFailed(true);
+                    }
+                  }}
+                  className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center text-muted">
                   <Box className="w-16 h-16 text-muted/40 mb-2" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest">PC Armada</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest">
+                    {specs.isOfficePc ? "PC Oficina" : "PC Gamer"}
+                  </span>
                 </div>
               )}
             </div>
           </Link>
 
-          {/* Games tags under image */}
+          {/* Usage / Games tags under image */}
           <div className="mt-4 flex flex-wrap gap-1.5 justify-center">
-            {specs.games.slice(0, 4).map((game, i) => (
-              <span key={i} className="text-[10px] font-bold text-muted bg-background/80 px-2.5 py-1 rounded-md border border-border">
-                🎮 {game}
+            {specs.tags.slice(0, 4).map((tag, i) => (
+              <span
+                key={i}
+                className="text-[10px] font-bold text-muted bg-background/80 px-2.5 py-1 rounded-md border border-border"
+              >
+                {tag}
               </span>
             ))}
           </div>
@@ -183,7 +137,9 @@ export default function PcArmadaCard({ product }: PcArmadaCardProps) {
         <div className="lg:col-span-5 space-y-4">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-widest text-accent mb-1 block">
-              Configuración Completa & Testeada
+              {specs.isOfficePc
+                ? "Equipo Listo para Trabajar & Estudiar"
+                : "Configuración Completa & Testeada"}
             </span>
             <Link href={`/products/${product.id}`}>
               <h2 className="text-xl md:text-2xl font-black text-primary hover:text-accent transition-colors tracking-tight leading-snug">
@@ -195,7 +151,7 @@ export default function PcArmadaCard({ product }: PcArmadaCardProps) {
             </p>
           </div>
 
-          {/* Component Stack Rows (One on top of another) */}
+          {/* Component Stack Rows */}
           <div className="bg-background/60 border border-border/70 rounded-2xl p-4 space-y-2.5 text-xs font-medium">
             {/* CPU */}
             <div className="flex items-center gap-3">
@@ -203,19 +159,31 @@ export default function PcArmadaCard({ product }: PcArmadaCardProps) {
                 <Cpu className="w-4 h-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <span className="text-[10px] uppercase font-bold text-muted block">Procesador</span>
-                <span className="font-bold text-primary truncate block">{specs.cpu}</span>
+                <span className="text-[10px] uppercase font-bold text-muted block">
+                  Procesador
+                </span>
+                <span className="font-bold text-primary truncate block">
+                  {specs.cpu}
+                </span>
               </div>
             </div>
 
             {/* GPU */}
             <div className="flex items-center gap-3">
               <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center shrink-0">
-                <Gamepad2 className="w-4 h-4" />
+                {specs.isOfficePc ? (
+                  <Monitor className="w-4 h-4" />
+                ) : (
+                  <Gamepad2 className="w-4 h-4" />
+                )}
               </div>
               <div className="min-w-0 flex-1">
-                <span className="text-[10px] uppercase font-bold text-muted block">Placa de Video / Gráficos</span>
-                <span className="font-bold text-primary truncate block">{specs.gpu}</span>
+                <span className="text-[10px] uppercase font-bold text-muted block">
+                  Placa de Video / Gráficos
+                </span>
+                <span className="font-bold text-primary truncate block">
+                  {specs.gpu}
+                </span>
               </div>
             </div>
 
@@ -225,8 +193,12 @@ export default function PcArmadaCard({ product }: PcArmadaCardProps) {
                 <Layers className="w-4 h-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <span className="text-[10px] uppercase font-bold text-muted block">Memoria RAM</span>
-                <span className="font-bold text-primary truncate block">{specs.ram}</span>
+                <span className="text-[10px] uppercase font-bold text-muted block">
+                  Memoria RAM
+                </span>
+                <span className="font-bold text-primary truncate block">
+                  {specs.ram}
+                </span>
               </div>
             </div>
 
@@ -236,8 +208,12 @@ export default function PcArmadaCard({ product }: PcArmadaCardProps) {
                 <HardDrive className="w-4 h-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <span className="text-[10px] uppercase font-bold text-muted block">Almacenamiento</span>
-                <span className="font-bold text-primary truncate block">{specs.storage}</span>
+                <span className="text-[10px] uppercase font-bold text-muted block">
+                  Almacenamiento
+                </span>
+                <span className="font-bold text-primary truncate block">
+                  {specs.storage}
+                </span>
               </div>
             </div>
 
@@ -247,8 +223,12 @@ export default function PcArmadaCard({ product }: PcArmadaCardProps) {
                 <Zap className="w-4 h-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <span className="text-[10px] uppercase font-bold text-muted block">Gabinete & Fuente</span>
-                <span className="font-bold text-primary truncate block">{specs.cabinet} + {specs.psu}</span>
+                <span className="text-[10px] uppercase font-bold text-muted block">
+                  Gabinete & Fuente
+                </span>
+                <span className="font-bold text-primary truncate block">
+                  {specs.cabinet} + {specs.psu}
+                </span>
               </div>
             </div>
           </div>
@@ -261,13 +241,21 @@ export default function PcArmadaCard({ product }: PcArmadaCardProps) {
               Precio Transferencia / Efectivo
             </span>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl md:text-3xl font-black text-primary tracking-tight">
-                ${price.toLocaleString("es-AR")}
-              </span>
+              {price > 0 ? (
+                <span className="text-2xl md:text-3xl font-black text-primary tracking-tight">
+                  ${price.toLocaleString("es-AR")}
+                </span>
+              ) : (
+                <span className="text-xl font-black text-accent tracking-tight">
+                  Precio a consultar
+                </span>
+              )}
             </div>
-            <span className="text-xs text-muted block mt-1">
-              o en cuotas con tarjeta de crédito
-            </span>
+            {price > 0 && (
+              <span className="text-xs text-muted block mt-1">
+                o en cuotas con tarjeta de crédito
+              </span>
+            )}
 
             {/* Service Badges */}
             <div className="mt-4 space-y-1.5 text-xs text-primary font-medium">
@@ -277,7 +265,7 @@ export default function PcArmadaCard({ product }: PcArmadaCardProps) {
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>6 Meses de Garantía Escrita</span>
+                <span>Garantía Escrita en nuestro local</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
@@ -302,15 +290,18 @@ export default function PcArmadaCard({ product }: PcArmadaCardProps) {
             <div className="grid grid-cols-2 gap-2">
               <Button
                 onClick={handleAddToCart}
+                disabled={!isAvailable}
                 variant="outline"
                 size="sm"
-                className="w-full rounded-xl py-3 text-xs font-bold flex items-center justify-center gap-1.5"
+                className="w-full rounded-xl py-3 text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
                 {added ? (
                   <>
                     <Check className="w-4 h-4 text-emerald-500" />
                     Agregado
                   </>
+                ) : !isAvailable ? (
+                  <span>Sin Stock</span>
                 ) : (
                   <>
                     <ShoppingCart className="w-4 h-4 text-accent" />
@@ -337,7 +328,6 @@ export default function PcArmadaCard({ product }: PcArmadaCardProps) {
             </div>
           </div>
         </div>
-
       </div>
     </div>
   );

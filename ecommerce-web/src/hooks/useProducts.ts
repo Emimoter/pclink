@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, orderBy, where, QueryConstraint } from 'firebase/firestore';
+import { collection, query, onSnapshot, where, QueryConstraint } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { Product } from '@/types/product';
+import { isPublicProduct, isOfferProduct } from '@/lib/productFilters';
+import { getFirestoreCategoryKey } from '@/lib/categories';
 
 interface UseProductsOptions {
   category?: string;
@@ -18,9 +20,12 @@ export function useProducts(options: UseProductsOptions = {}) {
   useEffect(() => {
     try {
       const constraints: QueryConstraint[] = [];
-      
-      if (options.category) {
-        constraints.push(where('category', '==', options.category));
+      const resolvedCategory = options.category
+        ? getFirestoreCategoryKey(options.category)
+        : undefined;
+
+      if (resolvedCategory && resolvedCategory !== 'OFFERS') {
+        constraints.push(where('category', '==', resolvedCategory));
       }
       if (options.isOffer) {
         constraints.push(where('isOffer', '==', true));
@@ -28,26 +33,30 @@ export function useProducts(options: UseProductsOptions = {}) {
       if (options.isFeatured) {
         constraints.push(where('isFeatured', '==', true));
       }
-      
-      // We generally want to order by creation or alphabetically, but indexing might be required.
-      // If the admin app doesn't have complex indexes, we might just query and filter client side for some things.
-      // For now, let's just use the basic constraints.
-      
+
       const q = query(collection(db, 'products'), ...constraints);
 
       const unsubscribe = onSnapshot(
         q,
         (snapshot) => {
-          const fetchedProducts = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data()
-          })) as Product[];
-          
+          let fetchedProducts = snapshot.docs
+            .map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            })) as Product[];
+
+          // Filtro centralizado: excluye $0, ocultos, ST, LI y repuestos de taller
+          fetchedProducts = fetchedProducts.filter(isPublicProduct);
+
+          if (resolvedCategory === 'OFFERS') {
+            fetchedProducts = fetchedProducts.filter(isOfferProduct);
+          }
+
           setProducts(fetchedProducts);
           setLoading(false);
         },
         (err) => {
-          console.error("Error fetching products:", err);
+          console.error('Error fetching products:', err);
           setError(err);
           setLoading(false);
         }

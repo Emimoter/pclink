@@ -8,6 +8,8 @@ import { ShoppingCart, Eye, Cpu, ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
+import { getCategoryName, isPcCategory } from "@/lib/categories";
+import { parsePcSpecs } from "@/lib/pcSpecs";
 
 interface ProductCardProps {
   product: Product;
@@ -22,6 +24,18 @@ export default function ProductCard({ product, isLarge, isSmall }: ProductCardPr
 
   const price = typeof product.price === "number" ? product.price : 0;
   const oldPrice = typeof product.oldPrice === "number" ? product.oldPrice : null;
+
+  const isPc = isPcCategory(product.category);
+  const pcSpecs = isPc ? parsePcSpecs(product) : null;
+  const effectiveImages =
+    product.images && product.images.length > 0 && product.images[0]?.trim()
+      ? product.images
+      : pcSpecs
+      ? [pcSpecs.fallbackImage]
+      : [];
+
+  const isOutOfStock =
+    product.stock <= 0 && !product.onDemand && !(pcSpecs && pcSpecs.isOfficialTier);
 
   const discountPercentage =
     oldPrice && oldPrice > price
@@ -60,7 +74,7 @@ export default function ProductCard({ product, isLarge, isSmall }: ProductCardPr
               🚚 Llega en 4 días
             </span>
           )}
-          {product.stock === 0 && (
+          {isOutOfStock && (
             <span className={cn(
               "bg-red-50 text-red-600 border border-red-200 text-[9px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-md font-mono",
               isSmall && "text-[8px] px-2 py-0.5"
@@ -92,15 +106,26 @@ export default function ProductCard({ product, isLarge, isSmall }: ProductCardPr
         {/* Image & Carousel Controls */}
         <div className="relative w-full h-full flex items-center justify-center">
           <Link href={`/products/${product.id}`} className="w-full h-full flex items-center justify-center cursor-pointer">
-            {product.images && product.images.length > 0 && !failedImages[product.images[currentImageIndex]] ? (
+            {effectiveImages.length > 0 && !failedImages[effectiveImages[currentImageIndex]] ? (
               <img
-                src={product.images[currentImageIndex]}
+                src={effectiveImages[currentImageIndex]}
                 alt={product.name}
                 onError={() => {
-                  if (product.images?.[currentImageIndex]) {
-                    setFailedImages(prev => ({ ...prev, [product.images[currentImageIndex]]: true }));
+                  const failedSrc = effectiveImages[currentImageIndex];
+                  if (failedSrc) {
+                    setFailedImages(prev => ({ ...prev, [failedSrc]: true }));
                   }
                 }}
+                className={cn(
+                  "w-full h-full object-contain transition-transform duration-700 mix-blend-multiply group-hover:scale-105",
+                  isSmall ? "p-4" : (isLarge ? "lg:p-12 p-8" : "p-8")
+                )}
+              />
+            ) : pcSpecs && !failedImages[pcSpecs.fallbackImage] ? (
+              <img
+                src={pcSpecs.fallbackImage}
+                alt={product.name}
+                onError={() => setFailedImages(prev => ({ ...prev, [pcSpecs.fallbackImage]: true }))}
                 className={cn(
                   "w-full h-full object-contain transition-transform duration-700 mix-blend-multiply group-hover:scale-105",
                   isSmall ? "p-4" : (isLarge ? "lg:p-12 p-8" : "p-8")
@@ -174,7 +199,7 @@ export default function ProductCard({ product, isLarge, isSmall }: ProductCardPr
             "text-accent uppercase font-bold tracking-widest font-mono",
             isSmall ? "text-[8px]" : "text-[9px]"
           )}>
-            {product.category}
+            {getCategoryName(product.category)}
           </div>
           <Link href={`/products/${product.id}`}>
             <h3 className={cn(
@@ -185,50 +210,19 @@ export default function ProductCard({ product, isLarge, isSmall }: ProductCardPr
             </h3>
           </Link>
 
-          {/* Special Mini Spec Stack for PC Armadas in grid view */}
-          {product.category === "PC_ARMADAS" && !isLarge && (
+          {/* Special Mini Spec Stack for PC Gamer / PC Oficina in grid view */}
+          {pcSpecs && !isLarge && (
             <div className="bg-background/80 border border-border/60 rounded-xl p-2.5 space-y-1.5 text-[11px] font-medium text-muted">
-              {product.name.includes("ENTRY") || product.name.includes("5600GT") ? (
-                <>
-                  <div className="flex items-center gap-1.5 text-primary font-bold">
-                    <span>🧠 Ryzen 5 5600GT (6c/12t)</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-emerald-600 font-bold">
-                    <span>⚡ 16GB Dual Channel • SSD 480GB</span>
-                  </div>
-                  <div className="text-[10px] text-muted">📦 Gabinete Kit 500W</div>
-                </>
-              ) : product.name.includes("1080P") || product.name.includes("9050") ? (
-                <>
-                  <div className="flex items-center gap-1.5 text-primary font-bold">
-                    <span>🧠 Ryzen 5 5600 + RX 9050 8GB</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-amber-600 font-bold">
-                    <span>⚡ 16GB RAM • SSD 512GB NVMe</span>
-                  </div>
-                  <div className="text-[10px] text-muted">🛡️ Formula V Crystal Z1</div>
-                </>
-              ) : product.name.includes("8500G") || product.name.includes("NEXT-GEN") ? (
-                <>
-                  <div className="flex items-center gap-1.5 text-primary font-bold">
-                    <span>🧠 Ryzen 5 8500G + RTX 5060 GDDR7</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-cyan-600 font-bold">
-                    <span>⚡ 16GB DDR5 RGB • SSD 1TB NVMe</span>
-                  </div>
-                  <div className="text-[10px] text-muted">🛡️ Formula V U2M Acuario White</div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-1.5 text-primary font-bold">
-                    <span>🧠 Ryzen 7 8700F + RTX 5060 Ti</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-purple-600 font-bold">
-                    <span>⚡ 32GB DDR5 RGB • SSD 1TB NVMe</span>
-                  </div>
-                  <div className="text-[10px] text-muted">🛡️ Formula V Crystal Z9 Floe</div>
-                </>
-              )}
+              <div className="flex items-center gap-1.5 text-primary font-bold truncate">
+                <span>🧠 {pcSpecs.cpu}</span>
+              </div>
+              <div className={cn(
+                "flex items-center gap-1.5 font-bold truncate",
+                pcSpecs.isOfficePc ? "text-sky-600" : "text-emerald-600"
+              )}>
+                <span>⚡ {pcSpecs.ram} • {pcSpecs.storage}</span>
+              </div>
+              <div className="text-[10px] text-muted truncate">📦 {pcSpecs.cabinet}</div>
             </div>
           )}
 
@@ -269,14 +263,14 @@ export default function ProductCard({ product, isLarge, isSmall }: ProductCardPr
             )}
           </div>
           <Button
-            size={price === 0 ? (isSmall ? "sm" : "md") : "icon"}
-            variant={price === 0 ? "secondary" : "primary"}
-            disabled={product.stock === 0}
+            size={price <= 0 ? (isSmall ? "sm" : "md") : "icon"}
+            variant={price <= 0 ? "secondary" : "primary"}
+            disabled={isOutOfStock && price > 0}
             onClick={() => {
-              if (price === 0) {
+              if (price <= 0) {
                 const text = encodeURIComponent(`Hola PC Link, me interesa consultar el precio de: ${product.name} (Código: ${product.id})`);
                 window.open(`https://wa.me/5492235468972?text=${text}`, "_blank");
-              } else {
+              } else if (!isOutOfStock) {
                 addItem(product);
               }
             }}

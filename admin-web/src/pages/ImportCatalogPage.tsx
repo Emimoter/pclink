@@ -20,7 +20,7 @@ import {
   parseStock,
   parsePrice,
 } from '../lib/catalog/importFirestore'
-import { guessCategory } from '../lib/catalog/smartCategories'
+import { guessCategory, getCatalogExclusionReason } from '../lib/catalog/smartCategories'
 import { subscribeToProducts, type Product } from '../lib/catalog/products'
 
 function guessMapping(headers: string[]): ColumnMapping {
@@ -222,20 +222,75 @@ export function ImportCatalogPage() {
     try {
       const db = getDb()
 
-      if (importMode === 'full') {
-        const stockMap = buildStockMap(stockRows, stockMapping)
+      if (importMode === 'full' || importMode === 'articles') {
+        const stockMap = importMode === 'full' ? buildStockMap(stockRows, stockMapping) : undefined
         const existingMap = new Map(firestoreProducts.map(p => [p.id, p]))
-        const payloads = rows.map((row, i) => {
+        const payloads: Array<{ docId: string; data: Record<string, unknown> }> = []
+
+        rows.forEach((row, i) => {
+          const idRaw = cell(row, mapping.id)
           const name = row[mapping.name] || ''
           const brand = mapping.brand ? row[mapping.brand] : ''
           const model = mapping.model ? row[mapping.model] : ''
-          const resolvedCategory = guessCategory(name, brand, model)
-          
+          const parsedPrice = parsePrice(cell(row, mapping.price))
+
+          const existing = idRaw ? existingMap.get(idRaw) : undefined
+
+          // 1. Filtro intermedio: bloquear ST, LI, repuestos de taller y saldos
+          const internalReason = getCatalogExclusionReason(idRaw, name, parsedPrice, false)
+          if (internalReason) {
+            if (existing) {
+              // Si existía de antes en Firestore, lo ocultamos de la tienda web
+              payloads.push({
+                docId: existing.id,
+                data: {
+                  isHidden: true,
+                  hiddenReason: internalReason,
+                  updatedAt: Date.now(),
+                },
+              })
+            }
+            return
+          }
+
+          // 2. Filtro intermedio de precio $0: nunca crear artículos en $0 ni permitir que lleguen a la web
+          if (parsedPrice <= 0) {
+            if (existing) {
+              let updatedStock = existing.stock ?? 0
+              if (stockMap && idRaw && stockMap.has(idRaw)) {
+                updatedStock = stockMap.get(idRaw) ?? 0
+              } else if (!stockMap && mapping.stock) {
+                updatedStock = parseStock(cell(row, mapping.stock))
+              }
+              payloads.push({
+                docId: existing.id,
+                data: {
+                  price: 0,
+                  stock: updatedStock,
+                  isHidden: true,
+                  hiddenReason: 'zero_price',
+                  updatedAt: Date.now(),
+                },
+              })
+            }
+            return
+          }
+
+          // 3. Preservar categoría si fue bloqueada manualmente por el administrador
+          const resolvedCategory =
+            existing && existing.categoryLocked && existing.category
+              ? existing.category
+              : guessCategory(name, brand, model)
+
           const payload = rowToProductPayload(row, mapping, resolvedCategory, i, stockMap)
-          
-          // Enriquecer el payload comparando con Firestore
-          const existing = existingMap.get(payload.docId)
+
+          // Si estaba oculto únicamente por haber tenido precio $0 antes, al tener precio válido vuelve a mostrarse
           if (existing) {
+            if (existing.isHidden && existing.hiddenReason === 'zero_price') {
+              payload.data.isHidden = false
+              payload.data.hiddenReason = null
+            }
+
             const newPrice = payload.data.price as number
             if (existing.price !== newPrice) {
               payload.data.previousPrice = existing.price
@@ -256,50 +311,10 @@ export function ImportCatalogPage() {
           } else {
             payload.data.isNewArrival = true
             payload.data.importedAt = Date.now()
+            payload.data.isHidden = false
           }
 
-          return payload
-        })
-
-        await commitProductsToFirestore(db, payloads, (done, total) => {
-          setCsvProgress(`${done} / ${total}`)
-        })
-      } else if (importMode === 'articles') {
-        const existingMap = new Map(firestoreProducts.map(p => [p.id, p]))
-        const payloads = rows.map((row, i) => {
-          const name = row[mapping.name] || ''
-          const brand = mapping.brand ? row[mapping.brand] : ''
-          const model = mapping.model ? row[mapping.model] : ''
-          const resolvedCategory = guessCategory(name, brand, model)
-          
-          const payload = rowToProductPayload(row, mapping, resolvedCategory, i)
-          
-          // Enriquecer el payload comparando con Firestore
-          const existing = existingMap.get(payload.docId)
-          if (existing) {
-            const newPrice = payload.data.price as number
-            if (existing.price !== newPrice) {
-              payload.data.previousPrice = existing.price
-              payload.data.priceChangedAt = Date.now()
-            } else if (existing.previousPrice !== undefined) {
-              payload.data.previousPrice = existing.previousPrice
-              payload.data.priceChangedAt = existing.priceChangedAt || null
-            }
-
-            const newStock = payload.data.stock as number
-            if (existing.stock !== newStock) {
-              payload.data.previousStock = existing.stock
-              payload.data.stockChangedAt = Date.now()
-            } else if (existing.previousStock !== undefined) {
-              payload.data.previousStock = existing.previousStock
-              payload.data.stockChangedAt = existing.stockChangedAt || null
-            }
-          } else {
-            payload.data.isNewArrival = true
-            payload.data.importedAt = Date.now()
-          }
-
-          return payload
+          payloads.push(payload)
         })
 
         await commitProductsToFirestore(db, payloads, (done, total) => {
@@ -449,6 +464,7 @@ export function ImportCatalogPage() {
     let priceUpsCount = 0
     let priceDownsCount = 0
     let stockChangesCount = 0
+    let skippedInternalOrZeroCount = 0
 
     if (importMode === 'full' || importMode === 'articles') {
       const stockMap = importMode === 'full' ? buildStockMap(stockRows, stockMapping) : null
@@ -456,10 +472,16 @@ export function ImportCatalogPage() {
       for (const row of rows) {
         const idRaw = cell(row, mapping.id)
         if (!idRaw) continue
+        const name = row[mapping.name] || ''
+        const newPrice = parsePrice(cell(row, mapping.price))
+
+        if (getCatalogExclusionReason(idRaw, name, newPrice, true) !== null) {
+          skippedInternalOrZeroCount++
+          continue
+        }
         
         const existing = existingMap.get(idRaw)
         if (existing) {
-          const newPrice = parsePrice(cell(row, mapping.price))
           if (existing.price !== newPrice) {
             priceChangesCount++
             if (newPrice > existing.price) priceUpsCount++
@@ -499,7 +521,8 @@ export function ImportCatalogPage() {
       priceChangesCount,
       priceUpsCount,
       priceDownsCount,
-      stockChangesCount
+      stockChangesCount,
+      skippedInternalOrZeroCount
     }
   }, [importMode, firestoreProducts, rows, stockRows, mapping, stockMapping])
 
@@ -757,12 +780,12 @@ export function ImportCatalogPage() {
         )}
 
         {/* RESUMEN DE CAMBIOS DETECTADOS */}
-        {importChangesSummary && (importChangesSummary.newProductsCount > 0 || importChangesSummary.priceChangesCount > 0 || importChangesSummary.stockChangesCount > 0) && (
+        {importChangesSummary && (importChangesSummary.newProductsCount > 0 || importChangesSummary.priceChangesCount > 0 || importChangesSummary.stockChangesCount > 0 || importChangesSummary.skippedInternalOrZeroCount > 0) && (
           <div className="rounded-xl border border-pclink-cyan/20 bg-pclink-surface/60 p-5 space-y-3">
             <h4 className="text-xs font-bold text-pclink-cyan-light uppercase tracking-wider">
               Resumen de cambios detectados en el archivo
             </h4>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-4">
               {importChangesSummary.newProductsCount > 0 && (
                 <div className="rounded-lg bg-pclink-cyan/5 border border-pclink-cyan/15 p-3 flex flex-col justify-center">
                   <span className="text-[10px] text-pclink-muted uppercase font-semibold">Productos Nuevos</span>
@@ -789,6 +812,15 @@ export function ImportCatalogPage() {
                   <span className="text-2xl font-bold text-white font-mono mt-0.5">
                     {importChangesSummary.stockChangesCount}
                   </span>
+                </div>
+              )}
+              {importChangesSummary.skippedInternalOrZeroCount > 0 && (
+                <div className="rounded-lg bg-pclink-error/5 border border-pclink-error/20 p-3 flex flex-col justify-center">
+                  <span className="text-[10px] text-pclink-muted uppercase font-semibold">Frenados (ST / LI / $0)</span>
+                  <span className="text-2xl font-bold text-pclink-error font-mono mt-0.5">
+                    {importChangesSummary.skippedInternalOrZeroCount}
+                  </span>
+                  <span className="text-[9px] text-pclink-muted mt-1">No se publican en la web</span>
                 </div>
               )}
             </div>

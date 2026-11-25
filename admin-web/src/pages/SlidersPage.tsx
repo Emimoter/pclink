@@ -24,10 +24,10 @@ import {
 } from '../lib/catalog/banners'
 
 const CATEGORIES = [
-  'GPU', 'CPU', 'MOTHERBOARD', 'RAM', 'CASE', 'PSU',
+  'PC_ARMADAS', 'PC_OFICINA', 'GPU', 'CPU', 'MOTHERBOARD', 'RAM', 'CASE', 'PSU',
   'MONITOR', 'MOUSE', 'KEYBOARD', 'HEADPHONES', 'PRINTER',
   'CABLES', 'STORAGE', 'COOLING', 'NOTEBOOK', 'GAMING', 'NETWORK', 
-  'PC_ARMADAS', 'SILLAS_GAMER', 'CARGADORES', 'PARLANTES', 'OFFERS',
+  'INK_TONER', 'SILLAS_GAMER', 'CARGADORES', 'PARLANTES', 'OTROS', 'OFFERS',
 ] as const
 
 const PRESET_PATHS = ['/products', '/pcclub', '/about', '/auth', '/profile']

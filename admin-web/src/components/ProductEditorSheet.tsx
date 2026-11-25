@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Upload, Search, Loader2, ExternalLink, Tag, Flame, Star, Target, Sparkles, Heart, Wand2, Check, Download } from 'lucide-react'
+import { X, Upload, Search, Loader2, ExternalLink, Tag, Flame, Star, Target, Sparkles, Heart, Wand2, Check, Download, EyeOff } from 'lucide-react'
 import { getDb, getStorageBucket, getFunctionsInstance } from '../lib/firebase'
 import { uploadProductImageForSlot, removeProductImage, updateProductCategory, updateProductName, updateProductFlag, updateProductImageUrls, updateProductDescription, deleteProduct, type Product } from '../lib/catalog/products'
 import { CATEGORY_IDS, CATEGORY_LABELS, type CategoryIdValue } from '../lib/catalog/constants'
@@ -142,6 +142,9 @@ export function ProductEditorSheet({ product, onClose }: Props) {
     setError(null)
     try {
       await updateProductFlag(getDb(), product.id, flagKey, newValue)
+      if (flagKey === 'isHidden') {
+        await updateProductFlag(getDb(), product.id, 'hiddenReason', (newValue ? 'manual' : null) as any)
+      }
     } catch (err: any) {
       setError(err.message || 'Error al actualizar visibilidad')
     }
@@ -417,6 +420,7 @@ export function ProductEditorSheet({ product, onClose }: Props) {
               
               <div className="space-y-2.5">
                 {[
+                  { key: 'isHidden', label: 'Ocultar en Tienda Web', desc: 'No se mostrará en la página pública ni en búsquedas', icon: EyeOff, color: 'text-red-400 bg-red-500/10 border-red-500/20' },
                   { key: 'showInFlashDeals', label: 'Oferta Flash', desc: 'Carrusel de ofertas rápidas', icon: Flame, color: 'text-orange-400 bg-orange-500/10 border-orange-500/20' },
                   { key: 'isFeatured', label: 'Producto Destacado', desc: 'Grilla de artículos recomendados', icon: Star, color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' },
                   { key: 'isBestSeller', label: 'Selección de PcLink', desc: 'Productos seleccionados (Best Sellers)', icon: Target, color: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20' },

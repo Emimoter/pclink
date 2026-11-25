@@ -12,6 +12,8 @@ import ProductCard from "@/components/product/ProductCard";
 import ShippingCalculator from "@/components/product/ShippingCalculator";
 import PcDetailSpecs from "@/components/product/PcDetailSpecs";
 import { cn } from "@/lib/utils";
+import { getCategoryName, isPcCategory } from "@/lib/categories";
+import { parsePcSpecs } from "@/lib/pcSpecs";
 
 interface ProductDetailClientProps {
   id: string;
@@ -51,6 +53,18 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
 
   const price = typeof product.price === "number" ? product.price : 0;
   const oldPrice = typeof product.oldPrice === "number" ? product.oldPrice : null;
+  const isPc = isPcCategory(product.category);
+  const pcSpecs = isPc ? parsePcSpecs(product) : null;
+
+  const galleryImages =
+    product.images && product.images.length > 0 && product.images[0]?.trim()
+      ? product.images.filter((u) => u && u.trim() !== "")
+      : pcSpecs
+      ? [pcSpecs.fallbackImage]
+      : [];
+
+  const isAvailableForPurchase =
+    price > 0 && (product.stock > 0 || !!product.onDemand || !!(pcSpecs && pcSpecs.isOfficialTier));
 
   const discountPercentage =
     oldPrice && oldPrice > price
@@ -91,9 +105,9 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
         {/* Left Column - Gallery */}
         <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-12 gap-6">
           {/* Thumbnails */}
-          {product.images && product.images.length > 1 && (
+          {galleryImages.length > 1 && (
             <div className="md:col-span-2 order-2 md:order-1 flex md:flex-col gap-3 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0">
-              {product.images.map((img, idx) => (
+              {galleryImages.map((img, idx) => (
                 <button
                   key={idx}
                   onClick={() => setSelectedImage(idx)}
@@ -122,22 +136,30 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
 
           {/* Main Image */}
           <div className={`${
-            product.images && product.images.length > 1 ? "md:col-span-10" : "md:col-span-12"
+            galleryImages.length > 1 ? "md:col-span-10" : "md:col-span-12"
           } order-1 md:order-2 aspect-square bg-surface border border-border rounded-3xl overflow-hidden flex items-center justify-center p-8 relative group`}>
             {product.isOffer && discountPercentage && (
               <span className="absolute top-6 left-6 bg-primary text-white text-[10px] uppercase font-bold tracking-wider px-3 py-1.5 rounded-lg z-10">
                 Oferta -{discountPercentage}%
               </span>
             )}
-            {product.images && product.images.length > 0 && !failedImages[product.images[selectedImage]] ? (
+            {galleryImages.length > 0 && !failedImages[galleryImages[selectedImage]] ? (
               <img
-                src={product.images[selectedImage]}
+                src={galleryImages[selectedImage]}
                 alt={product.name}
                 onError={() => {
-                  if (product.images?.[selectedImage]) {
-                    setFailedImages(prev => ({ ...prev, [product.images[selectedImage]]: true }));
+                  const bad = galleryImages[selectedImage];
+                  if (bad) {
+                    setFailedImages(prev => ({ ...prev, [bad]: true }));
                   }
                 }}
+                className="w-full h-full object-contain max-h-[500px] hover:scale-105 transition-transform duration-500 mix-blend-multiply"
+              />
+            ) : pcSpecs && !failedImages[pcSpecs.fallbackImage] ? (
+              <img
+                src={pcSpecs.fallbackImage}
+                alt={product.name}
+                onError={() => setFailedImages(prev => ({ ...prev, [pcSpecs.fallbackImage]: true }))}
                 className="w-full h-full object-contain max-h-[500px] hover:scale-105 transition-transform duration-500 mix-blend-multiply"
               />
             ) : (
@@ -150,18 +172,18 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
             )}
 
             {/* Carousel Navigation Arrows */}
-            {product.images && product.images.length > 1 && (
+            {galleryImages.length > 1 && (
               <>
                 <button
                   type="button"
-                  onClick={() => setSelectedImage(prev => (prev === 0 ? product.images.length - 1 : prev - 1))}
+                  onClick={() => setSelectedImage(prev => (prev === 0 ? galleryImages.length - 1 : prev - 1))}
                   className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-surface/95 hover:bg-surface text-primary p-2.5 rounded-full shadow-md z-10 transition-all hover:scale-105 active:scale-95 border border-border opacity-100 md:opacity-0 md:group-hover:opacity-100 duration-300"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSelectedImage(prev => (prev === product.images.length - 1 ? 0 : prev + 1))}
+                  onClick={() => setSelectedImage(prev => (prev === galleryImages.length - 1 ? 0 : prev + 1))}
                   className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-surface/95 hover:bg-surface text-primary p-2.5 rounded-full shadow-md z-10 transition-all hover:scale-105 active:scale-95 border border-border opacity-100 md:opacity-0 md:group-hover:opacity-100 duration-300"
                 >
                   <ChevronRight className="w-5 h-5" />
@@ -169,7 +191,7 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
                 
                 {/* Indicator Dots overlaid inside image area */}
                 <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-1.5 z-10 pointer-events-none">
-                  {product.images.map((_, idx) => (
+                  {galleryImages.map((_, idx) => (
                     <span
                       key={idx}
                       className={cn(
@@ -188,7 +210,7 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
         <div className="lg:col-span-5 flex flex-col">
           {/* Category */}
           <span className="text-[10px] uppercase font-bold tracking-widest text-accent mb-4 block">
-            {product.category.replace(/-/g, ' ')}
+            {getCategoryName(product.category)}
           </span>
           
           {/* Title */}
@@ -218,7 +240,7 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
 
           <div className="border-t border-border py-6 space-y-4">
             {/* Stock indicator */}
-            {product.category === "PC_ARMADAS" ? (
+            {pcSpecs && pcSpecs.isOfficialTier ? (
               <div className="flex items-center justify-between text-sm">
                 <span className="font-semibold text-muted">Disponibilidad</span>
                 <span className="text-emerald-600 font-bold bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
@@ -230,7 +252,7 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
                 <span className="font-semibold text-muted">Disponibilidad</span>
                 {product.stock > 0 ? (
                   <span className="text-green-600 font-bold bg-green-50 px-3 py-1 rounded-full border border-green-200">
-                    {product.stock} unidades disponibles
+                    {product.stock} {product.stock === 1 ? "unidad disponible" : "unidades disponibles"}
                   </span>
                 ) : (
                   <span className="text-red-600 font-bold bg-red-50 px-3 py-1 rounded-full border border-red-200">
@@ -255,7 +277,7 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
           </div>
 
           {/* Action buttons */}
-          {(product.stock > 0 || product.category === "PC_ARMADAS") && price > 0 ? (
+          {isAvailableForPurchase ? (
             <div className="space-y-4 mt-4">
               {/* Quantity selector */}
               <div className="flex items-center border border-border rounded-xl w-fit bg-surface">
@@ -269,7 +291,7 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
                   {quantity}
                 </span>
                 <button
-                  onClick={() => setQuantity(q => Math.min(product.category === "PC_ARMADAS" ? 10 : product.stock, q + 1))}
+                  onClick={() => setQuantity(q => Math.min(pcSpecs && pcSpecs.isOfficialTier ? 10 : Math.max(1, product.stock), q + 1))}
                   className="p-3 text-muted hover:text-primary transition-colors"
                 >
                   <Plus className="w-4 h-4" />
@@ -320,10 +342,10 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
           )}
 
           {/* Shipping Calculator Widget */}
-          <ShippingCalculator isPcArmada={product.category === "PC_ARMADAS"} />
+          <ShippingCalculator isPcArmada={isPc} />
 
           {/* Description for standard products */}
-          {product.category !== "PC_ARMADAS" && (
+          {!isPc && (
             <div className="mt-8 border-t border-border pt-8">
               <h3 className="text-sm font-bold text-primary mb-4 uppercase tracking-wider">Descripción</h3>
               <p className="text-muted leading-relaxed whitespace-pre-line font-medium">
@@ -333,7 +355,7 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
           )}
 
           {/* Specifications for standard products */}
-          {product.category !== "PC_ARMADAS" && product.specs && Object.keys(product.specs).length > 0 && (
+          {!isPc && product.specs && Object.keys(product.specs).length > 0 && (
             <div className="mt-8 border-t border-border pt-8">
               <h3 className="text-sm font-bold text-primary mb-4 uppercase tracking-wider">Especificaciones</h3>
               <div className="bg-surface border border-border rounded-2xl overflow-hidden">
@@ -353,9 +375,10 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
         </div>
       </div>
 
-      {/* Advanced Technical Breakdown for PC Armadas */}
-      {product.category === "PC_ARMADAS" && (
+      {/* Advanced Technical Breakdown for PC Gamer & PC Oficina */}
+      {isPc && (
         <PcDetailSpecs 
+          product={product}
           productId={product.id} 
           productName={product.name} 
           description={product.description || ""} 

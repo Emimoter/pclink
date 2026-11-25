@@ -43,6 +43,12 @@ exports.createPreference = onCall({ secrets: [mpAccessToken] }, async (request) 
             }
 
             const productData = productDoc.data();
+            if (productData.isHidden === true || typeof productData.price !== "number" || productData.price <= 0) {
+                throw new HttpsError("failed-precondition", `El producto "${productData.name || item.id}" no tiene un precio válido para venta online.`);
+            }
+            if (!item.quantity || item.quantity <= 0) {
+                throw new HttpsError("invalid-argument", `Cantidad inválida para el producto: ${item.id}`);
+            }
             
             lineItems.push({
                 id: item.id,

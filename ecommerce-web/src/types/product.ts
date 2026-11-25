@@ -10,6 +10,11 @@ export interface Product {
   images: string[];
   isOffer: boolean;
   isFeatured: boolean;
+  onSale?: boolean;
+  showInFlashDeals?: boolean;
+  isHidden?: boolean;
+  hiddenReason?: string | null;
+  categoryLocked?: boolean;
   externalSource?: string;
   onDemand?: boolean;
   deliveryDays?: number;

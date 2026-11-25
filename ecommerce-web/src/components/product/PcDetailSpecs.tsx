@@ -19,8 +19,11 @@ import {
   Truck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { parsePcSpecs } from "@/lib/pcSpecs";
+import { Product } from "@/types/product";
 
 interface PcDetailSpecsProps {
+  product: Product;
   productId: string;
   productName: string;
   description: string;
@@ -43,16 +46,16 @@ interface GamingBenchmark {
   resolution: string;
 }
 
-export default function PcDetailSpecs({ productId, productName, description }: PcDetailSpecsProps) {
+export default function PcDetailSpecs({ product, productId, productName, description }: PcDetailSpecsProps) {
   const id = productId.toLowerCase();
-  const name = productName.toUpperCase();
+  const parsed = parsePcSpecs(product);
 
-  let tierName = "PC Gamer Entry";
-  let tierSubtitle = "Rendimiento fluido para gaming competitivo y estudio/trabajo";
+  let tierName = parsed.badge;
+  let tierSubtitle = parsed.tierSubtitle;
   let components: ComponentItem[] = [];
   let benchmarks: GamingBenchmark[] = [];
 
-  if (id.includes("entry") || name.includes("ENTRY") || name.includes("5600GT")) {
+  if (id === "pc-gamer-entry-r5-5600gt") {
     tierName = "PC Gamer Entry";
     tierSubtitle = "La puerta de entrada ideal a los eSports con memorias en Dual Channel y arranque veloz";
     components = [
@@ -137,7 +140,7 @@ export default function PcDetailSpecs({ productId, productName, description }: P
       { game: "Fortnite", fps: "80 - 110 FPS", quality: "Modo Rendimiento", resolution: "1080p" },
       { game: "Roblox / Minecraft", fps: "120+ FPS", quality: "Alta", resolution: "1080p" },
     ];
-  } else if (id.includes("advanced") || name.includes("ADVANCED") || id.includes("ultra-r7-rx7600") || name.includes("9050") || name.includes("1080P")) {
+  } else if (id === "pc-gamer-ultra-r7-rx7600") {
     tierName = "PC Gamer Advanced";
     tierSubtitle = "Potencia gráfica dedicada para jugar a todo el catálogo moderno en calidad Ultra";
     components = [
@@ -222,7 +225,7 @@ export default function PcDetailSpecs({ productId, productName, description }: P
       { game: "Forza Horizon 5", fps: "105 - 130 FPS", quality: "Ultra", resolution: "1080p" },
       { game: "Hogwarts Legacy", fps: "70 - 90 FPS", quality: "Ultra", resolution: "1080p" },
     ];
-  } else if (id.includes("pro") || name.includes("PRO") || id.includes("nextgen") || name.includes("8500G") || name.includes("5060 8GB")) {
+  } else if (id === "pc-gamer-nextgen-am5-rtx5060") {
     tierName = "PC Gamer Pro";
     tierSubtitle = "Plataforma AM5 Zen 4 con memorias DDR5 RGB y NVIDIA GeForce RTX 5060 GDDR7";
     components = [
@@ -307,8 +310,7 @@ export default function PcDetailSpecs({ productId, productName, description }: P
       { game: "Valorant", fps: "380 - 500 FPS", quality: "Alta", resolution: "1080p" },
       { game: "GTA 6 Ready", fps: "Fluidez 60+ FPS", quality: "Ultra (Esperado)", resolution: "1080p" },
     ];
-  } else {
-    // PC Gamer Ultra
+  } else if (id === "pc-gamer-highend-intel-ultra-rtx5060ti") {
     tierName = "PC Gamer Ultra";
     tierSubtitle = "La configuración definitiva para 1440p/4K, streaming profesional y creación de contenido";
     components = [
@@ -393,6 +395,85 @@ export default function PcDetailSpecs({ productId, productName, description }: P
       { game: "Render Blender / Premiere 4K", fps: "Exportación Rápida", quality: "Aceleración CUDA", resolution: "4K Video" },
       { game: "Black Myth: Wukong 1440p", fps: "95 - 120 FPS", quality: "Muy Alta (DLSS 3)", resolution: "1440p" },
     ];
+  } else {
+    // Equipos reales del local (PC Gamer o PC Oficina importados desde el sistema)
+    components = [
+      {
+        icon: Cpu,
+        iconBg: "bg-orange-500/10",
+        iconColor: "text-orange-600 dark:text-orange-400",
+        category: "Microprocesador",
+        title: parsed.cpu,
+        detail: "Procesador instalado con pasta térmica de alta conductividad y disipación activa",
+        badge: "Testeado",
+      },
+      {
+        icon: parsed.isOfficePc ? Monitor : Gamepad2,
+        iconBg: "bg-indigo-500/10",
+        iconColor: "text-indigo-600 dark:text-indigo-400",
+        category: "Gráficos / Video",
+        title: parsed.gpu,
+        detail: parsed.isOfficePc
+          ? "Soporte Full HD para monitores por HDMI / VGA con reproducción fluida"
+          : "Aceleración gráfica lista para juegos, streaming y edición multimedia",
+        badge: parsed.isOfficePc ? "Full HD" : "Gaming Ready",
+      },
+      {
+        icon: Layers,
+        iconBg: "bg-emerald-500/10",
+        iconColor: "text-emerald-600 dark:text-emerald-400",
+        category: "Memoria RAM",
+        title: parsed.ram,
+        detail: "Fluidez garantizada para abrir múltiples pestañas, sistemas de gestión y aplicaciones",
+        badge: "Alta Velocidad",
+      },
+      {
+        icon: HardDrive,
+        iconBg: "bg-cyan-500/10",
+        iconColor: "text-cyan-600 dark:text-cyan-400",
+        category: "Almacenamiento Sólido",
+        title: parsed.storage,
+        detail: "Encendido de Windows en pocos segundos y acceso instantáneo a tus archivos",
+        badge: "Tecnología SSD",
+      },
+      {
+        icon: SlidersHorizontal,
+        iconBg: "bg-amber-500/10",
+        iconColor: "text-amber-600 dark:text-amber-400",
+        category: "Placa Madre",
+        title: parsed.motherboard,
+        detail: "Conectividad USB frontal y trasera, red LAN Gigabit y audio HD integrado",
+        badge: "BIOS Actualizada",
+      },
+      {
+        icon: Zap,
+        iconBg: "bg-pink-500/10",
+        iconColor: "text-pink-600 dark:text-pink-400",
+        category: "Fuente de Alimentación",
+        title: parsed.psu,
+        detail: "Suministro eléctrico estable para uso continuo diario",
+        badge: "Protección Activa",
+      },
+      {
+        icon: Box,
+        iconBg: "bg-slate-500/10",
+        iconColor: "text-slate-600 dark:text-slate-400",
+        category: "Gabinete",
+        title: parsed.cabinet,
+        detail: "Ensamblado prolijo en nuestro taller técnico en Mar del Plata",
+        badge: "Armado Prolijo",
+      },
+      {
+        icon: Wrench,
+        iconBg: "bg-blue-500/10",
+        iconColor: "text-blue-600 dark:text-blue-400",
+        category: "Sistema Operativo",
+        title: "Windows 11 Instalado & Configurado",
+        detail: "Drivers actualizados y pruebas de estrés superadas antes de entregar",
+        badge: "Lista para Usar",
+      },
+    ];
+    benchmarks = [];
   }
 
   return (

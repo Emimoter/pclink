@@ -4,8 +4,9 @@ import { useState, useEffect, Suspense, useRef } from "react";
 import { useCartStore } from "@/store/useCartStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useAuth } from "@/hooks/useAuth";
-import { doc, setDoc, addDoc, getDocs, collection } from "firebase/firestore";
+import { doc, setDoc, getDoc, getDocs, collection } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
+import { isPublicProduct } from "@/lib/productFilters";
 import { useRouter } from "next/navigation";
 import { Loader2, CreditCard, Landmark, Truck, User, MapPin, Phone, Mail } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -93,11 +94,16 @@ interface AddressData {
 }
 
 function CheckoutForm() {
-  const { items, clearCart, appliedCoupon, subtotal, totalPrice } = useCartStore();
+  const { items, clearCart, removeItem, sanitizeCart, appliedCoupon, subtotal, totalPrice } = useCartStore();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
   const addressInputRef = useRef<HTMLInputElement>(null);
+  const draftOrderRef = useRef<{ id: string; number: string } | null>(null);
+
+  useEffect(() => {
+    sanitizeCart();
+  }, [sanitizeCart]);
 
   // Form states
   const [recipient, setRecipient] = useState("");
@@ -420,20 +426,71 @@ function CheckoutForm() {
       }
     }
 
+    // Validación estricta: impedir pedidos en $0 o con ítems inválidos
+    if (subtotal <= 0 || total <= 0 || items.some((it) => typeof it.price !== "number" || it.price <= 0 || it.quantity <= 0)) {
+      sanitizeCart();
+      setErrorMsg("Hay artículos en el carrito sin precio válido para venta online. Actualizamos tu carrito.");
+      return;
+    }
+
     setSubmitting(true);
     setErrorMsg("");
 
     try {
-      const orderId = `ord-${Date.now()}`;
-      const orderNumber = `PC-${Math.floor(100000 + Math.random() * 900000)}`;
-      
-      const orderItems = items.map((item) => ({
-        productId: item.id,
-        productName: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        imageUrl: item.images && item.images.length > 0 ? item.images[0] : "",
-      }));
+      // 1. Verificar precios y disponibilidad real en Firestore antes de generar la orden
+      const verifiedOrderItems = [];
+      let verifiedSubtotal = 0;
+
+      for (const item of items) {
+        const snap = await getDoc(doc(db, "products", item.id));
+        if (!snap.exists()) {
+          removeItem(item.id);
+          setErrorMsg(`El artículo "${item.name}" ya no está disponible en el catálogo y fue retirado del carrito.`);
+          setSubmitting(false);
+          return;
+        }
+        const liveProduct = { id: snap.id, ...snap.data() } as any;
+        const isOfficialPc = String(liveProduct.id).toLowerCase().startsWith("pc-gamer-");
+        const hasStock = (typeof liveProduct.stock === "number" && liveProduct.stock >= item.quantity) || !!liveProduct.onDemand || isOfficialPc;
+
+        if (!isPublicProduct(liveProduct) || !hasStock) {
+          removeItem(item.id);
+          setErrorMsg(`El artículo "${liveProduct.name || item.name}" ya no cuenta con stock o precio habilitado para compra online.`);
+          setSubmitting(false);
+          return;
+        }
+
+        const livePrice = Number(liveProduct.price);
+        verifiedSubtotal += livePrice * item.quantity;
+        verifiedOrderItems.push({
+          productId: item.id,
+          productName: liveProduct.name || item.name,
+          price: livePrice,
+          quantity: item.quantity,
+          imageUrl: liveProduct.images && liveProduct.images.length > 0 ? liveProduct.images[0] : "",
+        });
+      }
+
+      const verifiedDiscount = appliedCoupon
+        ? Math.round((verifiedSubtotal * appliedCoupon.discountPercent) / 100)
+        : 0;
+      const verifiedTotal = verifiedSubtotal - verifiedDiscount + shippingCost;
+
+      if (verifiedSubtotal <= 0 || verifiedTotal <= 0) {
+        setErrorMsg("El monto total del pedido no es válido. Por favor revisá tu carrito.");
+        setSubmitting(false);
+        return;
+      }
+
+      // Reutilizar el mismo ID de borrador en la sesión actual para evitar órdenes duplicadas si el usuario reintenta
+      if (!draftOrderRef.current) {
+        draftOrderRef.current = {
+          id: `ord-${Date.now()}`,
+          number: `PC-${Math.floor(100000 + Math.random() * 900000)}`,
+        };
+      }
+      const orderId = draftOrderRef.current.id;
+      const orderNumber = draftOrderRef.current.number;
 
       const shippingAddress = {
         id: selectedAddressId && selectedAddressId !== "new" ? selectedAddressId : `addr-${Date.now()}`,
@@ -453,54 +510,38 @@ function CheckoutForm() {
         id: orderId,
         number: orderNumber,
         createdAt: Date.now(),
-        subtotal: subtotal,
+        subtotal: verifiedSubtotal,
         shippingCost: shippingCost,
-        discount: discount,
-        total: total,
+        discount: verifiedDiscount,
+        total: verifiedTotal,
         status: "PENDING",
         userId: user?.uid || "guest",
         userName: recipient,
         userEmail: email,
-        paymentMethod: 
-          paymentMethod === "TRANSFER" 
-            ? "Transferencia Bancaria" 
-            : paymentMethod === "MERCADO_PAGO" 
-            ? "Mercado Pago" 
+        paymentMethod:
+          paymentMethod === "TRANSFER"
+            ? "Transferencia Bancaria"
+            : paymentMethod === "MERCADO_PAGO"
+            ? "Mercado Pago"
             : "Efectivo / Contra-entrega",
         shippingAddress: shippingAddress,
-        items: orderItems,
+        items: verifiedOrderItems,
         userPhone: phone,
         statusHistory: {
           PENDING: Date.now(),
         },
       };
 
-      // 1. Write the order to Firestore
-      await setDoc(doc(db, "orders", orderId), orderData);
-
-      // 2. Sync shipping address to user's address collection if authenticated and not pickup
-      if (user && shippingMethod !== "pickup") {
-        await setDoc(
-          doc(db, "users", user.uid, "addresses", shippingAddress.id),
-          { ...shippingAddress, isDefault: savedAddresses.length === 0 }
-        );
-      }
-
-      // 3. Remove applied coupon from user's store since it was consumed
-      if (user && appliedCoupon) {
-        useUserStore.getState().removeSavedCoupon(appliedCoupon.code);
-      }
-
-      // 4. Handle checkout final step depending on payment method
+      // 2. Si es Mercado Pago, primero creamos la preferencia para NO dejar pedidos fantasma si MP falla
       if (paymentMethod === "MERCADO_PAGO") {
         const { httpsCallable } = await import("firebase/functions");
         const { functions } = await import("@/lib/firebase/config");
-        
+
         const createPreferenceFn = httpsCallable(functions, "createPreference");
         const baseUrl = window.location.origin;
         const result = await createPreferenceFn({
-          items: items.map((item) => ({
-            id: item.id,
+          items: verifiedOrderItems.map((item) => ({
+            id: item.productId,
             quantity: item.quantity,
           })),
           shippingCost: shippingCost,
@@ -514,12 +555,40 @@ function CheckoutForm() {
         });
 
         const data = result.data as { initPoint?: string };
-        if (data && data.initPoint) {
-          window.location.href = data.initPoint;
-        } else {
+        if (!data || !data.initPoint) {
           throw new Error("No se pudo iniciar el pago con Mercado Pago.");
         }
+
+        // Preferencia válida: ahora sí grabamos la orden y sincronizamos dirección/cupón
+        await setDoc(doc(db, "orders", orderId), orderData);
+
+        if (user && shippingMethod !== "pickup") {
+          await setDoc(
+            doc(db, "users", user.uid, "addresses", shippingAddress.id),
+            { ...shippingAddress, isDefault: savedAddresses.length === 0 }
+          );
+        }
+
+        if (user && appliedCoupon) {
+          useUserStore.getState().removeSavedCoupon(appliedCoupon.code);
+        }
+
+        window.location.href = data.initPoint;
       } else {
+        await setDoc(doc(db, "orders", orderId), orderData);
+
+        if (user && shippingMethod !== "pickup") {
+          await setDoc(
+            doc(db, "users", user.uid, "addresses", shippingAddress.id),
+            { ...shippingAddress, isDefault: savedAddresses.length === 0 }
+          );
+        }
+
+        if (user && appliedCoupon) {
+          useUserStore.getState().removeSavedCoupon(appliedCoupon.code);
+        }
+
+        draftOrderRef.current = null;
         clearCart();
         router.push(`/checkout/success?orderId=${orderId}`);
       }

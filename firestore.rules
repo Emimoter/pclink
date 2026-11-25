@@ -44,10 +44,21 @@ service cloud.firestore {
       allow read, write: if (isAuthed() && request.auth.uid == userId) || isAdmin();
     }
 
-    // Reglas para Órdenes
+    // Reglas para Órdenes (bloquea creación de pedidos en $0 o vacíos a nivel base de datos)
     match /orders/{orderId} {
-      // Permitir lectura y escritura pública para facilitar las pruebas del flujo de compra y alertas sin problemas de login/roles
-      allow read, write: if true;
+      allow get: if true;
+      allow list: if isAuthed();
+      allow create: if request.resource.data.subtotal is number
+                    && request.resource.data.subtotal > 0
+                    && request.resource.data.total is number
+                    && request.resource.data.total > 0
+                    && request.resource.data.items is list
+                    && request.resource.data.items.size() > 0;
+      allow update: if isAdmin()
+                    || (resource.data.total > 0
+                        && request.resource.data.total == resource.data.total
+                        && request.resource.data.subtotal == resource.data.subtotal);
+      allow delete: if isAdmin();
     }
     
     // Reglas para Notificaciones

@@ -7,7 +7,7 @@ import { CATEGORY_IDS, CATEGORY_LABELS, type CategoryIdValue } from '../lib/cata
 import { ProductEditorSheet } from '../components/ProductEditorSheet'
 import { httpsCallable } from 'firebase/functions'
 import { collection, getDocs, query, where, doc, getDoc, setDoc, writeBatch } from 'firebase/firestore'
-import { guessCategory } from '../lib/catalog/smartCategories'
+import { guessCategory, shouldExcludeFromCatalog } from '../lib/catalog/smartCategories'
 
 const isWithin24Hours = (timestamp?: number) => {
   if (!timestamp) return false
@@ -402,17 +402,18 @@ export function ProductsPage() {
       const snapshot = await getDocs(collection(getDb(), 'products'))
       const stDocs = snapshot.docs.filter(docSnap => {
         const id = docSnap.id
-        const name = docSnap.data().name || ''
-        return id.startsWith('ST ') || name.startsWith('ST ')
+        const data = docSnap.data()
+        const name = data.name || ''
+        return shouldExcludeFromCatalog(id, name, data.price, false)
       })
 
       if (stDocs.length === 0) {
-        alert('No se encontraron productos que comiencen con "ST " en la base de datos.')
+        alert('No se encontraron productos internos (ST, LI, repuestos o saldos) en la base de datos.')
         setDeletingST(false)
         return
       }
 
-      if (!confirm(`¿Estás seguro que querés eliminar permanentemente ${stDocs.length} productos que comienzan con "ST "?`)) {
+      if (!confirm(`¿Estás seguro que querés eliminar permanentemente ${stDocs.length} artículos internos (ST, LI, repuestos de taller o saldos)?`)) {
         setDeletingST(false)
         return
       }
@@ -421,7 +422,7 @@ export function ProductsPage() {
         await deleteProduct(getDb(), docSnap.id)
       }
     } catch (err: any) {
-      alert(`Error eliminando productos ST: ${err.message}`)
+      alert(`Error eliminando productos internos: ${err.message}`)
     } finally {
       setDeletingST(false)
     }
@@ -462,7 +463,7 @@ export function ProductsPage() {
       }
       
       for (const item of toUpdate) {
-        await updateProductCategory(getDb(), item.id, item.category)
+        await updateProductCategory(getDb(), item.id, item.category, false)
       }
       
       alert(`¡Listo! Se actualizaron las categorías de ${toUpdate.length} productos.`)
@@ -680,7 +681,7 @@ export function ProductsPage() {
                     ) : (
                       <Trash2 className="h-3.5 w-3.5" />
                     )}
-                    <span>Eliminar productos "ST"</span>
+                    <span>Eliminar internos (ST / LI / Repuestos)</span>
                   </button>
 
                   <button

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { Product } from '@/types/product';
+import { isPublicProduct } from '@/lib/productFilters';
 
 export function useProduct(id: string) {
   const [product, setProduct] = useState<Product | null>(null);
@@ -18,17 +19,19 @@ export function useProduct(id: string) {
         docRef,
         (docSnap) => {
           if (docSnap.exists()) {
-            setProduct({
+            const candidate = {
               id: docSnap.id,
-              ...docSnap.data()
-            } as Product);
+              ...docSnap.data(),
+            } as Product;
+
+            setProduct(isPublicProduct(candidate) ? candidate : null);
           } else {
             setProduct(null);
           }
           setLoading(false);
         },
         (err) => {
-          console.error("Error fetching product:", err);
+          console.error('Error fetching product:', err);
           setError(err);
           setLoading(false);
         }

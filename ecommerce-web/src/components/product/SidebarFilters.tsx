@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { SlidersHorizontal, Check, RefreshCw, ChevronRight } from "lucide-react";
 import { CATEGORIES } from "@/lib/categories";
+import { isOfferProduct } from "@/lib/productFilters";
 import { type Product } from "@/types/product";
 import { cn } from "@/lib/utils";
 
@@ -78,7 +79,7 @@ export default function SidebarFilters({
 
   // Filter products by selected category to extract relevant brands
   const categoryProducts = selectedCategory 
-    ? products.filter((p) => p.category === selectedCategory)
+    ? products.filter((p) => selectedCategory === "OFFERS" ? isOfferProduct(p) : p.category === selectedCategory)
     : products;
 
   // Dynamic brand extraction based on CURRENT category products name matches
@@ -95,6 +96,9 @@ export default function SidebarFilters({
 
   // Calculate product counts per category (based on the full list of products)
   const getCategoryCount = (catId: string) => {
+    if (catId === "OFFERS") {
+      return products.filter(isOfferProduct).length;
+    }
     return products.filter((p) => p.category === catId).length;
   };
 

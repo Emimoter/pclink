@@ -54,13 +54,25 @@ class FirestoreProductDataSource @Inject constructor() {
     private fun com.google.firebase.firestore.DocumentSnapshot.toProduct(): Product? {
         val data = data ?: return null
         return try {
+            if (getBoolean("isHidden") == true) return null
+            val price = getDouble("price") ?: 0.0
+            if (price <= 0.0) return null
+            val rawName = (getString("name") ?: "").trim()
+            val cleanId = id.trim()
+            if (cleanId.matches(Regex("(?i)^(st|li)(\\b|[-_.\\s]).*")) ||
+                rawName.matches(Regex("(?i)^(st|li)(\\b|[-_.\\s]).*")) ||
+                rawName.matches(Regex("(?i)^(pantalla\\s+notebook|teclado\\s+notebook|bateria\\s+notebook|saldo\\b|repuesto\\b|resma\\b|papel\\s+photo\\b).*")) ||
+                rawName.contains(Regex("(?i)\\bsoldar\\b"))
+            ) {
+                return null
+            }
             Product(
                 id = id,
-                name = getString("name") ?: "",
+                name = rawName,
                 brand = getString("brand") ?: "",
                 model = getString("model") ?: "",
-                category = runCatching { CategoryId.valueOf(getString("category") ?: "GAMING") }.getOrDefault(CategoryId.GAMING),
-                price = getDouble("price") ?: 0.0,
+                category = runCatching { CategoryId.valueOf(getString("category") ?: "OTROS") }.getOrDefault(CategoryId.OTROS),
+                price = price,
                 originalPrice = getDouble("originalPrice"),
                 currency = getString("currency") ?: "ARS",
                 stock = getLong("stock")?.toInt() ?: 0,
