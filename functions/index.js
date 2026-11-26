@@ -174,7 +174,7 @@ async function fetchCandidateImageUrls(rawQuery) {
     const addCandidate = (url) => {
         if (!url || typeof url !== "string") return;
         const clean = url.trim();
-        if (!clean.startsWith("http://") && !clean.startsWith("https://")) return;
+        if (!clean.startsWith("https://")) return;
         const lower = clean.toLowerCase();
         if (lower.endsWith(".svg") || lower.includes(".svg?")) return;
         if (BLOCKED_IMAGE_DOMAINS.some(dom => lower.includes(dom))) return;

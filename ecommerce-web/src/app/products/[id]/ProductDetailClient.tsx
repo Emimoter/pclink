@@ -4,10 +4,10 @@ import { useState } from "react";
 import { useProduct } from "@/hooks/useProduct";
 import { useProducts } from "@/hooks/useProducts";
 import { useCartStore } from "@/store/useCartStore";
-import { Loader2, ArrowLeft, ShoppingCart, MessageCircle, Plus, Minus, Check, Cpu, ChevronLeft, ChevronRight, Truck, Clock } from "lucide-react";
+import { Loader2, ArrowLeft, ShoppingCart, Plus, Minus, Check, Cpu, ChevronLeft, ChevronRight, Truck, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 import { Button } from "@/components/ui/Button";
+import { WhatsAppIcon } from "@/components/ui/WhatsAppIcon";
 import ProductCard from "@/components/product/ProductCard";
 import ShippingCalculator from "@/components/product/ShippingCalculator";
 import PcDetailSpecs from "@/components/product/PcDetailSpecs";
@@ -300,46 +300,66 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Button
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <button
+                  type="button"
                   onClick={handleAddToCart}
-                  size="lg"
-                  className="w-full rounded-xl py-6 flex items-center justify-center gap-2"
-                >
-                  {added ? (
-                    <>
-                      <Check className="w-5 h-5" />
-                      Agregado
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCart className="w-5 h-5" />
-                      Añadir al Carrito
-                    </>
+                  className={cn(
+                    "group/add w-full h-14 rounded-full pl-6 pr-2 flex items-center justify-between gap-3 font-bold text-sm tracking-tight transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98] cursor-pointer",
+                    added
+                      ? "bg-emerald-500 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_10px_24px_-6px_rgba(16,185,129,0.45)]"
+                      : "bg-zinc-900 hover:bg-zinc-800 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_10px_24px_-6px_rgba(24,24,27,0.32)]"
                   )}
-                </Button>
-                <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="w-full">
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="w-full rounded-xl py-6 border-green-500 hover:bg-green-50 text-green-600 hover:text-green-700 flex items-center justify-center gap-2"
+                >
+                  <span className="whitespace-nowrap">
+                    {added ? "Agregado al carrito" : "Añadir al carrito"}
+                  </span>
+                  <span
+                    className={cn(
+                      "w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-300",
+                      added
+                        ? "bg-white/20 text-white"
+                        : "bg-cyan-500 text-white group-hover/add:scale-105"
+                    )}
                   >
-                    <MessageCircle className="w-5 h-5" />
-                    Consultar WhatsApp
-                  </Button>
+                    {added ? (
+                      <Check className="w-5 h-5 stroke-[2.5]" />
+                    ) : (
+                      <ShoppingCart className="w-4.5 h-4.5 stroke-[2.2]" />
+                    )}
+                  </span>
+                </button>
+
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group/wa w-full h-14 rounded-full pl-6 pr-2 bg-[#25D366] hover:bg-[#20BD5A] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_10px_24px_-6px_rgba(37,211,102,0.42)] flex items-center justify-between gap-3 font-bold text-sm tracking-tight transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98]"
+                >
+                  <span className="flex items-center gap-2.5 whitespace-nowrap">
+                    <WhatsAppIcon className="w-5 h-5 shrink-0" />
+                    <span>Consultar WhatsApp</span>
+                  </span>
+                  <span className="w-10 h-10 rounded-full bg-black/12 group-hover/wa:bg-black/18 flex items-center justify-center shrink-0 transition-all duration-300 group-hover/wa:translate-x-0.5">
+                    <ArrowUpRight className="w-4.5 h-4.5 stroke-[2.3]" />
+                  </span>
                 </a>
               </div>
             </div>
           ) : (
-            <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="mt-4 block w-full">
-              <Button
-                variant="primary"
-                size="lg"
-                className="w-full rounded-xl py-6 bg-green-600 hover:bg-green-700 border-none text-white flex items-center justify-center gap-2"
-              >
-                <MessageCircle className="w-5 h-5" />
-                {price === 0 ? "Consultar precio por WhatsApp" : "Consultar stock por WhatsApp"}
-              </Button>
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group/wa mt-4 w-full h-14 rounded-full pl-6 pr-2 bg-[#25D366] hover:bg-[#20BD5A] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_10px_24px_-6px_rgba(37,211,102,0.42)] flex items-center justify-between gap-3 font-bold text-sm tracking-tight transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98]"
+            >
+              <span className="flex items-center gap-2.5 whitespace-nowrap">
+                <WhatsAppIcon className="w-5 h-5 shrink-0" />
+                <span>{price <= 0 ? "Consultar precio por WhatsApp" : "Consultar disponibilidad por WhatsApp"}</span>
+              </span>
+              <span className="w-10 h-10 rounded-full bg-black/12 group-hover/wa:bg-black/18 flex items-center justify-center shrink-0 transition-all duration-300 group-hover/wa:translate-x-0.5">
+                <ArrowUpRight className="w-4.5 h-4.5 stroke-[2.3]" />
+              </span>
             </a>
           )}
 

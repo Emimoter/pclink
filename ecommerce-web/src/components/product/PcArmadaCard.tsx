@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { Product } from "@/types/product";
 import { useCartStore } from "@/store/useCartStore";
-import { Button } from "@/components/ui/Button";
 import {
   Cpu,
   Gamepad2,
@@ -13,12 +12,12 @@ import {
   Zap,
   Box,
   ShoppingCart,
-  MessageCircle,
   Check,
-  ArrowRight,
+  ArrowUpRight,
   CheckCircle2,
   Monitor,
 } from "lucide-react";
+import { WhatsAppIcon } from "@/components/ui/WhatsAppIcon";
 import { cn } from "@/lib/utils";
 import { parsePcSpecs } from "@/lib/pcSpecs";
 
@@ -275,58 +274,65 @@ export default function PcArmadaCard({ product }: PcArmadaCardProps) {
             </div>
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Buttons — Refined Island & Double-Bezel Architecture */}
           <div className="space-y-2.5 pt-2">
-            <Link href={`/products/${product.id}`} className="block w-full">
-              <Button
-                variant="primary"
-                size="lg"
-                className="w-full rounded-xl py-5 text-xs font-black uppercase tracking-wider shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-              >
-                Ver Ficha Completa
-                <ArrowRight className="w-4 h-4" />
-              </Button>
+            {/* Primary CTA: Ver Ficha Técnica */}
+            <Link href={`/products/${product.id}`} className="block w-full group/cta">
+              <div className="w-full h-11 rounded-full bg-zinc-900 hover:bg-zinc-800 active:scale-[0.98] text-white pl-4 pr-1.5 flex items-center justify-between shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_8px_20px_-6px_rgba(24,24,27,0.32)] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]">
+                <span className="text-xs font-bold tracking-wide whitespace-nowrap">
+                  Ver ficha completa
+                </span>
+                <span className="w-8 h-8 rounded-full bg-white/12 group-hover/cta:bg-accent text-white flex items-center justify-center shrink-0 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover/cta:translate-x-0.5">
+                  <ArrowUpRight className="w-4 h-4 stroke-[2.2]" />
+                </span>
+              </div>
             </Link>
 
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                onClick={handleAddToCart}
-                disabled={!isAvailable}
-                variant="outline"
-                size="sm"
-                className="w-full rounded-xl py-3 text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-50"
+            {/* Add to Cart Button */}
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={!isAvailable}
+              className={cn(
+                "group/cart w-full h-11 rounded-full pl-2 pr-4 flex items-center justify-between gap-2.5 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98] cursor-pointer disabled:opacity-45 disabled:pointer-events-none",
+                added
+                  ? "bg-emerald-500 text-white ring-1 ring-emerald-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_6px_16px_-4px_rgba(16,185,129,0.4)]"
+                  : "bg-white hover:bg-cyan-500 text-zinc-900 hover:text-white ring-1 ring-zinc-200/90 hover:ring-cyan-500 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.06)] hover:shadow-[0_8px_20px_-4px_rgba(6,182,212,0.35)]"
+              )}
+            >
+              <span
+                className={cn(
+                  "w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-colors duration-300",
+                  added
+                    ? "bg-white/20 text-white"
+                    : "bg-cyan-500/12 text-cyan-600 group-hover/cart:bg-white/20 group-hover/cart:text-white"
+                )}
               >
                 {added ? (
-                  <>
-                    <Check className="w-4 h-4 text-emerald-500" />
-                    Agregado
-                  </>
-                ) : !isAvailable ? (
-                  <span>Sin Stock</span>
+                  <Check className="w-3.5 h-3.5 stroke-[2.6]" />
                 ) : (
-                  <>
-                    <ShoppingCart className="w-4 h-4 text-accent" />
-                    Al Carrito
-                  </>
+                  <ShoppingCart className="w-3.5 h-3.5 stroke-[2.2]" />
                 )}
-              </Button>
+              </span>
+              <span className="text-xs font-bold tracking-tight whitespace-nowrap flex-1 text-center pr-3">
+                {added ? "Agregado al carrito" : !isAvailable ? "Sin stock" : "Sumar al carrito"}
+              </span>
+            </button>
 
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full"
-              >
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full rounded-xl py-3 text-xs font-bold border-green-500/50 text-green-600 hover:bg-green-500/10 flex items-center justify-center gap-1.5"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  WhatsApp
-                </Button>
-              </a>
-            </div>
+            {/* Official WhatsApp Button */}
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group/wa w-full h-10 rounded-full pl-2 pr-4 bg-[#25D366]/10 hover:bg-[#25D366] text-[#128C7E] hover:text-white ring-1 ring-[#25D366]/30 hover:ring-[#25D366] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] hover:shadow-[0_8px_20px_-4px_rgba(37,211,102,0.38)] flex items-center justify-between gap-2 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98]"
+            >
+              <span className="w-6 h-6 rounded-full bg-[#25D366] group-hover/wa:bg-white text-white group-hover/wa:text-[#25D366] flex items-center justify-center shrink-0 transition-colors duration-300 shadow-2xs">
+                <WhatsAppIcon className="w-3.5 h-3.5" />
+              </span>
+              <span className="text-xs font-bold tracking-tight whitespace-nowrap flex-1 text-center pr-2">
+                Consultar WhatsApp
+              </span>
+            </a>
           </div>
         </div>
       </div>

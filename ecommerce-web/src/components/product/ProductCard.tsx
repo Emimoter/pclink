@@ -4,9 +4,10 @@ import { useState } from "react";
 import { Product } from "@/types/product";
 import { useCartStore } from "@/store/useCartStore";
 import { motion } from "framer-motion";
-import { ShoppingCart, Eye, Cpu, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShoppingCart, Eye, Cpu, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { WhatsAppIcon } from "@/components/ui/WhatsAppIcon";
 import { cn } from "@/lib/utils";
 import { getCategoryName, isPcCategory } from "@/lib/categories";
 import { parsePcSpecs } from "@/lib/pcSpecs";
@@ -21,6 +22,7 @@ export default function ProductCard({ product, isLarge, isSmall }: ProductCardPr
   const addItem = useCartStore((state) => state.addItem);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+  const [added, setAdded] = useState(false);
 
   const price = typeof product.price === "number" ? product.price : 0;
   const oldPrice = typeof product.oldPrice === "number" ? product.oldPrice : null;
@@ -263,31 +265,49 @@ export default function ProductCard({ product, isLarge, isSmall }: ProductCardPr
               </span>
             )}
           </div>
-          <Button
-            size={price <= 0 ? (isSmall ? "sm" : "md") : "icon"}
-            variant={price <= 0 ? "secondary" : "primary"}
+          <button
+            type="button"
             disabled={isOutOfStock && price > 0}
+            aria-label={price <= 0 ? "Consultar por WhatsApp" : "Agregar al carrito"}
             onClick={() => {
               if (price <= 0) {
                 const text = encodeURIComponent(`Hola PC Link, me interesa consultar el precio de: ${product.name} (Código: ${product.id})`);
                 window.open(`https://wa.me/5492235468972?text=${text}`, "_blank");
               } else if (!isOutOfStock) {
                 addItem(product);
+                setAdded(true);
+                setTimeout(() => setAdded(false), 1800);
               }
             }}
             className={cn(
-              "rounded-full shrink-0 shadow-sm hover:scale-105 active:scale-95 transition-all",
-              price === 0
-                ? (isSmall ? "px-3 h-8 w-auto text-[10px] font-bold bg-green-600 hover:bg-green-700 text-white border-none" : "px-4 h-10 w-auto text-xs font-bold bg-green-600 hover:bg-green-700 text-white border-none")
-                : (isSmall ? "w-9 h-9" : "w-12 h-12")
+              "rounded-full shrink-0 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-95 cursor-pointer disabled:opacity-40 disabled:pointer-events-none",
+              price <= 0
+                ? cn(
+                    "gap-1.5 bg-[#25D366] hover:bg-[#20BD5A] text-white font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_6px_14px_-3px_rgba(37,211,102,0.4)]",
+                    isSmall ? "px-3 h-8 text-[10px]" : "px-4 h-10 text-xs"
+                  )
+                : added
+                ? cn(
+                    "bg-emerald-500 text-white ring-4 ring-emerald-500/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_6px_14px_-3px_rgba(16,185,129,0.4)]",
+                    isSmall ? "w-9 h-9" : "w-11 h-11"
+                  )
+                : cn(
+                    "bg-zinc-900 hover:bg-cyan-500 text-white ring-4 ring-zinc-900/5 hover:ring-cyan-500/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_6px_14px_-3px_rgba(24,24,27,0.28)] hover:shadow-[0_8px_18px_-3px_rgba(6,182,212,0.42)]",
+                    isSmall ? "w-9 h-9" : "w-11 h-11"
+                  )
             )}
           >
-            {price === 0 ? (
-              <span>Consultar</span>
+            {price <= 0 ? (
+              <>
+                <WhatsAppIcon className={cn(isSmall ? "w-3.5 h-3.5" : "w-4 h-4")} />
+                <span>Consultar</span>
+              </>
+            ) : added ? (
+              <Check className={cn("stroke-[2.5]", isSmall ? "w-4 h-4" : "w-5 h-5")} />
             ) : (
-              <ShoppingCart className={cn(isSmall ? "w-4 h-4" : "w-5 h-5")} />
+              <ShoppingCart className={cn("stroke-[2.1]", isSmall ? "w-4 h-4" : "w-4.5 h-4.5")} />
             )}
-          </Button>
+          </button>
         </div>
       </div>
     </motion.div>
