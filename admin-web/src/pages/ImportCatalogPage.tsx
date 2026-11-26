@@ -3,7 +3,9 @@ import { motion } from 'framer-motion'
 import Papa from 'papaparse'
 import { Upload, AlertCircle, CheckCircle2, Loader2, FileSpreadsheet, Download, Database, X } from 'lucide-react'
 import { useAuth } from '../lib/auth-context'
-import { getDb } from '../lib/firebase'
+import { getDb, getFunctionsInstance } from '../lib/firebase'
+import { collection, getDocs } from 'firebase/firestore'
+import { httpsCallable } from 'firebase/functions'
 import {
   CSV_FIELD_LABELS,
   type CsvFieldKey,
@@ -104,6 +106,7 @@ export function ImportCatalogPage() {
   const [csvBusy, setCsvBusy] = useState(false)
   const [csvProgress, setCsvProgress] = useState<string | null>(null)
   const [csvDone, setCsvDone] = useState(false)
+  const [csvDoneDetail, setCsvDoneDetail] = useState<string | null>(null)
 
   const [firestoreProducts, setFirestoreProducts] = useState<Product[]>([])
   const [loadingFirestore, setLoadingFirestore] = useState(true)
@@ -219,8 +222,41 @@ export function ImportCatalogPage() {
     setCsvError(null)
     setCsvProgress(null)
     setCsvDone(false)
+    setCsvDoneDetail(null)
+
+    const normalizeKey = (text?: string) =>
+      String(text || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
+
     try {
       const db = getDb()
+
+      // Cargar memoria persistente de imágenes verificadas (1 sola lectura de colección antes de fusionar)
+      setCsvProgress('Consultando memoria de fotos verificadas…')
+      const cacheById = new Map<string, string>()
+      const cacheByName = new Map<string, string>()
+      try {
+        const cacheSnap = await getDocs(collection(db, 'product_image_cache'))
+        cacheSnap.forEach((d) => {
+          const cData = d.data()
+          const url = String(cData.imageUrl || '').trim()
+          if (url) {
+            cacheById.set(d.id, url)
+            if (cData.normalizedName) {
+              cacheByName.set(String(cData.normalizedName), url)
+            }
+          }
+        })
+      } catch (cacheErr) {
+        console.warn('Warning reading product_image_cache:', cacheErr)
+      }
+
+      const idsNeedingAutoImage: string[] = []
+      let reusedPhotosCount = 0
 
       if (importMode === 'full' || importMode === 'articles') {
         const stockMap = importMode === 'full' ? buildStockMap(stockRows, stockMapping) : undefined
@@ -240,7 +276,6 @@ export function ImportCatalogPage() {
           const internalReason = getCatalogExclusionReason(idRaw, name, parsedPrice, false)
           if (internalReason) {
             if (existing) {
-              // Si existía de antes en Firestore, lo ocultamos de la tienda web
               payloads.push({
                 docId: existing.id,
                 data: {
@@ -283,14 +318,49 @@ export function ImportCatalogPage() {
               : guessCategory(name, brand, model)
 
           const payload = rowToProductPayload(row, mapping, resolvedCategory, i, stockMap)
+          const newStock = payload.data.stock as number
+          const isOfficialPc = payload.docId.toLowerCase().startsWith('pc-gamer-')
+          const isPc = resolvedCategory === 'PC_ARMADAS' || resolvedCategory === 'PC_OFICINA'
+          const manuallyHidden = existing?.isHidden === true && existing?.hiddenReason === 'manual'
 
-          // Si estaba oculto únicamente por haber tenido precio $0 antes, al tener precio válido vuelve a mostrarse
+          // 4. Resolver foto desde producto existente o desde la memoria persistente (product_image_cache)
+          const existingValidImg =
+            existing && Array.isArray(existing.images) && existing.images[0]?.trim() && existing.imageVerified !== false
+              ? existing.images[0].trim()
+              : ''
+          const rememberedImg =
+            existingValidImg ||
+            cacheById.get(payload.docId) ||
+            cacheByName.get(normalizeKey(name)) ||
+            ''
+
+          if (rememberedImg) {
+            payload.data.images =
+              existing && Array.isArray(existing.images) && existing.images.length > 0 && existing.images[0]?.trim()
+                ? existing.images
+                : [rememberedImg]
+            payload.data.imageVerified = true
+            reusedPhotosCount++
+          }
+
+          // 5. Definir visibilidad según stock y foto corroborada
+          if (manuallyHidden) {
+            payload.data.isHidden = true
+            payload.data.hiddenReason = 'manual'
+          } else if (!isOfficialPc && newStock <= 0) {
+            payload.data.isHidden = true
+            payload.data.hiddenReason = 'out_of_stock'
+          } else if (rememberedImg || isPc) {
+            payload.data.isHidden = false
+            payload.data.hiddenReason = null
+          } else {
+            // Entra con stock > 0 pero sin foto recordada: queda oculto mientras corre el autobuscador
+            payload.data.isHidden = true
+            payload.data.hiddenReason = 'pending_image'
+            idsNeedingAutoImage.push(payload.docId)
+          }
+
           if (existing) {
-            if (existing.isHidden && existing.hiddenReason === 'zero_price') {
-              payload.data.isHidden = false
-              payload.data.hiddenReason = null
-            }
-
             const newPrice = payload.data.price as number
             if (existing.price !== newPrice) {
               payload.data.previousPrice = existing.price
@@ -300,7 +370,6 @@ export function ImportCatalogPage() {
               payload.data.priceChangedAt = existing.priceChangedAt || null
             }
 
-            const newStock = payload.data.stock as number
             if (existing.stock !== newStock) {
               payload.data.previousStock = existing.stock
               payload.data.stockChangedAt = Date.now()
@@ -311,14 +380,13 @@ export function ImportCatalogPage() {
           } else {
             payload.data.isNewArrival = true
             payload.data.importedAt = Date.now()
-            payload.data.isHidden = false
           }
 
           payloads.push(payload)
         })
 
         await commitProductsToFirestore(db, payloads, (done, total) => {
-          setCsvProgress(`${done} / ${total}`)
+          setCsvProgress(`Guardando catálogo: ${done} / ${total}`)
         })
       } else if (importMode === 'stock') {
         const existingMap = new Map(firestoreProducts.map(p => [p.id, p]))
@@ -328,26 +396,105 @@ export function ImportCatalogPage() {
             if (!payload) return null
             
             const existing = existingMap.get(payload.docId)
-            if (existing) {
-              const data = payload.data as any
-              const newStock = data.stock as number
-              if (existing.stock !== newStock) {
-                data.previousStock = existing.stock
-                data.stockChangedAt = Date.now()
-              } else if (existing.previousStock !== undefined) {
-                data.previousStock = existing.previousStock
-                data.stockChangedAt = existing.stockChangedAt || null
+            if (!existing) return null
+
+            const data = payload.data as any
+            const newStock = data.stock as number
+            if (existing.stock !== newStock) {
+              data.previousStock = existing.stock
+              data.stockChangedAt = Date.now()
+            } else if (existing.previousStock !== undefined) {
+              data.previousStock = existing.previousStock
+              data.stockChangedAt = existing.stockChangedAt || null
+            }
+
+            const internalReason = getCatalogExclusionReason(existing.id, existing.name, existing.price, true)
+            const isOfficialPc = existing.id.toLowerCase().startsWith('pc-gamer-')
+            const isPc = existing.category === 'PC_ARMADAS' || existing.category === 'PC_OFICINA'
+            const manuallyHidden = existing.isHidden === true && existing.hiddenReason === 'manual'
+
+            if (manuallyHidden) {
+              data.isHidden = true
+              data.hiddenReason = 'manual'
+            } else if (internalReason) {
+              data.isHidden = true
+              data.hiddenReason = internalReason
+            } else if (!isOfficialPc && newStock <= 0) {
+              data.isHidden = true
+              data.hiddenReason = 'out_of_stock'
+            } else {
+              const existingValidImg =
+                Array.isArray(existing.images) && existing.images[0]?.trim() && existing.imageVerified !== false
+                  ? existing.images[0].trim()
+                  : ''
+              const rememberedImg =
+                existingValidImg ||
+                cacheById.get(existing.id) ||
+                cacheByName.get(normalizeKey(existing.name)) ||
+                ''
+
+              if (rememberedImg || isPc) {
+                if (rememberedImg && !existingValidImg) {
+                  data.images = [rememberedImg]
+                  data.imageVerified = true
+                }
+                data.isHidden = false
+                data.hiddenReason = null
+                reusedPhotosCount++
+              } else {
+                data.isHidden = true
+                data.hiddenReason = 'pending_image'
+                idsNeedingAutoImage.push(existing.id)
               }
             }
+
             return payload
           })
           .filter(Boolean) as Array<{ docId: string; data: Record<string, unknown> }>
 
         await commitProductsToFirestore(db, payloads, (done, total) => {
-          setCsvProgress(`${done} / ${total}`)
+          setCsvProgress(`Actualizando stock: ${done} / ${total}`)
         })
       }
-      
+
+      // 6. Autobuscador automático y corroboración para productos en stock que entraron sin foto previa
+      let foundNewPhotos = 0
+      let hiddenWithoutPhoto = 0
+
+      if (idsNeedingAutoImage.length > 0) {
+        const resolveFunc = httpsCallable<
+          { productIds: string[] },
+          { success: boolean; results: Array<{ id: string; status: string }> }
+        >(getFunctionsInstance(), 'resolveVerifiedProductImages')
+
+        const CHUNK = 12
+        for (let i = 0; i < idsNeedingAutoImage.length; i += CHUNK) {
+          const slice = idsNeedingAutoImage.slice(i, i + CHUNK)
+          setCsvProgress(
+            `Autobuscando y corroborando fotos (${Math.min(i + slice.length, idsNeedingAutoImage.length)} / ${idsNeedingAutoImage.length})…`
+          )
+          const res = await resolveFunc({ productIds: slice })
+          for (const r of res.data?.results || []) {
+            if (
+              r.status === 'found_and_verified' ||
+              r.status === 'restored_from_cache' ||
+              r.status === 'verified_existing' ||
+              r.status === 'reused_existing'
+            ) {
+              foundNewPhotos++
+            } else if (r.status === 'hidden_no_image') {
+              hiddenWithoutPhoto++
+            }
+          }
+        }
+      }
+
+      const summaryParts: string[] = []
+      if (reusedPhotosCount > 0) summaryParts.push(`${reusedPhotosCount} fotos reutilizadas de memoria`)
+      if (foundNewPhotos > 0) summaryParts.push(`${foundNewPhotos} fotos nuevas corroboradas y publicadas`)
+      if (hiddenWithoutPhoto > 0) summaryParts.push(`${hiddenWithoutPhoto} ocultados por no hallar foto funcional`)
+
+      setCsvDoneDetail(summaryParts.length > 0 ? summaryParts.join(' · ') : null)
       setCsvDone(true)
       setCsvProgress(null)
     } catch (e: unknown) {
@@ -893,7 +1040,10 @@ export function ImportCatalogPage() {
         {csvDone && (
           <div className="flex gap-3 rounded-xl border border-pclink-success/40 bg-pclink-success/10 p-4 text-sm text-emerald-100">
             <CheckCircle2 className="h-5 w-5 shrink-0 text-pclink-success" />
-            Importación enviada a Firestore correctamente.
+            <div>
+              <p className="font-semibold">Importación enviada a Firestore correctamente.</p>
+              {csvDoneDetail && <p className="mt-0.5 text-xs text-emerald-200/90">{csvDoneDetail}</p>}
+            </div>
           </div>
         )}
 

@@ -121,6 +121,7 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
                     <img
                       src={img}
                       alt={`${product.name} thumbnail ${idx + 1}`}
+                      referrerPolicy="no-referrer"
                       onError={() => setFailedImages(prev => ({ ...prev, [img]: true }))}
                       className="w-full h-full object-contain p-2 mix-blend-multiply"
                     />
@@ -147,6 +148,7 @@ export default function ProductDetailClient({ id }: ProductDetailClientProps) {
               <img
                 src={galleryImages[selectedImage]}
                 alt={product.name}
+                referrerPolicy="no-referrer"
                 onError={() => {
                   const bad = galleryImages[selectedImage];
                   if (bad) {

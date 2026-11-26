@@ -110,6 +110,7 @@ export default function ProductCard({ product, isLarge, isSmall }: ProductCardPr
               <img
                 src={effectiveImages[currentImageIndex]}
                 alt={product.name}
+                referrerPolicy="no-referrer"
                 onError={() => {
                   const failedSrc = effectiveImages[currentImageIndex];
                   if (failedSrc) {

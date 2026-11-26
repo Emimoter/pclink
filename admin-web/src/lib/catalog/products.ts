@@ -5,6 +5,8 @@ import {
   limit,
   onSnapshot, 
   doc, 
+  getDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   type Firestore 
@@ -108,16 +110,66 @@ export async function updateProductFlag(
   })
 }
 
-export async function updateProductImageUrls(
+function normalizeCacheName(name?: string): string {
+  return String(name || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+async function persistVerifiedProductImage(
   db: Firestore,
   productId: string,
   imageUrls: string[]
 ): Promise<void> {
   const productRef = doc(db, 'products', productId)
-  await updateDoc(productRef, {
-    images: imageUrls,
-    updatedAt: Date.now()
-  })
+  const snap = await getDoc(productRef)
+  const data = snap.exists() ? snap.data() : {}
+
+  const cleanUrls = (imageUrls || []).filter((u) => !!u && String(u).trim() !== '').slice(0, 3)
+  const hasImage = cleanUrls.length > 0
+  const hasStock = (typeof data.stock === 'number' && data.stock > 0) || productId.toLowerCase().startsWith('pc-gamer-') || !!data.onDemand
+  const hasPrice = typeof data.price === 'number' && data.price > 0
+  const wasHiddenForMissingImg =
+    data.isHidden === true &&
+    (data.hiddenReason === 'no_valid_image' || data.hiddenReason === 'pending_image')
+
+  const updates: Record<string, any> = {
+    images: cleanUrls,
+    imageVerified: hasImage,
+    updatedAt: Date.now(),
+  }
+
+  if (hasImage) {
+    updates.imageVerifiedAt = Date.now()
+    if (wasHiddenForMissingImg && hasStock && hasPrice) {
+      updates.isHidden = false
+      updates.hiddenReason = null
+    }
+    await setDoc(
+      doc(db, 'product_image_cache', productId),
+      {
+        productId,
+        name: data.name || '',
+        normalizedName: normalizeCacheName(data.name),
+        imageUrl: cleanUrls[0],
+        verifiedAt: Date.now(),
+      },
+      { merge: true }
+    )
+  }
+
+  await updateDoc(productRef, updates)
+}
+
+export async function updateProductImageUrls(
+  db: Firestore,
+  productId: string,
+  imageUrls: string[]
+): Promise<void> {
+  await persistVerifiedProductImage(db, productId, imageUrls)
 }
 
 export async function deleteProduct(db: Firestore, productId: string): Promise<void> {
@@ -141,11 +193,7 @@ export async function uploadProductImageForSlot(
   currentImages[slotIndex] = url
   const finalImages = currentImages.filter(u => !!u).slice(0, 3)
   
-  const productRef = doc(db, 'products', productId)
-  await updateDoc(productRef, {
-    images: finalImages,
-    updatedAt: Date.now()
-  })
+  await persistVerifiedProductImage(db, productId, finalImages)
   
   return url
 }

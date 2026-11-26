@@ -1,4 +1,5 @@
 import { Product } from "@/types/product";
+import { isPcCategory } from "@/lib/categories";
 
 const INTERNAL_OR_WORKSHOP_PATTERNS = [
   /^pantalla\s+notebook\b/i,
@@ -21,11 +22,12 @@ const INTERNAL_OR_WORKSHOP_PATTERNS = [
 
 /**
  * Determina si un producto de Firestore es apto para mostrarse y venderse en la tienda online.
- * Bloquea en tiempo real:
- * 1. Productos marcados como ocultos (isHidden === true)
- * 2. Productos con precio $0, negativo o inválido
- * 3. Prefijos internos ST (Servicio Técnico) y LI (Insumos internos / Limpieza)
- * 4. Repuestos de taller, saldos genéricos y artículos excluidos
+ * Exige simultáneamente:
+ * 1. No estar oculto (isHidden !== true)
+ * 2. Precio válido > $0
+ * 3. Stock disponible > 0 (o ser una de las 4 PCs Gamer oficiales a pedido)
+ * 4. Tener foto válida corroborada (o ser una PC con foto de gabinete garantizada)
+ * 5. No ser ST, LI ni repuesto interno de taller
  */
 export function isPublicProduct(product?: Product | null): boolean {
   if (!product) return false;
@@ -46,6 +48,24 @@ export function isPublicProduct(product?: Product | null): boolean {
   }
 
   if (INTERNAL_OR_WORKSHOP_PATTERNS.some((rx) => rx.test(cleanName))) {
+    return false;
+  }
+
+  // Exigir stock disponible (salvo las 4 configuraciones oficiales PC Gamer a pedido)
+  const isOfficialPc = cleanId.toLowerCase().startsWith("pc-gamer-");
+  const stock = typeof product.stock === "number" ? product.stock : Number(product.stock || 0);
+  if (!isOfficialPc && (!Number.isFinite(stock) || stock <= 0)) {
+    return false;
+  }
+
+  // Exigir imagen funcional presente (las PCs cuentan además con imagen local garantizada por gabinete)
+  const hasImage =
+    Array.isArray(product.images) &&
+    product.images.length > 0 &&
+    typeof product.images[0] === "string" &&
+    product.images[0].trim() !== "";
+
+  if (!hasImage && !isPcCategory(product.category)) {
     return false;
   }
 

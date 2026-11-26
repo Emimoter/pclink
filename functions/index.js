@@ -101,8 +101,173 @@ exports.createPreference = onCall({ secrets: [mpAccessToken] }, async (request) 
     }
 });
 
+const IMAGE_SEARCH_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
+const BLOCKED_IMAGE_DOMAINS = [
+    "shutterstock.com",
+    "istockphoto.com",
+    "dreamstime.com",
+    "depositphotos.com",
+    "123rf.com",
+    "vecteezy.com",
+    "flaticon.com",
+    "freepik.com",
+    "alamy.com",
+    "youtube.com",
+    "ytimg.com",
+    "facebook.com",
+    "instagram.com",
+    "tiktok.com"
+];
+
+function normalizeProductKey(text) {
+    return String(text || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+}
+
+function buildCleanProductSearchQuery(name, brand, model) {
+    const cleanPart = (val) => {
+        const s = String(val || "").trim();
+        if (!s || s === "—" || s === "-" || s.toLowerCase() === "genérico" || s.toLowerCase() === "generico" || s.toLowerCase() === "pclink store") {
+            return "";
+        }
+        return s;
+    };
+
+    let q = cleanPart(name)
+        .replace(/\bWIR\.?\b/gi, "Wireless")
+        .replace(/\bINAL\.?\b/gi, "Inalambrica WiFi")
+        .replace(/\bPLACA\s+Inalambrica\b/gi, "Adaptador USB")
+        .replace(/\bMEM\.?\s*DIGITAL\b/gi, "Memoria")
+        .replace(/\bAURIC\.?\b|\bAUR\.?\b/gi, "Auricular")
+        .replace(/\bADAPT\.?\b/gi, "Adaptador")
+        .replace(/\bORIG\.?\b/gi, "Original")
+        .replace(/\bALT\.?\b/gi, "Alternativo")
+        .replace(/\bEXT\.?\b/gi, "Externo")
+        .replace(/\bC\//gi, "con ")
+        .replace(/\bS\//gi, "sin ")
+        .replace(/\bMTS?\.?\b/gi, "metros")
+        .replace(/\(\d{4,6}\)$/g, "") // quitar códigos internos al final como (7176)
+        .replace(/\b(BLISTER|BOLSA|CAJA|UNIDAD|X\s*METRO)\b/gi, "")
+        .replace(/[""]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    const b = cleanPart(brand);
+    const m = cleanPart(model);
+    if (b && !q.toLowerCase().includes(b.toLowerCase())) {
+        q = `${b} ${q}`;
+    }
+    if (m && !q.toLowerCase().includes(m.toLowerCase())) {
+        q = `${q} ${m}`;
+    }
+    return q.trim();
+}
+
+async function fetchCandidateImageUrls(rawQuery) {
+    const candidates = [];
+    const seen = new Set();
+    const addCandidate = (url) => {
+        if (!url || typeof url !== "string") return;
+        const clean = url.trim();
+        if (!clean.startsWith("http://") && !clean.startsWith("https://")) return;
+        const lower = clean.toLowerCase();
+        if (lower.endsWith(".svg") || lower.includes(".svg?")) return;
+        if (BLOCKED_IMAGE_DOMAINS.some(dom => lower.includes(dom))) return;
+        if (!seen.has(clean)) {
+            seen.add(clean);
+            candidates.push(clean);
+        }
+    };
+
+    // 1. Proveedor Primario: Bing Images (excelente cobertura de marcas locales argentinas)
+    try {
+        const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(rawQuery)}&form=HDRSC2&first=1`;
+        const bingRes = await fetch(bingUrl, {
+            headers: {
+                "User-Agent": IMAGE_SEARCH_UA,
+                "Accept-Language": "es-AR,es;q=0.9,en;q=0.8"
+            },
+            signal: AbortSignal.timeout(6000)
+        });
+        if (bingRes.ok) {
+            const html = await bingRes.text();
+            const matches = html.matchAll(/murl&quot;:&quot;(https?:\/\/[^&]+?)&quot;/g);
+            for (const m of matches) {
+                addCandidate(m[1]);
+                if (candidates.length >= 12) break;
+            }
+        }
+    } catch (err) {
+        console.warn("Bing image search warning:", err.message);
+    }
+
+    // 2. Proveedor Secundario: DuckDuckGo Images si Bing devolvió pocos resultados
+    if (candidates.length < 4) {
+        try {
+            const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(rawQuery)}`;
+            const response = await fetch(searchUrl, {
+                headers: { "User-Agent": IMAGE_SEARCH_UA },
+                signal: AbortSignal.timeout(5000)
+            });
+            const html = await response.text();
+            const vqdMatch = html.match(/vqd=["']?([0-9-]+)["']?/);
+            if (vqdMatch) {
+                const vqd = vqdMatch[1];
+                const imageUrl = `https://duckduckgo.com/i.js?q=${encodeURIComponent(rawQuery)}&vqd=${vqd}&s=0&o=json&api=d.js`;
+                const imageResponse = await fetch(imageUrl, {
+                    headers: {
+                        "User-Agent": IMAGE_SEARCH_UA,
+                        "Referer": "https://duckduckgo.com/"
+                    },
+                    signal: AbortSignal.timeout(5000)
+                });
+                if (imageResponse.ok) {
+                    const data = await imageResponse.json();
+                    if (Array.isArray(data.results)) {
+                        for (const r of data.results.slice(0, 8)) {
+                            addCandidate(r.image);
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn("DDG image search warning:", err.message);
+        }
+    }
+
+    return candidates;
+}
+
+async function verifyWorkingImageUrl(url) {
+    if (!url || typeof url !== "string" || !url.startsWith("http")) return false;
+    try {
+        const res = await fetch(url, {
+            method: "GET",
+            headers: {
+                "User-Agent": IMAGE_SEARCH_UA,
+                "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8"
+            },
+            redirect: "follow",
+            signal: AbortSignal.timeout(5500)
+        });
+        if (!res.ok) return false;
+        const ct = (res.headers.get("content-type") || "").toLowerCase();
+        if (!ct.startsWith("image/") || ct.includes("svg")) return false;
+
+        const buf = await res.arrayBuffer();
+        if (!buf || buf.byteLength < 2200) return false;
+        return true;
+    } catch (_err) {
+        return false;
+    }
+}
+
 exports.searchProductImages = onCall(async (request) => {
-    // 1. Validar autenticación
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Debes iniciar sesión para usar el buscador de imágenes.");
     }
@@ -113,44 +278,197 @@ exports.searchProductImages = onCall(async (request) => {
     }
 
     try {
-        // 2. Obtener el token de consulta VQD de DuckDuckGo
-        const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}`;
-        const response = await fetch(searchUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-            }
-        });
-        
-        const html = await response.text();
-        const vqdMatch = html.match(/vqd=["']?([0-9-]+)["']?/);
-        if (!vqdMatch) {
-            throw new Error("No se pudo iniciar la consulta de imágenes.");
-        }
-        const vqd = vqdMatch[1];
+        const cleanQuery = buildCleanProductSearchQuery(query, "", "");
+        const candidates = await fetchCandidateImageUrls(cleanQuery || query);
+        const verified = [];
 
-        // 3. Consultar la API interna de imágenes
-        const imageUrl = `https://duckduckgo.com/i.js?q=${encodeURIComponent(query)}&vqd=${vqd}&s=0&o=json&api=d.js`;
-        const imageResponse = await fetch(imageUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                'Referer': 'https://duckduckgo.com/'
+        for (const candidate of candidates) {
+            const ok = await verifyWorkingImageUrl(candidate);
+            if (ok) {
+                verified.push(candidate);
+                if (verified.length >= 6) break;
             }
-        });
-        
-        const data = await imageResponse.json();
-
-        if (!data.results || data.results.length === 0) {
-            return { urls: [] };
         }
 
-        // Devolvemos las 5 mejores URLs para dar más variedad al administrador
-        const urls = data.results.slice(0, 5).map(r => r.image);
-        return { urls };
-
+        return { urls: verified };
     } catch (error) {
         console.error("Error in searchProductImages function:", error);
         throw new HttpsError("internal", error.message || "Error al realizar la búsqueda de imágenes.");
     }
+});
+
+exports.resolveVerifiedProductImages = onCall({ timeoutSeconds: 300, memory: "512MiB" }, async (request) => {
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+    }
+
+    const { productIds } = request.data || {};
+    if (!Array.isArray(productIds) || productIds.length === 0) {
+        return { success: true, results: [] };
+    }
+
+    const db = admin.firestore();
+    const results = [];
+
+    // Procesar con concurrencia controlada de a 4 productos en paralelo
+    const CONCURRENCY = 4;
+    for (let i = 0; i < productIds.length; i += CONCURRENCY) {
+        const slice = productIds.slice(i, i + CONCURRENCY);
+        const sliceResults = await Promise.all(slice.map(async (rawId) => {
+            const productId = String(rawId || "").trim();
+            if (!productId) return { id: rawId, status: "skipped" };
+
+            try {
+                const prodRef = db.collection("products").doc(productId);
+                const cacheRef = db.collection("product_image_cache").doc(productId);
+
+                const [prodSnap, cacheSnap] = await Promise.all([prodRef.get(), cacheRef.get()]);
+                if (!prodSnap.exists) {
+                    return { id: productId, status: "not_found" };
+                }
+
+                const p = prodSnap.data();
+                const hasStock = (typeof p.stock === "number" && p.stock > 0) || productId.toLowerCase().startsWith("pc-gamer-");
+                const hasValidPrice = typeof p.price === "number" && p.price > 0;
+                const manuallyHidden = p.isHidden === true && p.hiddenReason === "manual";
+
+                // 1. Si el producto ya tiene una imagen que fue verificada previamente, reutilizarla sin volver a buscar
+                const existingImg = Array.isArray(p.images) && p.images[0] ? String(p.images[0]).trim() : "";
+                if (existingImg && p.imageVerified === true) {
+                    await cacheRef.set({
+                        productId,
+                        name: p.name || "",
+                        normalizedName: normalizeProductKey(p.name || ""),
+                        imageUrl: existingImg,
+                        verifiedAt: p.imageVerifiedAt || Date.now()
+                    }, { merge: true });
+                    return { id: productId, status: "reused_existing", imageUrl: existingImg };
+                }
+
+                // Si tenía una URL cargada pero nunca verificada, corroboramos que funcione
+                if (existingImg) {
+                    const existingWorks = await verifyWorkingImageUrl(existingImg);
+                    if (existingWorks) {
+                        const shouldShow = hasStock && hasValidPrice && !manuallyHidden;
+                        await Promise.all([
+                            prodRef.update({
+                                imageVerified: true,
+                                imageVerifiedAt: Date.now(),
+                                ...(shouldShow ? { isHidden: false, hiddenReason: null } : {}),
+                                updatedAt: Date.now()
+                            }),
+                            cacheRef.set({
+                                productId,
+                                name: p.name || "",
+                                normalizedName: normalizeProductKey(p.name || ""),
+                                imageUrl: existingImg,
+                                verifiedAt: Date.now()
+                            }, { merge: true })
+                        ]);
+                        return { id: productId, status: "verified_existing", imageUrl: existingImg };
+                    }
+                }
+
+                // 2. Revisar memoria persistente (product_image_cache por ID o por nombre normalizado)
+                let cachedUrl = cacheSnap.exists ? (cacheSnap.data().imageUrl || "") : "";
+                if (cachedUrl) {
+                    const cacheStillWorks = await verifyWorkingImageUrl(cachedUrl);
+                    if (!cacheStillWorks) cachedUrl = "";
+                }
+
+                if (!cachedUrl && p.name) {
+                    const normName = normalizeProductKey(p.name);
+                    if (normName.length >= 4) {
+                        const byNameSnap = await db.collection("product_image_cache")
+                            .where("normalizedName", "==", normName)
+                            .limit(1)
+                            .get();
+                        if (!byNameSnap.empty) {
+                            const candidateCacheUrl = byNameSnap.docs[0].data().imageUrl || "";
+                            if (candidateCacheUrl && await verifyWorkingImageUrl(candidateCacheUrl)) {
+                                cachedUrl = candidateCacheUrl;
+                            }
+                        }
+                    }
+                }
+
+                if (cachedUrl) {
+                    const shouldShow = hasStock && hasValidPrice && !manuallyHidden;
+                    await Promise.all([
+                        prodRef.update({
+                            images: [cachedUrl],
+                            imageVerified: true,
+                            imageVerifiedAt: Date.now(),
+                            isHidden: !shouldShow,
+                            hiddenReason: shouldShow ? null : (manuallyHidden ? "manual" : (!hasValidPrice ? "zero_price" : "out_of_stock")),
+                            updatedAt: Date.now()
+                        }),
+                        cacheRef.set({
+                            productId,
+                            name: p.name || "",
+                            normalizedName: normalizeProductKey(p.name || ""),
+                            imageUrl: cachedUrl,
+                            verifiedAt: Date.now()
+                        }, { merge: true })
+                    ]);
+                    return { id: productId, status: "restored_from_cache", imageUrl: cachedUrl };
+                }
+
+                // 3. No tenía imagen previa: ejecutar búsqueda inteligente y corroborar que cargue (200 OK + image/*)
+                const cleanQuery = buildCleanProductSearchQuery(p.name || "", p.brand || "", p.model || "");
+                const candidates = await fetchCandidateImageUrls(cleanQuery);
+                let foundValidUrl = "";
+
+                for (const candidate of candidates.slice(0, 8)) {
+                    const ok = await verifyWorkingImageUrl(candidate);
+                    if (ok) {
+                        foundValidUrl = candidate;
+                        break;
+                    }
+                }
+
+                if (foundValidUrl) {
+                    const shouldShow = hasStock && hasValidPrice && !manuallyHidden;
+                    await Promise.all([
+                        prodRef.update({
+                            images: [foundValidUrl],
+                            imageVerified: true,
+                            imageVerifiedAt: Date.now(),
+                            isHidden: !shouldShow,
+                            hiddenReason: shouldShow ? null : (manuallyHidden ? "manual" : (!hasValidPrice ? "zero_price" : "out_of_stock")),
+                            updatedAt: Date.now()
+                        }),
+                        cacheRef.set({
+                            productId,
+                            name: p.name || "",
+                            normalizedName: normalizeProductKey(p.name || ""),
+                            imageUrl: foundValidUrl,
+                            verifiedAt: Date.now()
+                        }, { merge: true })
+                    ]);
+                    return { id: productId, status: "found_and_verified", imageUrl: foundValidUrl };
+                } else {
+                    // No se encontró ninguna foto funcional -> ocultar de la tienda web
+                    await prodRef.update({
+                        images: [],
+                        imageVerified: false,
+                        imageSearchAttemptedAt: Date.now(),
+                        isHidden: true,
+                        hiddenReason: manuallyHidden ? "manual" : "no_valid_image",
+                        updatedAt: Date.now()
+                    });
+                    return { id: productId, status: "hidden_no_image" };
+                }
+            } catch (err) {
+                console.error(`Error resolving image for ${productId}:`, err);
+                return { id: productId, status: "error", error: err.message };
+            }
+        }));
+
+        results.push(...sliceResults);
+    }
+
+    return { success: true, results };
 });
 
 exports.proxyImage = onRequest({ cors: true }, async (req, res) => {

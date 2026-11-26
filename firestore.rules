@@ -13,10 +13,14 @@ service cloud.firestore {
       return isAuthed() && exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
     }
 
-    // Reglas para Catálogo (Público para lectura, requiere admin para escritura)
+    // Reglas para Catálogo y Caché Persistente de Imágenes (Público para lectura de catálogo, requiere admin para escritura)
     match /products/{document=**} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    match /product_image_cache/{document=**} {
+      allow read, write: if isAdmin();
     }
     
     match /banners/{document=**} {

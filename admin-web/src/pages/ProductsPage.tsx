@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Search, Image as ImageIcon, AlertCircle, Flame, Star, Target, Sparkles, Heart, Wand2, Loader2, Trash2, Tag, Settings, Save, TrendingUp, Clock, Download } from 'lucide-react'
 import { getDb, getFunctionsInstance } from '../lib/firebase'
-import { subscribeToProducts, updateProductImageUrls, deleteProduct, updateProductFlag, updateProductCategory, type Product } from '../lib/catalog/products'
+import { subscribeToProducts, deleteProduct, updateProductFlag, updateProductCategory, type Product } from '../lib/catalog/products'
 import { CATEGORY_IDS, CATEGORY_LABELS, type CategoryIdValue } from '../lib/catalog/constants'
 import { ProductEditorSheet } from '../components/ProductEditorSheet'
 import { httpsCallable } from 'firebase/functions'
@@ -115,7 +115,7 @@ export function ProductsPage() {
   const handleBatchSearchImages = async () => {
     if (productsWithoutImages.length === 0) return
 
-    if (!confirm(`¿Estás seguro que querés buscar fotos de internet para ${productsWithoutImages.length} productos sin foto de forma automática?`)) {
+    if (!confirm(`¿Querés buscar y corroborar fotos automáticamente para ${productsWithoutImages.length} productos sin foto? Los que consigan foto funcional se mostrarán y los que no quedarán ocultos.`)) {
       return
     }
 
@@ -123,27 +123,29 @@ export function ProductsPage() {
     setBatchProgress(0)
 
     try {
-      const searchFunc = httpsCallable<{ query: string }, { urls: string[] }>(getFunctionsInstance(), 'searchProductImages')
-      
-      for (let i = 0; i < productsWithoutImages.length; i++) {
-        const product = productsWithoutImages[i]
-        
-        try {
-          const queryStr = `${product.brand} ${product.name} ${product.model} png`
-          const res = await searchFunc({ query: queryStr })
-          
-          if (res.data?.urls && res.data.urls.length > 0) {
-            const firstUrl = res.data.urls[0]
-            await updateProductImageUrls(getDb(), product.id, [firstUrl])
-          }
-        } catch (err) {
-          console.error(`Error searching image for product ${product.id}:`, err)
-        }
+      const resolveFunc = httpsCallable<{ productIds: string[] }, { success: boolean; results: Array<{ id: string; status: string }> }>(
+        getFunctionsInstance(),
+        'resolveVerifiedProductImages'
+      )
+      const ids = productsWithoutImages.map(p => p.id)
+      const CHUNK = 12
+      let foundCount = 0
+      let hiddenCount = 0
 
-        setBatchProgress(i + 1)
-        // Retardo prudente entre llamados de 300ms para evitar rate limiting en DDG
-        await new Promise(resolve => setTimeout(resolve, 300))
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const batchIds = ids.slice(i, i + CHUNK)
+        const res = await resolveFunc({ productIds: batchIds })
+        for (const r of res.data?.results || []) {
+          if (r.status === 'found_and_verified' || r.status === 'restored_from_cache' || r.status === 'verified_existing' || r.status === 'reused_existing') {
+            foundCount++
+          } else if (r.status === 'hidden_no_image') {
+            hiddenCount++
+          }
+        }
+        setBatchProgress(Math.min(i + CHUNK, ids.length))
       }
+
+      alert(`¡Proceso finalizado!\n• Fotos funcionales asignadas/recuperadas: ${foundCount}\n• Ocultados por no hallar foto válida: ${hiddenCount}`)
     } catch (err: any) {
       alert(`Error en el procesamiento por lote: ${err.message}`)
     } finally {
@@ -155,7 +157,7 @@ export function ProductsPage() {
   const handleBulkSearchImages = async () => {
     if (selectedIds.size === 0) return
 
-    if (!confirm(`¿Estás seguro que querés buscar fotos de internet para los ${selectedIds.size} productos seleccionados de forma automática?`)) {
+    if (!confirm(`¿Querés buscar y corroborar fotos automáticamente para los ${selectedIds.size} productos seleccionados?`)) {
       return
     }
 
@@ -163,29 +165,17 @@ export function ProductsPage() {
     setBatchProgress(0)
 
     try {
-      const searchFunc = httpsCallable<{ query: string }, { urls: string[] }>(getFunctionsInstance(), 'searchProductImages')
+      const resolveFunc = httpsCallable<{ productIds: string[] }, { success: boolean; results: Array<{ id: string; status: string }> }>(
+        getFunctionsInstance(),
+        'resolveVerifiedProductImages'
+      )
       const idsArray = Array.from(selectedIds)
+      const CHUNK = 12
 
-      for (let i = 0; i < idsArray.length; i++) {
-        const id = idsArray[i]
-        const product = products.find(p => p.id === id)
-        if (!product) continue
-
-        try {
-          const queryStr = `${product.brand} ${product.name} ${product.model} png`
-          const res = await searchFunc({ query: queryStr })
-          
-          if (res.data?.urls && res.data.urls.length > 0) {
-            const firstUrl = res.data.urls[0]
-            await updateProductImageUrls(getDb(), product.id, [firstUrl])
-          }
-        } catch (err) {
-          console.error(`Error searching image for product ${product.id}:`, err)
-        }
-
-        setBatchProgress(i + 1)
-        // Retardo prudente entre llamados de 300ms para evitar rate limiting
-        await new Promise(resolve => setTimeout(resolve, 300))
+      for (let i = 0; i < idsArray.length; i += CHUNK) {
+        const batchIds = idsArray.slice(i, i + CHUNK)
+        await resolveFunc({ productIds: batchIds })
+        setBatchProgress(Math.min(i + CHUNK, idsArray.length))
       }
     } catch (err: any) {
       alert(`Error en el procesamiento por lote: ${err.message}`)

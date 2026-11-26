@@ -100,6 +100,7 @@ export default function PcArmadaCard({ product }: PcArmadaCardProps) {
                 <img
                   src={activeImageSrc}
                   alt={product.name}
+                  referrerPolicy="no-referrer"
                   onError={() => {
                     if (!useFallbackImg && primaryImage) {
                       setUseFallbackImg(true);
