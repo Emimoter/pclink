@@ -688,15 +688,21 @@ exports.getGrupoNucleoCatalog = onCall(async (request) => {
     }
 });
 
-exports.syncGrupoNucleoCron = onSchedule("every 24 hours", async (event) => {
-    console.log("Starting Grupo Núcleo sync job...");
+exports.syncGrupoNucleoCron = onSchedule(
+    { schedule: "every monday 08:30", timeZone: "America/Argentina/Buenos_Aires" },
+    async (event) => {
+    console.log("Starting Grupo Núcleo Monday sync job...");
     try {
         const credsDoc = await admin.firestore().collection("settings").doc("grupo_nucleo_config").get();
         if (!credsDoc.exists) {
-            console.warn("Credentials missing. Skipping Grupo Núcleo sync.");
+            console.warn("Credentials missing. Skipping Grupo Núcleo API sync (using Monday Excel/Email workflow).");
             return;
         }
         const creds = credsDoc.data();
+        if (!creds.clientId || !creds.username || !creds.password) {
+            console.warn("Incomplete Grupo Núcleo API credentials. Skipping.");
+            return;
+        }
         
         const token = await loginGrupoNucleo(creds.clientId, creds.username, creds.password);
         const catalog = await fetchGrupoNucleoCatalog(token);
@@ -721,31 +727,39 @@ exports.syncGrupoNucleoCron = onSchedule("every 24 hours", async (event) => {
         for (const docSnap of productsSnapshot.docs) {
             const product = docSnap.data();
             const externalId = product.externalId;
-            const margin = parseFloat(product.margin) || 0;
+            const margin = parseFloat(product.margin) || 30;
+            const manuallyHidden = product.isHidden === true && product.hiddenReason === "manual";
 
             if (!externalId) continue;
 
             const gnItem = gnMap.get(String(externalId));
             const productRef = docSnap.ref;
 
-            if (gnItem) {
+            if (gnItem && gnItem.stock > 0) {
                 const costInARS = gnItem.currency === 'USD' ? (gnItem.price * exchangeRate) : gnItem.price;
-                const taxRate = gnItem.tax || 0;
+                const taxRate = gnItem.tax || 21;
                 const costWithTax = costInARS * (1 + taxRate / 100);
                 const finalPrice = Math.round(costWithTax * (1 + margin / 100));
+                const hasVerifiedImg = product.imageVerified === true || (Array.isArray(gnItem.images) && gnItem.images.length > 0);
 
                 batch.update(productRef, {
                     price: finalPrice,
                     stock: gnItem.stock,
+                    ...(Array.isArray(gnItem.images) && gnItem.images.length > 0 && (!product.images || !product.images[0])
+                        ? { images: gnItem.images, imageVerified: true }
+                        : {}),
+                    isHidden: manuallyHidden || finalPrice <= 0 || !hasVerifiedImg,
+                    hiddenReason: manuallyHidden ? "manual" : (finalPrice <= 0 ? "zero_price" : (!hasVerifiedImg ? "no_valid_image" : null)),
                     updatedAt: Date.now()
                 });
                 updateCount++;
             } else {
                 batch.update(productRef, {
                     stock: 0,
+                    isHidden: true,
+                    hiddenReason: manuallyHidden ? "manual" : "out_of_stock",
                     updatedAt: Date.now()
                 });
-                console.log(`Product ${docSnap.id} (GN ID ${externalId}) not found in catalog. Setting stock to 0.`);
                 updateCount++;
             }
 
