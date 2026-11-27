@@ -38,6 +38,17 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Reglas para Ajustes sensibles de Administración (WhatsApp CallMeBot, alertas internas)
+    match /admin_settings/{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // Reglas para Leads / Intentos de Checkout (el comprador logueado guarda su borrador; solo Admin lee)
+    match /checkout_leads/{userId} {
+      allow create, update: if isAuthed() && request.auth.uid == userId;
+      allow read, delete: if isAdmin();
+    }
+
     // Reglas para Ajustes/Configuración (lectura y escritura pública para facilitar pruebas del admin y app)
     match /settings/{document=**} {
       allow read, write: if true;

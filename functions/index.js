@@ -1,5 +1,6 @@
 const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const { MercadoPagoConfig, Preference, Payment } = require("mercadopago");
@@ -1592,6 +1593,407 @@ exports.getRecentBatches = onCall(async (request) => {
         throw new HttpsError("internal", error.message || "Error al obtener historial.");
     }
 });
+
+// ============================================================================
+// ALERTAS AUTOMÁTICAS AL WHATSAPP DEL LOCAL (CallMeBot) + RESPALDO EMAIL
+// ============================================================================
+
+function normalizeArgentineE164(rawPhone) {
+    if (!rawPhone) return "";
+    const digits = String(rawPhone).replace(/\D/g, "");
+    if (!digits) return "";
+
+    let national = digits;
+    if (digits.startsWith("0054")) national = digits.substring(4);
+    else if (digits.startsWith("54")) national = digits.substring(2);
+
+    if (national.startsWith("9") && national.length === 11) {
+        national = national.substring(1);
+    }
+    if (national.startsWith("0")) {
+        national = national.substring(1);
+    }
+    if (national.length === 12) {
+        if (national.startsWith("1115")) national = "11" + national.substring(4);
+        else if (national.substring(3, 5) === "15") national = national.substring(0, 3) + national.substring(5);
+        else if (national.substring(4, 6) === "15") national = national.substring(0, 4) + national.substring(6);
+    }
+
+    if (national.length === 10) {
+        return `549${national}`;
+    }
+    return digits;
+}
+
+function buildClientWaLink(rawPhone, prefilledText) {
+    const clean = normalizeArgentineE164(rawPhone);
+    if (!clean || clean.length < 10) return "";
+    return `https://wa.me/${clean}?text=${encodeURIComponent(prefilledText)}`;
+}
+
+function formatShippingLine(addr) {
+    if (!addr) return "No especificada";
+    if (addr.street === "Sucursal Central") return "Retiro en Local (Mar del Plata)";
+    const parts = [`${addr.street || ""} ${addr.number || ""}`.trim()];
+    if (addr.apartment) parts.push(`Piso/Dpto ${addr.apartment}`);
+    if (addr.city) parts.push(addr.city);
+    if (addr.state && addr.city !== addr.state) parts.push(addr.state);
+    return parts.filter(Boolean).join(", ");
+}
+
+function formatItemsLines(items) {
+    if (!Array.isArray(items) || items.length === 0) return "• Sin detalle";
+    return items
+        .slice(0, 6)
+        .map((it) => {
+            const qty = it.quantity || 1;
+            const name = it.productName || it.name || it.productId || "Artículo";
+            const price = typeof it.price === "number" ? ` ($${it.price.toLocaleString("es-AR")})` : "";
+            return `• ${qty}x ${name}${price}`;
+        })
+        .join("\n");
+}
+
+async function sendCallMeBotMessage(phone, apiKey, text) {
+    const cleanPhone = String(phone || "").replace(/\D/g, "");
+    const cleanKey = String(apiKey || "").trim();
+    if (!cleanPhone || !cleanKey) {
+        return { sent: false, reason: "missing_credentials" };
+    }
+
+    const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(cleanPhone)}&text=${encodeURIComponent(text)}&apikey=${encodeURIComponent(cleanKey)}`;
+    const res = await fetch(url, {
+        method: "GET",
+        signal: AbortSignal.timeout(12000)
+    });
+    const bodyText = await res.text();
+    const lower = bodyText.toLowerCase();
+
+    if (!res.ok || lower.includes("apikey is invalid") || lower.includes("not activated")) {
+        throw new Error(`CallMeBot rechazó el envío: ${bodyText.replace(/<[^>]+>/g, " ").trim().slice(0, 180)}`);
+    }
+    return { sent: true, response: bodyText.slice(0, 200) };
+}
+
+async function dispatchStoreAlert({ category, subject, whatsappText, resendSecret }) {
+    const db = admin.firestore();
+    const cfgSnap = await db.collection("admin_settings").doc("whatsapp_alerts").get();
+    const cfg = cfgSnap.exists ? cfgSnap.data() : {};
+
+    if (cfg.enabled === false) return;
+    if (category === "order" && cfg.notifyNewOrders === false) return;
+    if (category === "attempt" && cfg.notifyCheckoutAttempts === false) return;
+
+    const targetPhone = cfg.phone || "5492235468972";
+    const apiKey = cfg.apiKey || "";
+    const backupEmail = cfg.backupEmail || "mario@pclinkcomputacion.com.ar";
+    const sendEmailBackup = cfg.notifyEmailBackup !== false;
+
+    // 1. Envío por WhatsApp vía CallMeBot (si ya cargó su API Key)
+    if (targetPhone && apiKey) {
+        try {
+            await sendCallMeBotMessage(targetPhone, apiKey, whatsappText);
+        } catch (waErr) {
+            console.error("WhatsApp CallMeBot alert warning:", waErr.message);
+        }
+    }
+
+    // 2. Respaldo instantáneo por Email (Resend) para no perder jamás un aviso
+    if (sendEmailBackup && backupEmail && resendSecret) {
+        const resendKey = (resendSecret.value() || "").trim();
+        if (resendKey) {
+            try {
+                const escapedHtml = whatsappText
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/(https:\/\/wa\.me\/[^\s]+)/g, '<a href="$1" style="display:inline-block;margin-top:8px;padding:10px 16px;background:#25D366;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;">Abrir chat de WhatsApp con el cliente</a>')
+                    .replace(/\n/g, "<br/>");
+
+                await fetch("https://api.resend.com/emails", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${resendKey}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        from: "Alertas PC Link <noreply@pclinkcomputacion.com.ar>",
+                        to: [backupEmail],
+                        subject,
+                        html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:20px;border:1px solid #e5e7eb;border-radius:12px;line-height:1.5;color:#111827;">${escapedHtml}</div>`
+                    })
+                });
+            } catch (mailErr) {
+                console.error("Backup email alert warning:", mailErr.message);
+            }
+        }
+    }
+}
+
+exports.sendTestWhatsAppAlert = onCall(async (request) => {
+    if (!request.auth || !request.auth.token.email) {
+        throw new HttpsError("unauthenticated", "Debes iniciar sesión como administrador.");
+    }
+    const adminDoc = await admin.firestore().collection("admins").doc(request.auth.token.email).get();
+    if (!adminDoc.exists) {
+        throw new HttpsError("permission-denied", "Solo administradores pueden probar alertas.");
+    }
+
+    const { phone, apiKey } = request.data || {};
+    if (!phone || !apiKey) {
+        throw new HttpsError("invalid-argument", "Falta teléfono o API Key de CallMeBot.");
+    }
+
+    try {
+        const testText =
+            "✅ *PC LINK COMPUTACIÓN — ALERTA ACTIVA*\n" +
+            "Las notificaciones automáticas de nuevos pedidos, pagos de Mercado Pago e intentos de checkout ya están conectadas a este WhatsApp.";
+        await sendCallMeBotMessage(phone, apiKey, testText);
+        return {
+            success: true,
+            message: "¡Mensaje de prueba enviado con éxito! Revisá el WhatsApp del local en unos segundos."
+        };
+    } catch (err) {
+        throw new HttpsError("failed-precondition", err.message || "Error al conectar con CallMeBot.");
+    }
+});
+
+exports.onOrderCreatedAlert = onDocumentCreated(
+    { document: "orders/{orderId}", secrets: [resendApiKey] },
+    async (event) => {
+        const snap = event.data;
+        if (!snap) return;
+        const order = snap.data();
+        const orderId = event.params.orderId;
+
+        if (!order || typeof order.total !== "number" || order.total <= 0) return;
+
+        // Marcar el borrador de checkout del usuario como convertido para no disparar carrito abandonado
+        if (order.userId && order.userId !== "guest") {
+            await admin.firestore().collection("checkout_leads").doc(order.userId).set({
+                status: "converted",
+                convertedOrderId: orderId,
+                updatedAt: Date.now()
+            }, { merge: true }).catch(() => {});
+        }
+
+        const isMpPending = order.paymentMethod === "Mercado Pago" && order.status === "PENDING";
+        const orderNum = order.number || orderId;
+        const clientName = order.userName || "Cliente Web";
+        const clientPhone = order.userPhone || order.shippingAddress?.phone || "";
+        const shippingStr = formatShippingLine(order.shippingAddress);
+        const itemsStr = formatItemsLines(order.items);
+        const totalFormatted = `$${Number(order.total).toLocaleString("es-AR")}`;
+
+        if (isMpPending) {
+            const waReply = buildClientWaLink(
+                clientPhone,
+                `¡Hola ${clientName}! Te escribimos de PC Link Computación por tu intento de compra (${orderNum}). ¿Pudiste completar el pago en Mercado Pago o necesitás ayuda / abonar por transferencia?`
+            );
+
+            const text =
+                `🟡 *INTENTO DE CHECKOUT (Mercado Pago) ${orderNum}*\n` +
+                `👤 Cliente: ${clientName}\n` +
+                `📱 Tel: ${clientPhone || "Sin teléfono"} | ✉️ ${order.userEmail || "-"}\n` +
+                `🚚 Entrega: ${shippingStr}\n` +
+                `🛒 Artículos:\n${itemsStr}\n` +
+                `💰 *Total: ${totalFormatted}*\n` +
+                `⏳ Redirigido a Mercado Pago (esperando acreditación)` +
+                (waReply ? `\n\n👉 Escribirle al cliente:\n${waReply}` : "");
+
+            await dispatchStoreAlert({
+                category: "attempt",
+                subject: `🟡 Intento de compra Mercado Pago ${orderNum} - ${clientName} (${totalFormatted})`,
+                whatsappText: text,
+                resendSecret: resendApiKey
+            });
+        } else {
+            const waReply = buildClientWaLink(
+                clientPhone,
+                `¡Hola ${clientName}! Somos de PC Link Computación. Recibimos tu pedido *${orderNum}* por ${totalFormatted} (${order.paymentMethod}). Te escribimos para coordinar el pago/entrega.`
+            );
+
+            const text =
+                `🟢 *NUEVO PEDIDO WEB ${orderNum}*\n` +
+                `👤 Cliente: ${clientName}\n` +
+                `📱 Tel: ${clientPhone || "Sin teléfono"} | ✉️ ${order.userEmail || "-"}\n` +
+                `💳 Pago: ${order.paymentMethod || "A coordinar"}\n` +
+                `🚚 Entrega: ${shippingStr}\n` +
+                `🛒 Artículos:\n${itemsStr}\n` +
+                `💰 *Total: ${totalFormatted}*` +
+                (waReply ? `\n\n👉 Coordinar con el cliente:\n${waReply}` : "");
+
+            await dispatchStoreAlert({
+                category: "order",
+                subject: `🟢 Nuevo Pedido Web ${orderNum} - ${clientName} (${totalFormatted})`,
+                whatsappText: text,
+                resendSecret: resendApiKey
+            });
+        }
+    }
+);
+
+exports.onOrderPaidAlert = onDocumentUpdated(
+    { document: "orders/{orderId}", secrets: [resendApiKey] },
+    async (event) => {
+        const before = event.data?.before?.data();
+        const after = event.data?.after?.data();
+        if (!before || !after) return;
+
+        if (before.status === "PAID" || after.status !== "PAID") return;
+        if (after.whatsappPaidNotifiedAt) return;
+
+        await event.data.after.ref.update({ whatsappPaidNotifiedAt: Date.now() }).catch(() => {});
+
+        const orderNum = after.number || event.params.orderId;
+        const clientName = after.userName || "Cliente Web";
+        const clientPhone = after.userPhone || after.shippingAddress?.phone || "";
+        const shippingStr = formatShippingLine(after.shippingAddress);
+        const itemsStr = formatItemsLines(after.items);
+        const totalFormatted = `$${Number(after.total || 0).toLocaleString("es-AR")}`;
+
+        const waReply = buildClientWaLink(
+            clientPhone,
+            `¡Hola ${clientName}! Te avisamos de PC Link Computación que ya se acreditó tu pago del pedido *${orderNum}* (${totalFormatted}) y ya lo estamos preparando.`
+        );
+
+        const text =
+            `✅ *PAGO ACREDITADO MERCADO PAGO ${orderNum}*\n` +
+            `👤 Cliente: ${clientName}\n` +
+            `📱 Tel: ${clientPhone || "-"}\n` +
+            `🚚 Despachar / Retiro: ${shippingStr}\n` +
+            `🛒 Preparar:\n${itemsStr}\n` +
+            `💰 *Cobrado: ${totalFormatted}*` +
+            (waReply ? `\n\n👉 Avisarle al cliente:\n${waReply}` : "");
+
+        await dispatchStoreAlert({
+            category: "order",
+            subject: `✅ Pago Acreditado ${orderNum} - ${clientName} (${totalFormatted})`,
+            whatsappText: text,
+            resendSecret: resendApiKey
+        });
+    }
+);
+
+exports.reportCheckoutAttempt = onCall({ secrets: [resendApiKey] }, async (request) => {
+    if (!request.auth) return { ok: false };
+    const uid = request.auth.uid;
+    const data = request.data || {};
+    if (!Array.isArray(data.items) || data.items.length === 0 || !(data.total > 0)) {
+        return { ok: false };
+    }
+
+    const db = admin.firestore();
+    const leadRef = db.collection("checkout_leads").doc(uid);
+    const leadSnap = await leadRef.get();
+    const now = Date.now();
+
+    // Evitar spam: máximo 1 alerta de bloqueo cada 2 horas por usuario
+    if (leadSnap.exists && leadSnap.data().lastBlockedAlertAt && now - leadSnap.data().lastBlockedAlertAt < 2 * 60 * 60 * 1000) {
+        return { ok: true, deduplicated: true };
+    }
+
+    await leadRef.set({
+        userId: uid,
+        userName: data.userName || "Cliente Web",
+        userEmail: data.userEmail || request.auth.token.email || "",
+        userPhone: data.userPhone || "",
+        items: data.items,
+        total: data.total,
+        lastBlockedReason: data.reason || "Intento incompleto",
+        lastBlockedAlertAt: now,
+        status: "notified",
+        notifiedAt: now,
+        updatedAt: now
+    }, { merge: true });
+
+    const clientName = data.userName || "Cliente Web";
+    const clientPhone = data.userPhone || "";
+    const totalFormatted = `$${Number(data.total).toLocaleString("es-AR")}`;
+    const waReply = buildClientWaLink(
+        clientPhone,
+        `¡Hola ${clientName}! Te escribimos de PC Link Computación porque vimos que intentaste finalizar una compra en nuestra web. ¿Te podemos ayudar por acá para completarla?`
+    );
+
+    const text =
+        `🟠 *INTENTO DE CHECKOUT FRENADO*\n` +
+        `👤 Cliente: ${clientName}\n` +
+        `📱 Tel: ${clientPhone || "No llegó a cargarlo"} | ✉️ ${data.userEmail || request.auth.token.email || "-"}\n` +
+        `⚠️ Motivo: ${data.reason || "No pudo avanzar"}\n` +
+        `🛒 Carrito:\n${formatItemsLines(data.items)}\n` +
+        `💰 *Total aprox.: ${totalFormatted}*` +
+        (waReply ? `\n\n👉 Asistir por WhatsApp:\n${waReply}` : "");
+
+    await dispatchStoreAlert({
+        category: "attempt",
+        subject: `🟠 Intento de Checkout con dificultad - ${clientName} (${totalFormatted})`,
+        whatsappText: text,
+        resendSecret: resendApiKey
+    });
+
+    return { ok: true };
+});
+
+exports.checkAbandonedCheckoutsCron = onSchedule(
+    { schedule: "every 15 minutes", timeZone: "America/Argentina/Buenos_Aires", secrets: [resendApiKey] },
+    async () => {
+        const db = admin.firestore();
+        const now = Date.now();
+        const minAge = now - 12 * 60 * 1000; // al menos 12 min sin concretar
+        const maxAge = now - 24 * 60 * 60 * 1000; // últimas 24h
+
+        const snap = await db.collection("checkout_leads")
+            .where("status", "==", "filling")
+            .get();
+
+        for (const docSnap of snap.docs) {
+            const lead = docSnap.data();
+            if (!lead.updatedAt || lead.updatedAt > minAge || lead.updatedAt < maxAge) continue;
+            if (!lead.total || lead.total <= 0 || !lead.userPhone) continue;
+
+            // Verificar que no haya creado una orden recientemente
+            const recentOrderSnap = await db.collection("orders")
+                .where("userId", "==", docSnap.id)
+                .limit(5)
+                .get();
+            const convertedRecently = recentOrderSnap.docs.some((o) => {
+                const od = o.data();
+                return od.createdAt && od.createdAt >= lead.updatedAt - 5 * 60 * 1000;
+            });
+
+            if (convertedRecently) {
+                await docSnap.ref.update({ status: "converted", updatedAt: now });
+                continue;
+            }
+
+            await docSnap.ref.update({ status: "notified", notifiedAt: now });
+
+            const clientName = lead.userName || "Cliente Web";
+            const totalFormatted = `$${Number(lead.total).toLocaleString("es-AR")}`;
+            const waReply = buildClientWaLink(
+                lead.userPhone,
+                `¡Hola ${clientName}! Somos de PC Link Computación. Vimos que estabas completando tu pedido en la web y quedó pendiente. ¿Tenés alguna consulta sobre el envío o el medio de pago?`
+            );
+
+            const text =
+                `🟡 *CARRITO ABANDONADO EN CHECKOUT*\n` +
+                `👤 Cliente: ${clientName}\n` +
+                `📱 Tel: ${lead.userPhone} | ✉️ ${lead.userEmail || "-"}\n` +
+                `📍 Destino: ${lead.city || "Mar del Plata"}\n` +
+                `🛒 Quiso comprar:\n${formatItemsLines(lead.items)}\n` +
+                `💰 *Subtotal: ${totalFormatted}*` +
+                (waReply ? `\n\n👉 Recuperar venta por WhatsApp:\n${waReply}` : "");
+
+            await dispatchStoreAlert({
+                category: "attempt",
+                subject: `🟡 Carrito abandonado en Checkout - ${clientName} (${totalFormatted})`,
+                whatsappText: text,
+                resendSecret: resendApiKey
+            });
+        }
+    }
+);
+
 
 
 

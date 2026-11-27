@@ -128,6 +128,78 @@ function CheckoutForm() {
   const [checking, setChecking] = useState(false);
 
   const isNational = shippingMethod === "andreani_home" || shippingMethod === "andreani_branch";
+  const lastBlockedAlertAtRef = useRef<number>(0);
+
+  // Guardar borrador silencioso de intento de checkout cuando el cliente completa un teléfono válido
+  useEffect(() => {
+    if (!user || items.length === 0 || totalPrice <= 0) return;
+    if (!isValidArgentinePhone(phone)) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        await setDoc(
+          doc(db, "checkout_leads", user.uid),
+          {
+            userId: user.uid,
+            userName: recipient || user.displayName || "Cliente Web",
+            userEmail: email || user.email || "",
+            userPhone: phone.trim(),
+            city: shippingMethod === "pickup" ? "Retiro en Sucursal (MdP)" : city,
+            shippingMethod,
+            paymentMethod,
+            subtotal,
+            total: totalPrice,
+            items: items.map((it) => ({
+              productId: it.id,
+              productName: it.name,
+              price: it.price,
+              quantity: it.quantity,
+            })),
+            status: "filling",
+            notifiedAt: null,
+            updatedAt: Date.now(),
+          },
+          { merge: true }
+        );
+      } catch (_err) {
+        // No interrumpir experiencia del comprador si falla telemetría de lead
+      }
+    }, 1800);
+
+    return () => clearTimeout(timer);
+  }, [user, phone, recipient, email, city, shippingMethod, paymentMethod, items, subtotal, totalPrice]);
+
+  const notifyBlockedCheckout = (reason: string) => {
+    if (!user || items.length === 0 || totalPrice <= 0) return;
+    if (!phone.trim() && !email.trim() && !user.email) return;
+    const now = Date.now();
+    if (now - lastBlockedAlertAtRef.current < 120_000) return;
+    lastBlockedAlertAtRef.current = now;
+
+    import("firebase/functions").then(async ({ httpsCallable }) => {
+      try {
+        const { functions } = await import("@/lib/firebase/config");
+        const fn = httpsCallable(functions, "reportCheckoutAttempt");
+        await fn({
+          reason,
+          userName: recipient || user.displayName || "Cliente Web",
+          userEmail: email || user.email || "",
+          userPhone: phone.trim(),
+          shippingMethod,
+          paymentMethod,
+          total: totalPrice + shippingCost,
+          items: items.slice(0, 8).map((it) => ({
+            productId: it.id,
+            productName: it.name,
+            price: it.price,
+            quantity: it.quantity,
+          })),
+        });
+      } catch (_e) {
+        // Ignorar silenciosamente
+      }
+    });
+  };
 
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -389,6 +461,7 @@ function CheckoutForm() {
       return;
     }
     if (!user.emailVerified) {
+      notifyBlockedCheckout("Correo electrónico aún no verificado");
       setErrorMsg("Debes verificar tu correo electrónico para poder comprar.");
       return;
     }
@@ -410,6 +483,7 @@ function CheckoutForm() {
 
     const { street: parsedStreet, number: parsedNumber } = parseAddressString(street);
     if (shippingMethod !== "pickup" && !parsedNumber) {
+      notifyBlockedCheckout("Faltó ingresar altura/número de calle en la dirección");
       setErrorMsg("Por favor, ingresá la altura/número en la dirección (ej: San Martín 1234).");
       return;
     }
@@ -594,6 +668,7 @@ function CheckoutForm() {
       }
     } catch (err: any) {
       console.error("Order submission error:", err);
+      notifyBlockedCheckout(`Error al iniciar el pago: ${err?.message || "Fallo de conexión"}`);
       setErrorMsg("Ocurrió un error al procesar el pedido. Intentá de nuevo.");
     } finally {
       setSubmitting(false);

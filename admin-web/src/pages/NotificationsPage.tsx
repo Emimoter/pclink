@@ -1,7 +1,19 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Eye, Trash2 } from 'lucide-react'
-import { getDb } from '../lib/firebase'
+import {
+  Send,
+  Eye,
+  Trash2,
+  MessageCircle,
+  Save,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Copy,
+  Check,
+  ExternalLink,
+} from 'lucide-react'
+import { getDb, getFunctionsInstance } from '../lib/firebase'
 import {
   collection,
   query,
@@ -10,7 +22,10 @@ import {
   addDoc,
   deleteDoc,
   doc,
+  getDoc,
+  setDoc,
 } from 'firebase/firestore'
+import { httpsCallable } from 'firebase/functions'
 
 interface StoredNotification {
   id: string
@@ -33,6 +48,9 @@ const NOTIF_TYPES = [
   { value: 'general', label: 'General', icon: 'bolt' },
 ] as const
 
+const CALLMEBOT_PHONE_DISPLAY = '+34 644 99 26 98'
+const CALLMEBOT_ACTIVATION_MSG = 'I allow callmebot to send me messages'
+
 export function NotificationsPage() {
   const db = getDb()
   const [notifications, setNotifications] = useState<StoredNotification[]>([])
@@ -42,6 +60,19 @@ export function NotificationsPage() {
   const [type, setType] = useState('flash_sale')
   const [preview, setPreview] = useState(false)
 
+  // WhatsApp Store Alerts Config (CallMeBot + Email Backup)
+  const [waEnabled, setWaEnabled] = useState(true)
+  const [waPhone, setWaPhone] = useState('5492235468972')
+  const [waApiKey, setWaApiKey] = useState('')
+  const [backupEmail, setBackupEmail] = useState('mario@pclinkcomputacion.com.ar')
+  const [notifyNewOrders, setNotifyNewOrders] = useState(true)
+  const [notifyCheckoutAttempts, setNotifyCheckoutAttempts] = useState(true)
+  const [notifyEmailBackup, setNotifyEmailBackup] = useState(true)
+  const [savingWa, setSavingWa] = useState(false)
+  const [testingWa, setTestingWa] = useState(false)
+  const [waStatus, setWaStatus] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [copiedPhrase, setCopiedPhrase] = useState(false)
+
   useEffect(() => {
     const q = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'))
     return onSnapshot(q, (snap) => {
@@ -49,6 +80,104 @@ export function NotificationsPage() {
       setLoading(false)
     })
   }, [db])
+
+  useEffect(() => {
+    async function loadWaConfig() {
+      try {
+        const snap = await getDoc(doc(db, 'admin_settings', 'whatsapp_alerts'))
+        if (snap.exists()) {
+          const d = snap.data()
+          setWaEnabled(d.enabled !== false)
+          if (d.phone) setWaPhone(d.phone)
+          if (d.apiKey) setWaApiKey(d.apiKey)
+          if (d.backupEmail) setBackupEmail(d.backupEmail)
+          setNotifyNewOrders(d.notifyNewOrders !== false)
+          setNotifyCheckoutAttempts(d.notifyCheckoutAttempts !== false)
+          setNotifyEmailBackup(d.notifyEmailBackup !== false)
+        }
+      } catch (err) {
+        console.error('Error loading WhatsApp alerts config:', err)
+      }
+    }
+    loadWaConfig()
+  }, [db])
+
+  async function saveWaSettings(silent = false) {
+    setSavingWa(true)
+    if (!silent) setWaStatus(null)
+    try {
+      const cleanPhone = waPhone.replace(/\D/g, '')
+      await setDoc(
+        doc(db, 'admin_settings', 'whatsapp_alerts'),
+        {
+          enabled: waEnabled,
+          phone: cleanPhone,
+          apiKey: waApiKey.trim(),
+          backupEmail: backupEmail.trim(),
+          notifyNewOrders,
+          notifyCheckoutAttempts,
+          notifyEmailBackup,
+          updatedAt: Date.now(),
+        },
+        { merge: true }
+      )
+      if (!silent) {
+        setWaStatus({
+          ok: true,
+          msg: waApiKey.trim()
+            ? 'Configuración guardada. Alertas de WhatsApp y respaldo por correo activas.'
+            : 'Configuración guardada (recordá pegar tu API Key de CallMeBot para activar el envío por WhatsApp).',
+        })
+      }
+      return true
+    } catch (err: any) {
+      setWaStatus({ ok: false, msg: `Error al guardar: ${err.message}` })
+      return false
+    } finally {
+      setSavingWa(false)
+    }
+  }
+
+  async function handleTestWhatsApp() {
+    if (!waPhone.replace(/\D/g, '') || !waApiKey.trim()) {
+      setWaStatus({
+        ok: false,
+        msg: 'Ingresá el número de WhatsApp del local y la API Key que te envió CallMeBot antes de probar.',
+      })
+      return
+    }
+    setTestingWa(true)
+    setWaStatus(null)
+    try {
+      const saved = await saveWaSettings(true)
+      if (!saved) return
+      const testFn = httpsCallable<
+        { phone: string; apiKey: string },
+        { success: boolean; message: string }
+      >(getFunctionsInstance(), 'sendTestWhatsAppAlert')
+      const res = await testFn({
+        phone: waPhone.replace(/\D/g, ''),
+        apiKey: waApiKey.trim(),
+      })
+      setWaStatus({
+        ok: res.data.success,
+        msg: res.data.message,
+      })
+    } catch (err: any) {
+      setWaStatus({
+        ok: false,
+        msg: err.message || 'No se pudo enviar el mensaje de prueba.',
+      })
+    } finally {
+      setTestingWa(false)
+    }
+  }
+
+  function handleCopyActivationPhrase() {
+    navigator.clipboard.writeText(CALLMEBOT_ACTIVATION_MSG)
+    setCopiedPhrase(true)
+    setTimeout(() => setCopiedPhrase(false), 2000)
+  }
 
   async function handleSend() {
     if (!title.trim() || !body.trim()) return
@@ -58,11 +187,16 @@ export function NotificationsPage() {
       body: body.trim(),
       type,
       icon: notifType.icon,
-      tone: notifType.value === 'flash_sale' ? '#FF5252'
-        : notifType.value === 'new_arrival' ? '#4CAF50'
-        : notifType.value === 'promo' ? '#FF9800'
-        : notifType.value === 'order_update' ? '#00BCD4'
-        : '#00BCD4',
+      tone:
+        notifType.value === 'flash_sale'
+          ? '#FF5252'
+          : notifType.value === 'new_arrival'
+            ? '#4CAF50'
+            : notifType.value === 'promo'
+              ? '#FF9800'
+              : notifType.value === 'order_update'
+                ? '#00BCD4'
+                : '#00BCD4',
       targetCategory: null,
       targetProductId: null,
       createdAt: Date.now(),
@@ -88,19 +222,191 @@ export function NotificationsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Notificaciones</h1>
-          <p className="mt-2 max-w-2xl text-pclink-muted">
-            Enviá notificaciones a los usuarios de la app. Aparecen en la campanita en tiempo real.
+    <div className="mx-auto max-w-4xl space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Notificaciones y Alertas</h1>
+        <p className="mt-2 max-w-2xl text-pclink-muted">
+          Configurá los avisos instantáneos al WhatsApp del local ante nuevos pedidos o intentos de compra, y enviá alertas push a los usuarios de la app.
+        </p>
+      </div>
+
+      {/* PANEL 1: ALERTAS AUTOMÁTICAS AL WHATSAPP DEL LOCAL */}
+      <div className="glass-panel p-6 border border-emerald-500/25 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0">
+              <MessageCircle className="h-5 w-5 text-emerald-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white">Alertas de Pedidos y Checkout al WhatsApp del Local</h2>
+              <p className="text-xs text-pclink-muted">
+                Recibí al instante cada venta, pago acreditado de Mercado Pago o intento de compra abandonado con link de 1 toque para escribirle al cliente.
+              </p>
+            </div>
+          </div>
+
+          <label className="inline-flex items-center gap-2 text-xs font-bold text-white cursor-pointer shrink-0">
+            <input
+              type="checkbox"
+              checked={waEnabled}
+              onChange={(e) => setWaEnabled(e.target.checked)}
+              className="h-4 w-4 rounded accent-emerald-500 cursor-pointer"
+            />
+            Alertas Activas
+          </label>
+        </div>
+
+        {/* Instrucciones rápidas CallMeBot */}
+        <div className="rounded-xl border border-pclink-border bg-pclink-elevated/40 p-4 text-xs space-y-2">
+          <p className="font-bold text-emerald-300 uppercase tracking-wider text-[11px]">
+            Activación por única vez desde el celular del local (1 minuto • Gratis):
           </p>
+          <ol className="list-decimal list-inside space-y-1.5 text-pclink-muted leading-relaxed">
+            <li>
+              Agendá en los contactos del teléfono del local a <strong className="text-white">CallMeBot</strong> con el número{' '}
+              <code className="text-emerald-300 font-bold">{CALLMEBOT_PHONE_DISPLAY}</code>.
+            </li>
+            <li className="flex flex-wrap items-center gap-2">
+              <span>Enviále por WhatsApp exactamente este mensaje:</span>
+              <code className="px-2 py-0.5 rounded bg-pclink-bg border border-pclink-border text-white font-mono">
+                {CALLMEBOT_ACTIVATION_MSG}
+              </code>
+              <button
+                type="button"
+                onClick={handleCopyActivationPhrase}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-pclink-cyan/15 text-pclink-cyan-light hover:bg-pclink-cyan/25 font-semibold cursor-pointer"
+              >
+                {copiedPhrase ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                {copiedPhrase ? 'Copiado' : 'Copiar'}
+              </button>
+              <a
+                href={`https://wa.me/34644992698?text=${encodeURIComponent(CALLMEBOT_ACTIVATION_MSG)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 font-semibold"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Abrir en WhatsApp Web
+              </a>
+            </li>
+            <li>
+              El bot te responderá en unos segundos con tu <strong className="text-white">APIKEY</strong> (ej. <code className="text-white">1234567</code>). Pegala abajo y tocá <strong className="text-white">Probar WhatsApp</strong>.
+            </li>
+          </ol>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-pclink-muted">
+              WhatsApp del Local (con 549)
+            </label>
+            <input
+              type="text"
+              value={waPhone}
+              onChange={(e) => setWaPhone(e.target.value)}
+              placeholder="5492235468972"
+              className="w-full rounded-xl border border-pclink-border bg-pclink-elevated px-3.5 py-2.5 text-sm font-mono text-white outline-none focus:border-emerald-400"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-pclink-muted">
+              API Key de CallMeBot
+            </label>
+            <input
+              type="text"
+              value={waApiKey}
+              onChange={(e) => setWaApiKey(e.target.value)}
+              placeholder="Ej: 4829103"
+              className="w-full rounded-xl border border-pclink-border bg-pclink-elevated px-3.5 py-2.5 text-sm font-mono text-white outline-none focus:border-emerald-400"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-pclink-muted">
+              Email de Respaldo Instantáneo
+            </label>
+            <input
+              type="email"
+              value={backupEmail}
+              onChange={(e) => setBackupEmail(e.target.value)}
+              placeholder="mario@pclinkcomputacion.com.ar"
+              className="w-full rounded-xl border border-pclink-border bg-pclink-elevated px-3.5 py-2.5 text-sm text-white outline-none focus:border-pclink-cyan"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-5 pt-1 text-xs text-pclink-muted">
+          <label className="inline-flex items-center gap-2 cursor-pointer hover:text-white">
+            <input
+              type="checkbox"
+              checked={notifyNewOrders}
+              onChange={(e) => setNotifyNewOrders(e.target.checked)}
+              className="h-4 w-4 rounded accent-emerald-500 cursor-pointer"
+            />
+            <span>🟢 Nuevos pedidos y pagos acreditados (Mercado Pago / Transferencia)</span>
+          </label>
+
+          <label className="inline-flex items-center gap-2 cursor-pointer hover:text-white">
+            <input
+              type="checkbox"
+              checked={notifyCheckoutAttempts}
+              onChange={(e) => setNotifyCheckoutAttempts(e.target.checked)}
+              className="h-4 w-4 rounded accent-emerald-500 cursor-pointer"
+            />
+            <span>🟡 Intentos de checkout y carritos abandonados con teléfono</span>
+          </label>
+
+          <label className="inline-flex items-center gap-2 cursor-pointer hover:text-white">
+            <input
+              type="checkbox"
+              checked={notifyEmailBackup}
+              onChange={(e) => setNotifyEmailBackup(e.target.checked)}
+              className="h-4 w-4 rounded accent-pclink-cyan cursor-pointer"
+            />
+            <span>📧 Enviar también copia por correo electrónico</span>
+          </label>
+        </div>
+
+        {waStatus && (
+          <div
+            className={`flex items-center gap-2.5 rounded-xl p-3.5 text-xs font-medium border ${
+              waStatus.ok
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
+                : 'bg-red-500/10 border-red-500/30 text-red-200'
+            }`}
+          >
+            {waStatus.ok ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
+            <span>{waStatus.msg}</span>
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-3 pt-1">
+          <button
+            type="button"
+            onClick={() => saveWaSettings(false)}
+            disabled={savingWa || testingWa}
+            className="inline-flex items-center gap-2 rounded-xl border border-pclink-cyan/40 bg-pclink-cyan/15 px-5 py-2.5 text-xs font-bold text-white hover:bg-pclink-cyan/25 disabled:opacity-50 cursor-pointer"
+          >
+            {savingWa ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 text-pclink-cyan" />}
+            Guardar Configuración
+          </button>
+
+          <button
+            type="button"
+            onClick={handleTestWhatsApp}
+            disabled={savingWa || testingWa}
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-5 py-2.5 text-xs font-bold text-white shadow-[0_0_20px_rgba(16,185,129,0.25)] disabled:opacity-50 cursor-pointer"
+          >
+            {testingWa ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}
+            Guardar y Enviar WhatsApp de Prueba
+          </button>
         </div>
       </div>
 
-      {/* Composer */}
-      <div className="glass-panel mt-6 p-6">
-        <h2 className="mb-4 text-lg font-bold">Nueva notificación</h2>
+      {/* PANEL 2: COMPOSER NOTIFICACIONES IN-APP */}
+      <div className="glass-panel p-6">
+        <h2 className="mb-4 text-lg font-bold">Nueva notificación para usuarios de la App</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <label className="mb-1 block text-sm font-semibold text-pclink-muted">Título</label>
@@ -129,13 +435,14 @@ export function NotificationsPage() {
               onChange={(e) => setType(e.target.value)}
             >
               {NOTIF_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
               ))}
             </select>
           </div>
         </div>
 
-        {/* Preview */}
         <AnimatePresence>
           {preview && title && (
             <motion.div
@@ -179,46 +486,42 @@ export function NotificationsPage() {
       </div>
 
       {/* History */}
-      <h2 className="mb-4 mt-10 text-lg font-bold">Historial</h2>
-      {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 animate-pulse rounded-2xl bg-pclink-elevated" />
-          ))}
-        </div>
-      ) : notifications.length === 0 ? (
-        <div className="glass-panel flex flex-col items-center gap-4 py-12">
-          <p className="text-pclink-muted">No hay notificaciones enviadas todavía</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {notifications.map((n) => (
-            <div
-              key={n.id}
-              className="glass-panel flex items-center gap-4 p-4"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold">{n.title}</p>
-                <p className="truncate text-sm text-pclink-muted">{n.body}</p>
-                <p className="mt-1 text-xs text-pclink-muted">
-                  {formatTime(n.createdAt)}
-                  {!n.read && (
-                    <span className="ml-2 rounded bg-pclink-cyan/20 px-1.5 py-0.5 text-[10px] font-bold uppercase text-pclink-cyan">
-                      Nueva
-                    </span>
-                  )}
-                </p>
+      <div>
+        <h2 className="mb-4 text-lg font-bold">Historial de notificaciones App</h2>
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-20 animate-pulse rounded-2xl bg-pclink-elevated" />
+            ))}
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="glass-panel flex flex-col items-center gap-4 py-12">
+            <p className="text-pclink-muted">No hay notificaciones enviadas todavía</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {notifications.map((n) => (
+              <div key={n.id} className="glass-panel flex items-center gap-4 p-4">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold">{n.title}</p>
+                  <p className="truncate text-sm text-pclink-muted">{n.body}</p>
+                  <p className="mt-1 text-xs text-pclink-muted">
+                    {formatTime(n.createdAt)}
+                    {!n.read && (
+                      <span className="ml-2 rounded bg-pclink-cyan/20 px-1.5 py-0.5 text-[10px] font-bold uppercase text-pclink-cyan">
+                        Nueva
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <button onClick={() => handleDelete(n.id)} className="text-pclink-muted hover:text-red-400">
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </div>
-              <button
-                onClick={() => handleDelete(n.id)}
-                className="text-pclink-muted hover:text-red-400"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
