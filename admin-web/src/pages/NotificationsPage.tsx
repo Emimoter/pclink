@@ -9,9 +9,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Copy,
-  Check,
   ExternalLink,
+  QrCode,
 } from 'lucide-react'
 import { getDb, getFunctionsInstance } from '../lib/firebase'
 import {
@@ -48,9 +47,6 @@ const NOTIF_TYPES = [
   { value: 'general', label: 'General', icon: 'bolt' },
 ] as const
 
-const CALLMEBOT_PHONE_DISPLAY = '+34 644 99 26 98'
-const CALLMEBOT_ACTIVATION_MSG = 'I allow callmebot to send me messages'
-
 export function NotificationsPage() {
   const db = getDb()
   const [notifications, setNotifications] = useState<StoredNotification[]>([])
@@ -60,9 +56,13 @@ export function NotificationsPage() {
   const [type, setType] = useState('flash_sale')
   const [preview, setPreview] = useState(false)
 
-  // WhatsApp Store Alerts Config (CallMeBot + Email Backup)
+  // WhatsApp Store Alerts Config (GREEN-API QR Gratis o CallMeBot)
   const [waEnabled, setWaEnabled] = useState(true)
+  const [waProvider, setWaProvider] = useState<'green_api' | 'callmebot'>('green_api')
   const [waPhone, setWaPhone] = useState('5492235468972')
+  const [greenIdInstance, setGreenIdInstance] = useState('')
+  const [greenApiToken, setGreenApiToken] = useState('')
+  const [greenApiUrl, setGreenApiUrl] = useState('')
   const [waApiKey, setWaApiKey] = useState('')
   const [backupEmail, setBackupEmail] = useState('mario@pclinkcomputacion.com.ar')
   const [notifyNewOrders, setNotifyNewOrders] = useState(true)
@@ -71,7 +71,6 @@ export function NotificationsPage() {
   const [savingWa, setSavingWa] = useState(false)
   const [testingWa, setTestingWa] = useState(false)
   const [waStatus, setWaStatus] = useState<{ ok: boolean; msg: string } | null>(null)
-  const [copiedPhrase, setCopiedPhrase] = useState(false)
 
   useEffect(() => {
     const q = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'))
@@ -88,7 +87,13 @@ export function NotificationsPage() {
         if (snap.exists()) {
           const d = snap.data()
           setWaEnabled(d.enabled !== false)
+          if (d.provider === 'callmebot' || d.provider === 'green_api') {
+            setWaProvider(d.provider)
+          }
           if (d.phone) setWaPhone(d.phone)
+          if (d.greenIdInstance) setGreenIdInstance(d.greenIdInstance)
+          if (d.greenApiToken) setGreenApiToken(d.greenApiToken)
+          if (d.greenApiUrl) setGreenApiUrl(d.greenApiUrl)
           if (d.apiKey) setWaApiKey(d.apiKey)
           if (d.backupEmail) setBackupEmail(d.backupEmail)
           setNotifyNewOrders(d.notifyNewOrders !== false)
@@ -106,12 +111,15 @@ export function NotificationsPage() {
     setSavingWa(true)
     if (!silent) setWaStatus(null)
     try {
-      const cleanPhone = waPhone.replace(/\D/g, '')
       await setDoc(
         doc(db, 'admin_settings', 'whatsapp_alerts'),
         {
           enabled: waEnabled,
-          phone: cleanPhone,
+          provider: waProvider,
+          phone: waPhone.trim(),
+          greenIdInstance: greenIdInstance.trim(),
+          greenApiToken: greenApiToken.trim(),
+          greenApiUrl: greenApiUrl.trim(),
           apiKey: waApiKey.trim(),
           backupEmail: backupEmail.trim(),
           notifyNewOrders,
@@ -124,9 +132,7 @@ export function NotificationsPage() {
       if (!silent) {
         setWaStatus({
           ok: true,
-          msg: waApiKey.trim()
-            ? 'Configuración guardada. Alertas de WhatsApp y respaldo por correo activas.'
-            : 'Configuración guardada (recordá pegar tu API Key de CallMeBot para activar el envío por WhatsApp).',
+          msg: 'Configuración guardada correctamente.',
         })
       }
       return true
@@ -139,25 +145,37 @@ export function NotificationsPage() {
   }
 
   async function handleTestWhatsApp() {
-    if (!waPhone.replace(/\D/g, '') || !waApiKey.trim()) {
+    if (waProvider === 'green_api' && (!waPhone.trim() || !greenIdInstance.trim() || !greenApiToken.trim())) {
       setWaStatus({
         ok: false,
-        msg: 'Ingresá el número de WhatsApp del local y la API Key que te envió CallMeBot antes de probar.',
+        msg: 'Completá el WhatsApp destino, el idInstance y el apiTokenInstance de GREEN-API antes de probar.',
       })
       return
     }
+    if (waProvider === 'callmebot' && (!waPhone.trim() || !waApiKey.trim())) {
+      setWaStatus({
+        ok: false,
+        msg: 'Ingresá el número de WhatsApp y la API Key de CallMeBot antes de probar.',
+      })
+      return
+    }
+
     setTestingWa(true)
     setWaStatus(null)
     try {
       const saved = await saveWaSettings(true)
       if (!saved) return
       const testFn = httpsCallable<
-        { phone: string; apiKey: string },
+        Record<string, string>,
         { success: boolean; message: string }
       >(getFunctionsInstance(), 'sendTestWhatsAppAlert')
       const res = await testFn({
-        phone: waPhone.replace(/\D/g, ''),
+        provider: waProvider,
+        phone: waPhone.trim(),
         apiKey: waApiKey.trim(),
+        greenApiUrl: greenApiUrl.trim(),
+        greenIdInstance: greenIdInstance.trim(),
+        greenApiToken: greenApiToken.trim(),
       })
       setWaStatus({
         ok: res.data.success,
@@ -171,12 +189,6 @@ export function NotificationsPage() {
     } finally {
       setTestingWa(false)
     }
-  }
-
-  function handleCopyActivationPhrase() {
-    navigator.clipboard.writeText(CALLMEBOT_ACTIVATION_MSG)
-    setCopiedPhrase(true)
-    setTimeout(() => setCopiedPhrase(false), 2000)
   }
 
   async function handleSend() {
@@ -240,7 +252,7 @@ export function NotificationsPage() {
             <div>
               <h2 className="text-lg font-bold text-white">Alertas de Pedidos y Checkout al WhatsApp del Local</h2>
               <p className="text-xs text-pclink-muted">
-                Recibí al instante cada venta, pago acreditado de Mercado Pago o intento de compra abandonado con link de 1 toque para escribirle al cliente.
+                Recibí al instante cada venta, pago acreditado o intento de compra abandonado con link de 1 toque para escribirle al cliente.
               </p>
             </div>
           </div>
@@ -256,84 +268,163 @@ export function NotificationsPage() {
           </label>
         </div>
 
-        {/* Instrucciones rápidas CallMeBot */}
-        <div className="rounded-xl border border-pclink-border bg-pclink-elevated/40 p-4 text-xs space-y-2">
-          <p className="font-bold text-emerald-300 uppercase tracking-wider text-[11px]">
-            Activación por única vez desde el celular del local (1 minuto • Gratis):
-          </p>
-          <ol className="list-decimal list-inside space-y-1.5 text-pclink-muted leading-relaxed">
-            <li>
-              Agendá en los contactos del teléfono del local a <strong className="text-white">CallMeBot</strong> con el número{' '}
-              <code className="text-emerald-300 font-bold">{CALLMEBOT_PHONE_DISPLAY}</code>.
-            </li>
-            <li className="flex flex-wrap items-center gap-2">
-              <span>Enviále por WhatsApp exactamente este mensaje:</span>
-              <code className="px-2 py-0.5 rounded bg-pclink-bg border border-pclink-border text-white font-mono">
-                {CALLMEBOT_ACTIVATION_MSG}
-              </code>
-              <button
-                type="button"
-                onClick={handleCopyActivationPhrase}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-pclink-cyan/15 text-pclink-cyan-light hover:bg-pclink-cyan/25 font-semibold cursor-pointer"
-              >
-                {copiedPhrase ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                {copiedPhrase ? 'Copiado' : 'Copiar'}
-              </button>
-              <a
-                href={`https://wa.me/34644992698?text=${encodeURIComponent(CALLMEBOT_ACTIVATION_MSG)}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 font-semibold"
-              >
-                <ExternalLink className="h-3 w-3" />
-                Abrir en WhatsApp Web
-              </a>
-            </li>
-            <li>
-              El bot te responderá en unos segundos con tu <strong className="text-white">APIKEY</strong> (ej. <code className="text-white">1234567</code>). Pegala abajo y tocá <strong className="text-white">Probar WhatsApp</strong>.
-            </li>
-          </ol>
+        {/* Selector de Proveedor */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setWaProvider('green_api')}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer ${
+              waProvider === 'green_api'
+                ? 'bg-emerald-500 text-pclink-bg shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                : 'bg-pclink-elevated text-pclink-muted hover:text-white'
+            }`}
+          >
+            <QrCode className="h-3.5 w-3.5" />
+            GREEN-API con Código QR (Recomendado • Gratis sin espera)
+          </button>
+          <button
+            type="button"
+            onClick={() => setWaProvider('callmebot')}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer ${
+              waProvider === 'callmebot'
+                ? 'bg-pclink-cyan text-pclink-bg'
+                : 'bg-pclink-elevated text-pclink-muted hover:text-white'
+            }`}
+          >
+            CallMeBot (Si ya tenés API Key)
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-pclink-muted">
-              WhatsApp del Local (con 549)
-            </label>
-            <input
-              type="text"
-              value={waPhone}
-              onChange={(e) => setWaPhone(e.target.value)}
-              placeholder="5492235468972"
-              className="w-full rounded-xl border border-pclink-border bg-pclink-elevated px-3.5 py-2.5 text-sm font-mono text-white outline-none focus:border-emerald-400"
-            />
-          </div>
+        {waProvider === 'green_api' ? (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-pclink-border bg-pclink-elevated/40 p-4 text-xs space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <p className="font-bold text-emerald-300 uppercase tracking-wider text-[11px]">
+                  Cómo obtener tu instancia gratuita en 1 minuto (sin colas ni bloqueos):
+                </p>
+                <a
+                  href="https://console.green-api.com/?lang=es"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 font-bold"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Abrir Consola GREEN-API Gratis
+                </a>
+              </div>
+              <ol className="list-decimal list-inside space-y-1 text-pclink-muted leading-relaxed">
+                <li>
+                  Registrate gratis en <strong className="text-white">console.green-api.com</strong> y hacé clic en{' '}
+                  <strong className="text-white">Crear instancia → Plan Developer ($0 Gratis)</strong>.
+                </li>
+                <li>
+                  En la instancia creada, tocá <strong className="text-white">Obtener QR</strong> y escanealo desde el WhatsApp del local (<em>Dispositivos vinculados → Vincular un dispositivo</em>).
+                </li>
+                <li>
+                  Copiá ahí mismo el <code className="text-white">idInstance</code> y el <code className="text-white">apiTokenInstance</code>, pegalos abajo y tocá <strong className="text-white">Guardar y Enviar WhatsApp de Prueba</strong>.
+                </li>
+              </ol>
+            </div>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-pclink-muted">
-              API Key de CallMeBot
-            </label>
-            <input
-              type="text"
-              value={waApiKey}
-              onChange={(e) => setWaApiKey(e.target.value)}
-              placeholder="Ej: 4829103"
-              className="w-full rounded-xl border border-pclink-border bg-pclink-elevated px-3.5 py-2.5 text-sm font-mono text-white outline-none focus:border-emerald-400"
-            />
-          </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-pclink-muted">
+                  idInstance (GREEN-API)
+                </label>
+                <input
+                  type="text"
+                  value={greenIdInstance}
+                  onChange={(e) => setGreenIdInstance(e.target.value)}
+                  placeholder="Ej: 7103948571"
+                  className="w-full rounded-xl border border-pclink-border bg-pclink-elevated px-3.5 py-2.5 text-sm font-mono text-white outline-none focus:border-emerald-400"
+                />
+              </div>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-pclink-muted">
-              Email de Respaldo Instantáneo
-            </label>
-            <input
-              type="email"
-              value={backupEmail}
-              onChange={(e) => setBackupEmail(e.target.value)}
-              placeholder="mario@pclinkcomputacion.com.ar"
-              className="w-full rounded-xl border border-pclink-border bg-pclink-elevated px-3.5 py-2.5 text-sm text-white outline-none focus:border-pclink-cyan"
-            />
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-pclink-muted">
+                  apiTokenInstance (GREEN-API)
+                </label>
+                <input
+                  type="password"
+                  value={greenApiToken}
+                  onChange={(e) => setGreenApiToken(e.target.value)}
+                  placeholder="Pegá el token de tu instancia"
+                  className="w-full rounded-xl border border-pclink-border bg-pclink-elevated px-3.5 py-2.5 text-sm font-mono text-white outline-none focus:border-emerald-400"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-pclink-muted">
+                  WhatsApp Destino (hasta 3 separados por coma)
+                </label>
+                <input
+                  type="text"
+                  value={waPhone}
+                  onChange={(e) => setWaPhone(e.target.value)}
+                  placeholder="5492235468972"
+                  className="w-full rounded-xl border border-pclink-border bg-pclink-elevated px-3.5 py-2.5 text-sm font-mono text-white outline-none focus:border-emerald-400"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-pclink-muted">
+                  apiUrl (Opcional — se detecta solo)
+                </label>
+                <input
+                  type="text"
+                  value={greenApiUrl}
+                  onChange={(e) => setGreenApiUrl(e.target.value)}
+                  placeholder="Ej: https://7103.api.green-api.com"
+                  className="w-full rounded-xl border border-pclink-border bg-pclink-elevated px-3.5 py-2.5 text-sm font-mono text-white outline-none focus:border-pclink-cyan"
+                />
+              </div>
+            </div>
           </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200 leading-relaxed">
+              <strong>Nota sobre CallMeBot:</strong> Sus bots públicos gratuitos (<code className="font-mono">+34 644 99 26 98</code> / <code className="font-mono">+34 623 78 64 49</code>) suelen llenarse y demorar horas en entregar nuevas claves. Si no te respondió, usá la pestaña <strong>GREEN-API con Código QR</strong> de al lado que activa al instante sin esperas.
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-pclink-muted">
+                  WhatsApp del Local (con 549)
+                </label>
+                <input
+                  type="text"
+                  value={waPhone}
+                  onChange={(e) => setWaPhone(e.target.value)}
+                  placeholder="5492235468972"
+                  className="w-full rounded-xl border border-pclink-border bg-pclink-elevated px-3.5 py-2.5 text-sm font-mono text-white outline-none focus:border-emerald-400"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-pclink-muted">
+                  API Key de CallMeBot
+                </label>
+                <input
+                  type="text"
+                  value={waApiKey}
+                  onChange={(e) => setWaApiKey(e.target.value)}
+                  placeholder="Ej: 4829103"
+                  className="w-full rounded-xl border border-pclink-border bg-pclink-elevated px-3.5 py-2.5 text-sm font-mono text-white outline-none focus:border-emerald-400"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div>
+          <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-pclink-muted">
+            Email de Respaldo Instantáneo (siempre activo)
+          </label>
+          <input
+            type="email"
+            value={backupEmail}
+            onChange={(e) => setBackupEmail(e.target.value)}
+            placeholder="mario@pclinkcomputacion.com.ar"
+            className="w-full sm:max-w-sm rounded-xl border border-pclink-border bg-pclink-elevated px-3.5 py-2.5 text-sm text-white outline-none focus:border-pclink-cyan"
+          />
         </div>
 
         <div className="flex flex-wrap gap-5 pt-1 text-xs text-pclink-muted">
@@ -344,7 +435,7 @@ export function NotificationsPage() {
               onChange={(e) => setNotifyNewOrders(e.target.checked)}
               className="h-4 w-4 rounded accent-emerald-500 cursor-pointer"
             />
-            <span>🟢 Nuevos pedidos y pagos acreditados (Mercado Pago / Transferencia)</span>
+            <span>🟢 Nuevos pedidos y pagos acreditados</span>
           </label>
 
           <label className="inline-flex items-center gap-2 cursor-pointer hover:text-white">
@@ -354,7 +445,7 @@ export function NotificationsPage() {
               onChange={(e) => setNotifyCheckoutAttempts(e.target.checked)}
               className="h-4 w-4 rounded accent-emerald-500 cursor-pointer"
             />
-            <span>🟡 Intentos de checkout y carritos abandonados con teléfono</span>
+            <span>🟡 Intentos de checkout y carritos abandonados</span>
           </label>
 
           <label className="inline-flex items-center gap-2 cursor-pointer hover:text-white">

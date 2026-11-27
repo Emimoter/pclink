@@ -1654,6 +1654,66 @@ function formatItemsLines(items) {
         .join("\n");
 }
 
+async function sendGreenApiMessage({ apiUrl, idInstance, apiTokenInstance, targetPhones, text }) {
+    const cleanId = String(idInstance || "").trim();
+    const cleanToken = String(apiTokenInstance || "").trim();
+    if (!cleanId || !cleanToken) {
+        return { sent: false, reason: "missing_green_api_credentials" };
+    }
+
+    const shardPrefix = cleanId.length >= 4 ? cleanId.slice(0, 4) : "";
+    const baseCandidates = [];
+    if (apiUrl && String(apiUrl).trim().startsWith("https://")) {
+        baseCandidates.push(String(apiUrl).trim().replace(/\/+$/, ""));
+    }
+    if (shardPrefix && /^\d{4}$/.test(shardPrefix)) {
+        baseCandidates.push(`https://${shardPrefix}.api.green-api.com`);
+    }
+    baseCandidates.push("https://api.green-api.com");
+    const uniqueBases = [...new Set(baseCandidates)];
+
+    const phonesList = String(targetPhones || "")
+        .split(/[,\s;]+/)
+        .map((p) => normalizeArgentineE164(p))
+        .filter((p) => p.length >= 10)
+        .slice(0, 3); // Plan Developer gratis permite hasta 3 chats
+
+    if (phonesList.length === 0) {
+        throw new Error("Ingresá al menos un número de teléfono destino válido (ej: 5492235468972).");
+    }
+
+    let lastErr = null;
+    for (const base of uniqueBases) {
+        try {
+            const endpoint = `${base}/waInstance${encodeURIComponent(cleanId)}/sendMessage/${encodeURIComponent(cleanToken)}`;
+            let sentCount = 0;
+            for (const phone of phonesList) {
+                const res = await fetch(endpoint, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        chatId: `${phone}@c.us`,
+                        message: text
+                    }),
+                    signal: AbortSignal.timeout(12000)
+                });
+                const rawBody = await res.text();
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${rawBody.slice(0, 180)}`);
+                }
+                sentCount++;
+            }
+            if (sentCount > 0) {
+                return { sent: true, sentCount };
+            }
+        } catch (err) {
+            lastErr = err;
+        }
+    }
+
+    throw new Error(`GREEN-API rechazó el envío (verificá idInstance, apiTokenInstance y que el QR esté escaneado): ${lastErr ? lastErr.message : "Error desconocido"}`);
+}
+
 async function sendCallMeBotMessage(phone, apiKey, text) {
     const cleanPhone = String(phone || "").replace(/\D/g, "");
     const cleanKey = String(apiKey || "").trim();
@@ -1684,13 +1744,26 @@ async function dispatchStoreAlert({ category, subject, whatsappText, resendSecre
     if (category === "order" && cfg.notifyNewOrders === false) return;
     if (category === "attempt" && cfg.notifyCheckoutAttempts === false) return;
 
+    const provider = cfg.provider || (cfg.greenIdInstance ? "green_api" : "callmebot");
     const targetPhone = cfg.phone || "5492235468972";
     const apiKey = cfg.apiKey || "";
     const backupEmail = cfg.backupEmail || "mario@pclinkcomputacion.com.ar";
     const sendEmailBackup = cfg.notifyEmailBackup !== false;
 
-    // 1. Envío por WhatsApp vía CallMeBot (si ya cargó su API Key)
-    if (targetPhone && apiKey) {
+    // 1. Envío por WhatsApp (GREEN-API o CallMeBot)
+    if (provider === "green_api" && cfg.greenIdInstance && cfg.greenApiToken) {
+        try {
+            await sendGreenApiMessage({
+                apiUrl: cfg.greenApiUrl || "",
+                idInstance: cfg.greenIdInstance,
+                apiTokenInstance: cfg.greenApiToken,
+                targetPhones: targetPhone,
+                text: whatsappText
+            });
+        } catch (waErr) {
+            console.error("WhatsApp GREEN-API alert warning:", waErr.message);
+        }
+    } else if (targetPhone && apiKey) {
         try {
             await sendCallMeBotMessage(targetPhone, apiKey, whatsappText);
         } catch (waErr) {
@@ -1739,22 +1812,36 @@ exports.sendTestWhatsAppAlert = onCall(async (request) => {
         throw new HttpsError("permission-denied", "Solo administradores pueden probar alertas.");
     }
 
-    const { phone, apiKey } = request.data || {};
-    if (!phone || !apiKey) {
-        throw new HttpsError("invalid-argument", "Falta teléfono o API Key de CallMeBot.");
-    }
+    const { provider = "green_api", phone, apiKey, greenApiUrl, greenIdInstance, greenApiToken } = request.data || {};
+    const testText =
+        "✅ *PC LINK COMPUTACIÓN — ALERTA ACTIVA*\n" +
+        "Las notificaciones automáticas de nuevos pedidos, pagos de Mercado Pago e intentos de checkout ya están conectadas a este WhatsApp.";
 
     try {
-        const testText =
-            "✅ *PC LINK COMPUTACIÓN — ALERTA ACTIVA*\n" +
-            "Las notificaciones automáticas de nuevos pedidos, pagos de Mercado Pago e intentos de checkout ya están conectadas a este WhatsApp.";
-        await sendCallMeBotMessage(phone, apiKey, testText);
+        if (provider === "green_api") {
+            if (!phone || !greenIdInstance || !greenApiToken) {
+                throw new Error("Completá el WhatsApp destino, el idInstance y el apiTokenInstance de GREEN-API.");
+            }
+            await sendGreenApiMessage({
+                apiUrl: greenApiUrl || "",
+                idInstance: greenIdInstance,
+                apiTokenInstance: greenApiToken,
+                targetPhones: phone,
+                text: testText
+            });
+        } else {
+            if (!phone || !apiKey) {
+                throw new Error("Falta teléfono o API Key de CallMeBot.");
+            }
+            await sendCallMeBotMessage(phone, apiKey, testText);
+        }
+
         return {
             success: true,
-            message: "¡Mensaje de prueba enviado con éxito! Revisá el WhatsApp del local en unos segundos."
+            message: "¡Mensaje de prueba enviado con éxito! Revisá tu WhatsApp en unos segundos."
         };
     } catch (err) {
-        throw new HttpsError("failed-precondition", err.message || "Error al conectar con CallMeBot.");
+        throw new HttpsError("failed-precondition", err.message || "Error al enviar el mensaje de prueba.");
     }
 });
 
